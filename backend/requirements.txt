@@ -3,7 +3,7 @@ uvicorn
 sqlalchemy
 aiosqlite
 pydantic
-google-generativeai
+google-genai
 requests
 pypdf2
 arxiv
