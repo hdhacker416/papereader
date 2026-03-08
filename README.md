@@ -3,6 +3,12 @@
 Paper Reader is a local AI-powered academic paper reading assistant. It helps you manage reading lists, automatically download papers from Arxiv/OpenReview, and uses Gemini 3 to interpret and summarize papers.
 Paper Reader 是一个本地 AI 驱动的学术论文阅读助手。它帮助你管理阅读清单，自动从 Arxiv/OpenReview 下载论文，并使用 Gemini 3 来解读和总结论文。
 
+![Main Interface](assets/main.png)
+![Library Interface](assets/library.png)
+
+### Video Showcase / 视频展示
+[Watch the demo video / 观看演示视频](https://www.bilibili.com/video/BV1gNNuzzEWJ/?spm_id_from=333.1387.homepage.video_card.click&vd_source=910a83c9601312e34c7ebcf4051f6ad2)
+
 ## Features / 功能特性
 
 - **Task Management**: Create reading tasks and organize papers.
@@ -17,6 +23,8 @@ Paper Reader 是一个本地 AI 驱动的学术论文阅读助手。它帮助你
   **阅读室**：专用于阅读和与论文对话的界面。
 
 ## Installation & Setup / 安装与配置
+
+[Watch the installation tutorial / 观看安装教程](https://www.bilibili.com/video/BV1gNNuzzEpZ/?spm_id_from=333.1387.homepage.video_card.click)
 
 ### 1. Clone the Repository / 克隆仓库
 
