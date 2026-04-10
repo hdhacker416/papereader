@@ -1,0 +1,12 @@
+fastapi>=0.104.0
+uvicorn
+sqlalchemy
+aiosqlite
+pydantic
+google-genai
+requests
+pypdf2
+arxiv
+openreview-py
+python-multipart
+python-dotenv

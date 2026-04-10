@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 250px;
+      padding: 10px;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    h1 {
+      font-size: 16px;
+      margin: 0 0 10px 0;
+      color: #2563eb;
+    }
+    p {
+      font-size: 12px;
+      color: #4b5563;
+    }
+    .status {
+      margin-top: 10px;
+      padding: 8px;
+      border-radius: 4px;
+      background-color: #f3f4f6;
+      font-size: 12px;
+    }
+    .online { color: green; }
+    .offline { color: red; }
+  </style>
+</head>
+<body>
+  <h1>PaperReader Collector</h1>
+  <p>Select any text on a webpage to add it as a paper to your tasks.</p>
+  
+  <div id="status" class="status">Checking connection...</div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

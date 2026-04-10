@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.report-markdown h1,
+.report-markdown h2,
+.report-markdown h3,
+.report-markdown h4 {
+  color: rgb(17 24 39);
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.report-markdown h1 {
+  font-size: 1.5rem;
+}
+
+.report-markdown h2 {
+  font-size: 1.25rem;
+}
+
+.report-markdown h3 {
+  font-size: 1.125rem;
+}
+
+.report-markdown p,
+.report-markdown ul,
+.report-markdown ol,
+.report-markdown blockquote {
+  margin-bottom: 0.9rem;
+}
+
+.report-markdown ul,
+.report-markdown ol {
+  padding-left: 1.25rem;
+}
+
+.report-markdown ul {
+  list-style: disc;
+}
+
+.report-markdown ol {
+  list-style: decimal;
+}
+
+.report-markdown li + li {
+  margin-top: 0.35rem;
+}
+
+.report-markdown code {
+  background: rgb(229 231 235);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.9em;
+}
+
+.report-markdown pre {
+  background: rgb(15 23 42);
+  color: white;
+  border-radius: 0.75rem;
+  padding: 0.9rem 1rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.report-markdown pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.report-markdown blockquote {
+  border-left: 3px solid rgb(148 163 184);
+  padding-left: 0.9rem;
+  color: rgb(71 85 105);
+}
