@@ -1,19 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import PromptListEditor from './PromptListEditor';
 import { templatesApi } from '../api/services';
 import { Template } from '../types';
 
 interface ReReadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (templateId: string, modelName: string) => Promise<void>;
+  onConfirm: (templateId: string, modelName: string, customReadingPrompts: string[]) => Promise<void>;
   title: string;
+  initialTemplateId?: string;
+  initialModelName?: string;
+  initialPrompts?: string[];
 }
 
-const ReReadModal: React.FC<ReReadModalProps> = ({ isOpen, onClose, onConfirm, title }) => {
+const ReReadModal: React.FC<ReReadModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  initialTemplateId,
+  initialModelName,
+  initialPrompts,
+}) => {
   const [templateId, setTemplateId] = useState('');
   const [modelName, setModelName] = useState('gemini-3-flash-preview');
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [customReadingPrompts, setCustomReadingPrompts] = useState<string[]>(['']);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -23,8 +36,16 @@ const ReReadModal: React.FC<ReReadModalProps> = ({ isOpen, onClose, onConfirm, t
           const data = await templatesApi.list();
           setTemplates(data);
           if (data.length > 0) {
-            const def = data.find(t => t.is_default);
-            setTemplateId(def ? def.id : data[0].id);
+            const selected = data.find((item) => item.id === initialTemplateId)
+              || data.find(t => t.is_default)
+              || data[0];
+            setTemplateId(selected.id);
+            setModelName(initialModelName || 'gemini-3-flash-preview');
+            setCustomReadingPrompts(
+              initialPrompts && initialPrompts.length > 0
+                ? initialPrompts
+                : (selected.content.length > 0 ? selected.content : [''])
+            );
           }
         } catch (error) {
           console.error('Failed to fetch templates:', error);
@@ -34,10 +55,28 @@ const ReReadModal: React.FC<ReReadModalProps> = ({ isOpen, onClose, onConfirm, t
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    if (initialPrompts && initialPrompts.length > 0) {
+      return;
+    }
+    const selectedTemplate = templates.find((item) => item.id === templateId);
+    if (!selectedTemplate) {
+      return;
+    }
+    setCustomReadingPrompts(selectedTemplate.content.length > 0 ? selectedTemplate.content : ['']);
+  }, [initialPrompts, isOpen, templateId, templates]);
+
   const handleConfirm = async () => {
     setLoading(true);
     try {
-      await onConfirm(templateId, modelName);
+      await onConfirm(
+        templateId,
+        modelName,
+        customReadingPrompts.map((item) => item.trim()).filter(Boolean),
+      );
       onClose();
     } catch (error) {
       console.error('Failed to reread:', error);
@@ -91,6 +130,13 @@ const ReReadModal: React.FC<ReReadModalProps> = ({ isOpen, onClose, onConfirm, t
               ))}
             </select>
           </div>
+
+          <PromptListEditor
+            title="Reading Prompts"
+            description="These prompts will override the selected template for this re-read run."
+            prompts={customReadingPrompts}
+            onChange={setCustomReadingPrompts}
+          />
         </div>
 
         <div className="mt-6 flex justify-end gap-3">

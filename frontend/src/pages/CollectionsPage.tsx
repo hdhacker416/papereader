@@ -167,7 +167,7 @@ const CollectionsPage: React.FC = () => {
     setReReadTargetId(id);
   };
 
-  const handleReReadConfirm = async (templateId: string, modelName: string) => {
+  const handleReReadConfirm = async (templateId: string, modelName: string, _customReadingPrompts: string[]) => {
     if (!reReadTargetId) return;
     try {
       await collectionsApi.reRead(reReadTargetId, templateId, modelName);

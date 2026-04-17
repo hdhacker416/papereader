@@ -9,12 +9,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from app_constants import DEFAULT_USER_ID
 from fastapi.staticfiles import StaticFiles
 from database import engine, Base, SessionLocal, DATA_DIR, check_and_migrate_database
 import models
-from routers import templates, tasks, papers, collections, research, deep_research
+from routers import templates, tasks, papers, collections, deep_research
 from processor import processor_loop
 from services import conference_service
+from services.auto_research_task_service import auto_research_task_loop, recover_stale_auto_research_tasks
+from services.pack_build_service import pack_build_loop, recover_stale_pack_build_jobs
+from services.report_generation_service import report_generation_loop, recover_stale_report_jobs
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -59,7 +63,6 @@ app.include_router(templates.router)
 app.include_router(tasks.router)
 app.include_router(papers.router)
 app.include_router(collections.router)
-app.include_router(research.router)
 app.include_router(deep_research.router)
 
 @app.on_event("startup")
@@ -69,7 +72,6 @@ async def startup_event():
     # Create default user if not exists
     db = SessionLocal()
     try:
-        from routers.tasks import DEFAULT_USER_ID
         user = db.query(models.User).filter(models.User.id == DEFAULT_USER_ID).first()
         if not user:
             logger.info("Creating default user")
@@ -95,6 +97,9 @@ async def startup_event():
             db.commit()
 
         conference_service.ensure_seed_data(db)
+        recover_stale_auto_research_tasks()
+        recover_stale_pack_build_jobs()
+        recover_stale_report_jobs()
     except Exception as e:
         logger.error(f"Error creating default user: {e}")
     finally:
@@ -102,6 +107,9 @@ async def startup_event():
         
     # Start background processor
     asyncio.create_task(processor_loop())
+    asyncio.create_task(auto_research_task_loop())
+    asyncio.create_task(pack_build_loop())
+    asyncio.create_task(report_generation_loop())
 
 @app.get("/")
 async def root():

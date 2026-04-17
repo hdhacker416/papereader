@@ -1,28 +1,42 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import json
 import os
+import re
 import sys
+import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+from urllib.parse import quote
 
 from fastapi import HTTPException
 from google import genai
 from google.genai import types
+import requests
 from sqlalchemy.orm import Session
-
-import models
-import schemas
-from routers.tasks import DEFAULT_USER_ID
-from services.research_service import ensure_default_template
-
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from research.agent.semi_fixed import SemiFixedResearchRunner
+from app_constants import DEFAULT_USER_ID
+import models
+import schemas
+from services.template_service import ensure_default_template
+from services.template_service import parse_template_prompts
+from services.template_service import serialize_prompt_list
+from services import pack_build_service
+
+from research.agent.bounded import BoundedResearchRunner, ResearchBrief
+from research.build.build_online_assets import build_online_assets, write_summary
+from research.build.packager import Packager
+from research.build.paperlists_repo import ensure_paperlists_repo, list_conference_files
+from research.pipeline.search_pipeline import load_search_assets
+from research.targeting import CONFERENCE_DISPLAY_NAMES, conference_display_name, normalize_target_years
+from research.tools.search_tools import DEFAULT_SUMMARY_PATH
 from research.tools.search_tools import SearchTools
+from research.runtime.pack_manager import PackManager, RemotePackSpec
 
 
 TASK_REPORT_PROMPT = (
@@ -39,6 +53,31 @@ TASK_REPORT_PROMPT = (
     "5. Limitations."
 )
 MIN_REPORT_PAPERS = 2
+DEFAULT_RELEASE_OWNER = "hdhacker416"
+DEFAULT_RELEASE_REPO = "papereader"
+TITLE_KEY_RE = re.compile(r"[a-z0-9]+")
+EVIDENCE_CLAUSE_RE = re.compile(r"\(evidence:\s*(.*?)\)", re.IGNORECASE | re.DOTALL)
+UUID_RE = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.IGNORECASE)
+ENGLISH_REPORT_HEADINGS = [
+    "Executive Summary",
+    "Direction Map",
+    "Detailed Paper Analyses",
+    "Cross-Paper Synthesis",
+    "Evidence Gaps and Limitations",
+    "Suggested Reading Order",
+    "Open Questions",
+]
+CHINESE_REPORT_HEADINGS = [
+    "核心结论",
+    "研究方向全景",
+    "逐篇精读",
+    "跨论文关系与综合分析",
+    "证据不足与局限",
+    "建议阅读顺序",
+    "值得继续追的问题",
+]
+DISPLAY_TO_CONFERENCE = {value.lower(): key for key, value in CONFERENCE_DISPLAY_NAMES.items()}
+DISPLAY_TO_CONFERENCE["neurips"] = "nips"
 
 
 def _get_gemini_client() -> genai.Client:
@@ -50,6 +89,441 @@ def _get_gemini_client() -> genai.Client:
 
 def _serialize_report(report: models.DeepResearchReport) -> schemas.DeepResearchReport:
     return schemas.DeepResearchReport.model_validate(report)
+
+
+def _parse_json_dict(payload: str | None) -> dict[str, Any]:
+    if not payload:
+        return {}
+    try:
+        parsed = json.loads(payload)
+        return parsed if isinstance(parsed, dict) else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def _title_key(value: str) -> str:
+    return " ".join(TITLE_KEY_RE.findall((value or "").lower()))
+
+
+def _conference_code_from_trace(value: Any) -> str:
+    label = str(value or "").strip().lower()
+    if not label:
+        return "unknown"
+    return DISPLAY_TO_CONFERENCE.get(label, label)
+
+
+def _build_task_report_brief(
+    *,
+    user_query: str,
+    task: models.Task,
+    trace: dict[str, Any],
+) -> ResearchBrief:
+    brief_data = trace.get("研究简报")
+    brief = brief_data if isinstance(brief_data, dict) else {}
+    breadth_raw = str(brief.get("范围模式") or "聚焦").strip().lower()
+    breadth_mode = {
+        "聚焦": "focused",
+        "宽范围": "broad",
+        "focused": "focused",
+        "broad": "broad",
+    }.get(breadth_raw, "focused")
+    reading_prompts = parse_template_prompts(task.custom_reading_prompts_json or "")
+    if not reading_prompts:
+        reading_prompts = [
+            "概括这篇论文解决的问题、核心方法与关键假设。",
+            "分析这篇论文最强的实验或论证证据、主要局限，以及作者没有解决的问题。",
+            f"结合用户问题“{user_query}”，说明这篇论文为什么重要、适合放在整个研究脉络中的什么位置。",
+        ]
+    target_conferences = [
+        _conference_code_from_trace(item)
+        for item in (brief.get("目标会议") or [])
+        if str(item).strip()
+    ]
+    target_years = []
+    for item in brief.get("目标年份") or []:
+        try:
+            target_years.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    search_axes = [str(item).strip() for item in (brief.get("搜索方向") or []) if str(item).strip()]
+    if not search_axes:
+        search_axes = ["用户指定主题", "任务内已精读论文综合"]
+    initial_queries = [str(item).strip() for item in (brief.get("初始查询") or []) if str(item).strip()]
+    if not initial_queries:
+        initial_queries = [user_query]
+    return ResearchBrief(
+        research_goal=str(brief.get("研究目标") or user_query).strip(),
+        breadth_mode=breadth_mode,
+        search_axes=search_axes,
+        initial_queries=initial_queries,
+        rerank_query=str(brief.get("精排查询") or user_query).strip(),
+        reading_prompts=reading_prompts,
+        target_conferences=target_conferences,
+        target_years=target_years,
+    )
+
+
+def _build_task_report_inputs(
+    *,
+    task: models.Task,
+    user_query: str,
+    interpreted: list[dict[str, Any]],
+    trace: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    final_selected = trace.get("最终选中文章")
+    selected_trace = final_selected if isinstance(final_selected, list) else []
+
+    selected_lookup_by_title: dict[str, dict[str, Any]] = {}
+    selected_records: list[dict[str, Any]] = []
+    for index, item in enumerate(selected_trace, start=1):
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("论文标题") or "").strip()
+        if not title:
+            continue
+        conference = _conference_code_from_trace(item.get("会议"))
+        try:
+            year = int(item.get("年份"))
+        except (TypeError, ValueError):
+            year = 0
+        paper_id = str(item.get("paper_id") or f"{conference}-{year}-{_title_key(title)}").strip()
+        record = {
+            "conference": conference,
+            "year": year,
+            "paper_id": paper_id,
+            "axis": str(item.get("方向") or "selected").strip(),
+            "reason": str(item.get("选择理由") or "").strip(),
+            "priority": int(item.get("优先级") or index),
+            "paper": {
+                "title": title,
+                "abstract": "",
+                "source_url": str(item.get("链接") or "").strip(),
+            },
+            "coarse_score": float(item.get("粗排分数") or 0.0),
+            "rerank_score": float(item.get("精排分数") or 0.0),
+        }
+        selected_records.append(record)
+        selected_lookup_by_title[_title_key(title)] = record
+
+    if not selected_records:
+        for index, item in enumerate(interpreted, start=1):
+            paper_id = str(item.get("paper_id") or "").strip()
+            title = str(item.get("title") or "").strip()
+            source_url = str(item.get("source_url") or "").strip()
+            selected_records.append(
+                {
+                    "conference": "task",
+                    "year": 0,
+                    "paper_id": paper_id,
+                    "axis": "selected",
+                    "reason": "Task-level interpreted paper.",
+                    "priority": index,
+                    "paper": {
+                        "title": title,
+                        "abstract": "",
+                        "source_url": source_url,
+                    },
+                    "coarse_score": 0.0,
+                    "rerank_score": 0.0,
+                }
+            )
+            if title:
+                selected_lookup_by_title[_title_key(title)] = selected_records[-1]
+
+    reading_results: list[dict[str, Any]] = []
+    selected_search_keys = {
+        (str(item["conference"]), int(item["year"]), str(item["paper_id"]))
+        for item in selected_records
+    }
+    for item in interpreted:
+        task_paper_id = str(item.get("paper_id") or "").strip()
+        title = str(item.get("title") or "").strip()
+        source_url = str(item.get("source_url") or "").strip()
+        matched = selected_lookup_by_title.get(_title_key(title))
+        if matched is None:
+            matched = {
+                "conference": "task",
+                "year": 0,
+                "paper_id": task_paper_id,
+            }
+        reading_results.append(
+            {
+                "read_status": "completed",
+                "paper": {
+                    "conference": str(matched["conference"]),
+                    "year": int(matched["year"]),
+                    "paper_id": task_paper_id,
+                    "title": title,
+                    "abstract": "",
+                    "authors": [],
+                    "source_url": source_url,
+                },
+                "reading_text": item["interpretation"],
+            }
+        )
+
+    weak_signal_map: dict[tuple[str, int, str], dict[str, Any]] = {}
+    rounds = trace.get("搜索轮次")
+    for round_item in rounds if isinstance(rounds, list) else []:
+        if not isinstance(round_item, dict):
+            continue
+        candidates = round_item.get("本轮高分候选")
+        for candidate in candidates if isinstance(candidates, list) else []:
+            if not isinstance(candidate, dict):
+                continue
+            title = str(candidate.get("论文标题") or "").strip()
+            if not title:
+                continue
+            conference = _conference_code_from_trace(candidate.get("会议"))
+            try:
+                year = int(candidate.get("年份"))
+            except (TypeError, ValueError):
+                year = 0
+            paper_id = str(candidate.get("paper_id") or f"{conference}-{year}-{_title_key(title)}").strip()
+            key = (conference, year, paper_id)
+            if key in selected_search_keys:
+                continue
+            score = float(candidate.get("精排分数") or 0.0)
+            existing = weak_signal_map.get(key)
+            if existing is None or score > existing["rerank_score"]:
+                weak_signal_map[key] = {
+                    "conference": conference,
+                    "year": year,
+                    "paper_id": paper_id,
+                    "title": title,
+                    "abstract": "",
+                    "rerank_score": score,
+                }
+    weak_signals = sorted(
+        weak_signal_map.values(),
+        key=lambda item: float(item["rerank_score"]),
+        reverse=True,
+    )[:12]
+
+    return selected_records, reading_results, weak_signals
+
+
+def _rewrite_report_evidence_links(
+    *,
+    content: str,
+    task_id: str,
+    selected_records: list[dict[str, Any]],
+    reading_results: list[dict[str, Any]],
+    weak_signals: list[dict[str, Any]],
+) -> tuple[str, str]:
+    reading_lookup_by_title = {
+        _title_key(item["paper"]["title"]): item["paper"]
+        for item in reading_results
+        if item.get("read_status") in {"completed", "cached"} and item.get("paper")
+    }
+    registry: list[dict[str, Any]] = []
+    lookup_by_title: dict[str, dict[str, Any]] = {}
+    seen_titles: set[str] = set()
+
+    def add_item(*, title: str, paper_id: str | None, kind: str) -> None:
+        normalized = _title_key(title)
+        if not normalized or normalized in seen_titles:
+            return
+        seen_titles.add(normalized)
+        index = len(registry) + 1
+        href = None
+        if paper_id:
+            href = f"/reader/{quote(paper_id)}?fromTask={quote(task_id)}&fromReport=1"
+        item = {
+            "index": index,
+            "title": title,
+            "paper_id": paper_id,
+            "href": href,
+            "kind": kind,
+        }
+        registry.append(item)
+        lookup_by_title[normalized] = item
+
+    for record in selected_records:
+        paper = reading_lookup_by_title.get(_title_key(record["paper"]["title"]))
+        if paper is None:
+            continue
+        add_item(
+            title=str(paper["title"]),
+            paper_id=str(paper["paper_id"]),
+            kind="full_read",
+        )
+
+    for item in weak_signals:
+        add_item(
+            title=str(item["title"]),
+            paper_id=None,
+            kind="weak_signal",
+        )
+
+    def replace_clause(match: re.Match[str]) -> str:
+        raw = match.group(1)
+        parts = [segment.strip() for segment in raw.split(";") if segment.strip()]
+        rendered: list[str] = []
+        for part in parts:
+            item = lookup_by_title.get(_title_key(part))
+            if not item:
+                continue
+            title_attr = str(item["title"]).replace('"', "'")
+            if item["href"]:
+                rendered.append(f'[{item["index"]}]({item["href"]} "{title_attr}")')
+            else:
+                rendered.append(f'[{item["index"]}]')
+        return f" {''.join(rendered)}" if rendered else ""
+
+    rewritten = EVIDENCE_CLAUSE_RE.sub(replace_clause, content)
+    source_meta = json.dumps(
+        {
+            "citations": registry,
+        },
+        ensure_ascii=False,
+    )
+    return rewritten, source_meta
+
+
+def _sanitize_report_visible_paper_ids(
+    *,
+    content: str,
+    reading_results: list[dict[str, Any]],
+) -> str:
+    rewritten = content
+    title_map = {
+        str(item["paper"]["paper_id"]): str(item["paper"]["title"])
+        for item in reading_results
+        if item.get("paper") and item["paper"].get("paper_id") and item["paper"].get("title")
+    }
+    for paper_id, title in title_map.items():
+        escaped_id = re.escape(paper_id)
+        rewritten = re.sub(
+            rf"(?<!/reader/){escaped_id}\s*\([^)]+\)",
+            title,
+            rewritten,
+        )
+        rewritten = re.sub(
+            rf"(?<!/reader/){escaped_id}",
+            title,
+            rewritten,
+        )
+    return rewritten
+
+
+def _report_needs_repair(content: str) -> bool:
+    if not content.strip():
+        return True
+    if UUID_RE.search(content):
+        return True
+    if any(marker in content for marker in ENGLISH_REPORT_HEADINGS):
+        return True
+    if not all(marker in content for marker in CHINESE_REPORT_HEADINGS):
+        return True
+    if content.count("(evidence:") < 8:
+        return True
+    return False
+
+
+def _load_interpreted_task_papers(
+    db: Session,
+    task: models.Task,
+) -> list[dict[str, Any]]:
+    interpreted = []
+    papers = db.query(models.Paper).filter(models.Paper.task_id == task.id).all()
+    for paper in papers:
+        interpretation = db.query(models.Interpretation).filter(
+            models.Interpretation.paper_id == paper.id
+        ).first()
+        if not interpretation:
+            continue
+        interpreted.append(
+            {
+                "paper_id": paper.id,
+                "title": paper.title,
+                "source": paper.source,
+                "source_url": paper.source_url,
+                "status": paper.status,
+                "interpretation": interpretation.content,
+                "template_used": interpretation.template_used,
+            }
+        )
+    return interpreted
+
+
+def _generate_task_report_content(
+    *,
+    task: models.Task,
+    report_query: str,
+    report_model: str,
+    interpreted: list[dict[str, Any]],
+    trace: dict[str, Any],
+    progress_callback: Callable[[str, int, int, str], None] | None = None,
+) -> tuple[str, str]:
+    brief = _build_task_report_brief(
+        user_query=report_query,
+        task=task,
+        trace=trace,
+    )
+    selected_records, reading_results, weak_signals = _build_task_report_inputs(
+        task=task,
+        user_query=report_query,
+        interpreted=interpreted,
+        trace=trace,
+    )
+    runner = BoundedResearchRunner(model=report_model)
+    if progress_callback is not None:
+        progress_callback("preparing", 1, 1, "已整理任务中的精读论文与弱信号")
+        progress_callback("evidence", 0, len(reading_results), "开始逐篇提取证据卡")
+    evidence_pack = runner._build_evidence_pack(
+        user_query=report_query,
+        brief=brief,
+        selected_papers=selected_records,
+        reading_results=reading_results,
+        weak_signals=weak_signals,
+        progress_callback=(
+            (lambda completed, total, message: progress_callback("evidence", completed, total, message))
+            if progress_callback is not None
+            else None
+        ),
+    )
+    if progress_callback is not None:
+        progress_callback("outline", 0, 1, "正在构建报告提纲")
+    report_outline = runner._build_report_outline(
+        user_query=report_query,
+        brief=brief,
+        evidence_pack=evidence_pack,
+    )
+    if progress_callback is not None:
+        progress_callback("outline", 1, 1, "报告提纲已完成")
+        progress_callback("writing", 0, 1, "正在撰写最终报告")
+    content = runner._summarize(
+        user_query=report_query,
+        brief=brief,
+        evidence_pack=evidence_pack,
+        report_outline=report_outline,
+    )
+    if _report_needs_repair(content):
+        if progress_callback is not None:
+            progress_callback("repairing", 0, 1, "初稿未满足格式要求，正在修复结构与引用")
+        content = runner._repair_report(
+            user_query=report_query,
+            brief=brief,
+            evidence_pack=evidence_pack,
+            report_outline=report_outline,
+            draft_report=content,
+        )
+        if progress_callback is not None:
+            progress_callback("repairing", 1, 1, "报告修复完成")
+    content = _sanitize_report_visible_paper_ids(
+        content=content,
+        reading_results=reading_results,
+    )
+    if progress_callback is not None:
+        progress_callback("writing", 1, 1, "最终报告已生成")
+    return _rewrite_report_evidence_links(
+        content=content,
+        task_id=task.id,
+        selected_records=selected_records,
+        reading_results=reading_results,
+        weak_signals=weak_signals,
+    )
 
 
 def _get_template_id(db: Session, template_id: str | None) -> str:
@@ -64,12 +538,478 @@ def _get_template_id(db: Session, template_id: str | None) -> str:
     return ensure_default_template(db).id
 
 
+def _load_target_assets():
+    return load_search_assets(DEFAULT_SUMMARY_PATH)
+
+
+def _available_target_years() -> list[int]:
+    return sorted({int(asset.year) for asset in _load_target_assets()})
+
+
+def _effective_target_years(years: list[int] | None) -> list[int]:
+    return normalize_target_years(years, available_years=_available_target_years())
+
+
+def _to_chinese_breadth_mode(value: str) -> str:
+    return {
+        "focused": "聚焦",
+        "broad": "宽范围",
+    }.get(value, value)
+
+
+def _build_agent_trace(selection, *, user_query: str, max_search_rounds: int, max_queries_per_round: int, max_full_reads: int) -> dict[str, Any]:
+    detail_lookup = {
+        (item["conference"], int(item["year"]), item["paper_id"]): item
+        for item in selection.detail_results
+    }
+    final_selected = []
+    for item in selection.selected_papers:
+        detail = detail_lookup.get((item["conference"], int(item["year"]), item["paper_id"]), {})
+        final_selected.append(
+            {
+                "论文标题": item["paper"]["title"],
+                "会议": conference_display_name(item["conference"]),
+                "年份": int(item["year"]),
+                "方向": item["axis"],
+                "选择理由": item["reason"],
+                "优先级": int(item["priority"]),
+                "粗排分数": round(float(item["coarse_score"]), 4),
+                "精排分数": round(float(item["rerank_score"]), 4),
+                "链接": detail.get("source_url") or item["paper"].get("source_url") or "",
+            }
+        )
+
+    rounds = []
+    for round_item in selection.rounds:
+        round_selected = []
+        for selected in round_item.decision.selected_papers:
+            matched = next(
+                (
+                    item for item in round_item.reranked_results
+                    if item["paper"]["conference"] == selected.conference
+                    and int(item["paper"]["year"]) == selected.year
+                    and item["paper"]["paper_id"] == selected.paper_id
+                ),
+                None,
+            )
+            round_selected.append(
+                {
+                    "论文标题": matched["paper"]["title"] if matched else selected.paper_id,
+                    "会议": conference_display_name(selected.conference),
+                    "年份": int(selected.year),
+                    "方向": selected.axis,
+                    "选择理由": selected.reason,
+                    "优先级": int(selected.priority),
+                    "精排分数": round(float(matched["rerank_score"]), 4) if matched else None,
+                }
+            )
+        rounds.append(
+            {
+                "轮次": round_item.round_index,
+                "本轮查询": round_item.queries,
+                "粗排命中数": sum(len(item["results"]) for item in round_item.coarse_results),
+                "合并候选数": len(round_item.merged_candidates),
+                "精排候选数": len(round_item.reranked_results),
+                "继续搜索": bool(round_item.decision.continue_search),
+                "本轮判断": round_item.decision.rationale,
+                "缺失方向": round_item.decision.missing_axes,
+                "下一轮查询": round_item.decision.additional_queries,
+                "本轮选中文章": round_selected,
+            }
+        )
+
+    return {
+        "用户问题": user_query,
+        "预算": {
+            "最大搜索轮数": max_search_rounds,
+            "每轮最多查询数": max_queries_per_round,
+            "最大全文精读数": max_full_reads,
+        },
+        "研究简报": {
+            "研究目标": selection.brief.research_goal,
+            "范围模式": _to_chinese_breadth_mode(selection.brief.breadth_mode),
+            "搜索方向": selection.brief.search_axes,
+            "初始查询": selection.brief.initial_queries,
+            "精排查询": selection.brief.rerank_query,
+            "目标会议": [conference_display_name(code) for code in selection.brief.target_conferences],
+            "目标年份": [int(year) for year in selection.brief.target_years],
+            "精读提示词": selection.brief.reading_prompts,
+        },
+        "搜索轮次": rounds,
+        "最终选中文章": final_selected,
+        "汇总": {
+            "实际搜索轮数": len(selection.rounds),
+            "最终选中文章数": len(final_selected),
+        },
+    }
+
+
+def list_target_options() -> schemas.DeepResearchTargetOptionsResponse:
+    assets = _load_target_assets()
+    years = sorted({int(asset.year) for asset in assets}, reverse=True)
+    grouped: dict[str, list[schemas.DeepResearchTargetYearCount]] = defaultdict(list)
+    totals: dict[str, int] = defaultdict(int)
+
+    for asset in assets:
+        grouped[asset.conference].append(
+            schemas.DeepResearchTargetYearCount(
+                year=int(asset.year),
+                paper_count=int(asset.paper_count),
+            )
+        )
+        totals[asset.conference] += int(asset.paper_count)
+
+    conferences = [
+        schemas.DeepResearchTargetConference(
+            code=conference,
+            label=conference_display_name(conference),
+            years=sorted(items, key=lambda item: item.year, reverse=True),
+            total_paper_count=totals[conference],
+        )
+        for conference, items in sorted(grouped.items(), key=lambda entry: conference_display_name(entry[0]))
+    ]
+    default_years = sorted(_effective_target_years(None), reverse=True)
+    return schemas.DeepResearchTargetOptionsResponse(
+        conferences=conferences,
+        years=years,
+        default_years=default_years,
+    )
+
+
+def list_release_packs(
+    owner: str = DEFAULT_RELEASE_OWNER,
+    repo: str = DEFAULT_RELEASE_REPO,
+) -> schemas.ReleaseListResponse:
+    url = f"https://api.github.com/repos/{owner}/{repo}/releases"
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "paperreader-deep-research",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch GitHub releases: {exc}") from exc
+
+    releases: list[schemas.ReleaseInfo] = []
+    for item in payload:
+        assets = [
+            schemas.ReleaseAsset(
+                id=int(asset["id"]),
+                name=asset["name"],
+                size=int(asset["size"]),
+                download_count=int(asset.get("download_count", 0)),
+                browser_download_url=asset["browser_download_url"],
+                updated_at=asset["updated_at"],
+            )
+            for asset in item.get("assets", [])
+            if str(asset.get("name", "")).endswith(".zip")
+        ]
+        releases.append(
+            schemas.ReleaseInfo(
+                id=int(item["id"]),
+                tag_name=item["tag_name"],
+                name=item.get("name") or item["tag_name"],
+                draft=bool(item.get("draft", False)),
+                prerelease=bool(item.get("prerelease", False)),
+                published_at=item.get("published_at"),
+                html_url=item["html_url"],
+                assets=assets,
+            )
+        )
+    return schemas.ReleaseListResponse(owner=owner, repo=repo, releases=releases)
+
+
+def install_release_assets(
+    payload: schemas.ReleaseInstallRequest,
+) -> schemas.ReleaseInstallResponse:
+    manager = PackManager()
+    results: list[schemas.ReleaseInstallResult] = []
+    installed_count = 0
+    for asset in payload.assets:
+        try:
+            installed = manager.install_from_url(RemotePackSpec(url=asset.download_url))
+            results.append(
+                schemas.ReleaseInstallResult(
+                    release_tag=asset.release_tag,
+                    asset_name=asset.asset_name,
+                    installed=True,
+                    conference=installed.conference,
+                    year=installed.year,
+                    version=installed.version,
+                    install_dir=str(installed.install_dir),
+                )
+            )
+            installed_count += 1
+        except Exception as exc:
+            results.append(
+                schemas.ReleaseInstallResult(
+                    release_tag=asset.release_tag,
+                    asset_name=asset.asset_name,
+                    installed=False,
+                    error=str(exc),
+                )
+            )
+    return schemas.ReleaseInstallResponse(
+        ok=installed_count == len(results) if results else True,
+        installed_count=installed_count,
+        results=results,
+    )
+
+
+def list_local_packs() -> list[schemas.ResearchPackInfo]:
+    packs_root = ROOT_DIR / "data" / "research" / "packs"
+    results: list[schemas.ResearchPackInfo] = []
+    if not packs_root.exists():
+        return results
+    for manifest_path in sorted(packs_root.glob("*/*/*.manifest.json")):
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        pack_path = manifest_path.with_suffix("").with_suffix(".zip")
+        sha256_path = manifest_path.with_suffix("").with_suffix(".sha256")
+        results.append(
+            schemas.ResearchPackInfo(
+                conference=str(data["conference"]).lower(),
+                year=int(data["year"]),
+                version=str(data["version"]),
+                pack_name=str(data["pack_name"]),
+                pack_path=str(pack_path),
+                manifest_path=str(manifest_path),
+                sha256_path=str(sha256_path),
+                pack_size_bytes=pack_path.stat().st_size if pack_path.exists() else 0,
+                exists=pack_path.exists(),
+            )
+        )
+    return results
+
+
+def list_pack_target_options() -> schemas.PackTargetOptionsResponse:
+    ensure_paperlists_repo()
+    files = list_conference_files()
+    grouped: dict[str, set[int]] = defaultdict(set)
+    all_years: set[int] = set()
+
+    for item in files:
+        grouped[item.conference].add(int(item.year))
+        all_years.add(int(item.year))
+
+    years = sorted(all_years, reverse=True)
+    default_years = years[:3]
+    conferences = [
+        schemas.PackTargetConference(
+            code=conference,
+            label=conference_display_name(conference),
+            years=sorted(grouped[conference], reverse=True),
+        )
+        for conference in sorted(grouped.keys(), key=conference_display_name)
+    ]
+    return schemas.PackTargetOptionsResponse(
+        conferences=conferences,
+        years=years,
+        default_years=default_years,
+    )
+
+
+def create_pack_build_job(
+    db: Session,
+    payload: schemas.ResearchPackBuildRequest,
+) -> schemas.PackBuildJob:
+    return pack_build_service.create_pack_build_job(db, payload)
+
+
+def list_pack_build_jobs(db: Session) -> list[schemas.PackBuildJob]:
+    return pack_build_service.list_pack_build_jobs(db)
+
+
+def resume_pack_build_job(db: Session, job_id: str) -> schemas.PackBuildJob:
+    return pack_build_service.resume_pack_build_job(db, job_id)
+
+
+def build_packs(payload: schemas.ResearchPackBuildRequest) -> schemas.ResearchPackBuildResponse:
+    ensure_paperlists_repo()
+    available_files = list_conference_files()
+    available_conferences = sorted({item.conference for item in available_files})
+    available_years = sorted({int(item.year) for item in available_files})
+
+    conferences = payload.conferences or available_conferences
+    years = payload.years or available_years
+    asset_results, missing = build_online_assets(
+        conferences=conferences,
+        years=years,
+    )
+    if not asset_results:
+        raise HTTPException(status_code=400, detail="No available conference/year source files for the selected pack targets")
+
+    summary_path = ROOT_DIR / "data" / "research" / "build" / "build_summary_pack_request.json"
+    write_summary(asset_results, missing, summary_path)
+    packager = Packager(build_summary_path=summary_path)
+    results = packager.build_many(
+        conferences=[item.conference for item in asset_results],
+        years=[int(item.year) for item in asset_results],
+        version=payload.version or "v1",
+    )
+    serialized = [
+        schemas.ResearchPackInfo(
+            conference=item.conference,
+            year=item.year,
+            version=item.version,
+            pack_name=item.pack_name,
+            pack_path=str(item.pack_path),
+            manifest_path=str(item.manifest_path),
+            sha256_path=str(item.sha256_path),
+            pack_size_bytes=item.pack_size_bytes,
+            exists=item.pack_path.exists(),
+        )
+        for item in results
+    ]
+    return schemas.ResearchPackBuildResponse(ok=True, results=serialized)
+
+
+def upload_pack_to_github_release(payload: schemas.ResearchPackUploadRequest) -> schemas.ResearchPackUploadResponse:
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        raise HTTPException(status_code=500, detail="GITHUB_TOKEN is not configured")
+
+    built = _resolve_or_build_local_pack(
+        conference=payload.conference,
+        year=payload.year,
+        version=payload.version or "v1",
+    )
+
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "paperreader-deep-research",
+    }
+    repo_api = f"https://api.github.com/repos/{payload.owner}/{payload.repo}"
+    release = _get_or_create_release(
+        repo_api=repo_api,
+        tag=payload.tag,
+        headers=headers,
+        release_name=payload.release_name or payload.tag,
+        release_body=payload.release_body or "",
+        draft=payload.draft,
+        prerelease=payload.prerelease,
+    )
+
+    upload_url = str(release["upload_url"]).split("{", 1)[0]
+    for asset_name in (built.manifest_path.name, built.sha256_path.name):
+        _delete_asset_if_exists(release=release, asset_name=asset_name, headers=headers)
+
+    uploaded_assets: list[str] = []
+    for path in (built.pack_path,):
+        _delete_asset_if_exists(release=release, asset_name=path.name, headers=headers)
+        with path.open("rb") as f:
+            response = requests.post(
+                f"{upload_url}?name={path.name}",
+                headers={**headers, "Content-Type": "application/octet-stream"},
+                data=f,
+                timeout=300,
+            )
+        if response.status_code >= 400:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload asset {path.name}: {response.status_code} {response.text}",
+            )
+        uploaded_assets.append(path.name)
+
+    return schemas.ResearchPackUploadResponse(
+        ok=True,
+        release_id=int(release["id"]),
+        release_url=str(release["html_url"]),
+        uploaded_assets=uploaded_assets,
+    )
+
+
+def _get_or_create_release(
+    repo_api: str,
+    tag: str,
+    headers: dict[str, str],
+    release_name: str,
+    release_body: str,
+    draft: bool,
+    prerelease: bool,
+) -> dict[str, Any]:
+    response = requests.get(f"{repo_api}/releases/tags/{tag}", headers=headers, timeout=60)
+    if response.status_code == 200:
+        return response.json()
+    if response.status_code != 404:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query release tag {tag}: {response.status_code} {response.text}",
+        )
+    create_response = requests.post(
+        f"{repo_api}/releases",
+        headers=headers,
+        json={
+            "tag_name": tag,
+            "name": release_name,
+            "body": release_body,
+            "draft": draft,
+            "prerelease": prerelease,
+        },
+        timeout=60,
+    )
+    if create_response.status_code >= 400:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create release {tag}: {create_response.status_code} {create_response.text}",
+        )
+    return create_response.json()
+
+
+def _delete_asset_if_exists(release: dict[str, Any], asset_name: str, headers: dict[str, str]) -> None:
+    for asset in release.get("assets", []):
+        if asset.get("name") != asset_name:
+            continue
+        response = requests.delete(asset["url"], headers=headers, timeout=60)
+        if response.status_code not in (204, 404):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to delete existing asset {asset_name}: {response.status_code} {response.text}",
+            )
+
+
+def _resolve_or_build_local_pack(
+    conference: str,
+    year: int,
+    version: str,
+):
+    normalized_conference = conference.lower().strip()
+    local_pack = next(
+        (
+            item
+            for item in list_local_packs()
+            if item.conference == normalized_conference and int(item.year) == int(year) and item.version == version and item.exists
+        ),
+        None,
+    )
+    if local_pack is not None:
+        class _LocalBuiltPack:
+            pack_path = Path(local_pack.pack_path)
+            manifest_path = Path(local_pack.manifest_path)
+            sha256_path = Path(local_pack.sha256_path)
+        return _LocalBuiltPack()
+
+    packager = Packager()
+    return packager.build_pack(
+        conference=normalized_conference,
+        year=year,
+        version=version,
+    )
+
+
 def search_conference_papers(payload: schemas.ConferenceSearchRequest) -> schemas.ConferenceSearchResponse:
     tools = SearchTools()
+    effective_years = _effective_target_years(payload.years)
     result = tools.coarse_search(
         query=payload.query,
         conferences=payload.conferences,
-        years=payload.years,
+        years=effective_years,
         top_k_per_asset=payload.top_k_per_asset,
         top_k_global=payload.top_k_global,
     )
@@ -108,6 +1048,7 @@ def create_task_from_selection(
         name=payload.name.strip(),
         description=(payload.description or "Created from conference search selection").strip(),
         template_id=template_id,
+        custom_reading_prompts_json=serialize_prompt_list(payload.custom_reading_prompts),
         model_name=payload.model_name or "gemini-3-flash-preview",
         status="running",
     )
@@ -141,73 +1082,60 @@ def create_task_from_auto_research(
     payload: schemas.AutoResearchTaskCreate,
 ) -> schemas.DeepResearchTaskCreateResponse:
     template_id = _get_template_id(db, payload.template_id)
-    runner = SemiFixedResearchRunner()
-    plan = runner.plan(
-        user_query=payload.query,
-        conferences=payload.conferences,
-        years=payload.years,
-    )
-
-    coarse_results: list[dict[str, Any]] = []
-    for sub_query in plan.sub_queries:
-        coarse = runner.search_tools.coarse_search(
-            query=sub_query,
-            conferences=plan.target_conferences,
-            years=plan.target_years,
-            top_k_per_asset=8,
-            top_k_global=15,
-        )
-        coarse_results.append(
-            {"sub_query": sub_query, "results": coarse["results"], "elapsed_sec": coarse["elapsed_sec"]}
-        )
-
-    merged = runner._merge_candidates(coarse_results)
-    reranked = runner.search_tools.rerank_search(
-        query=plan.rerank_query,
-        candidates=merged,
-        top_n=max(payload.max_papers, payload.min_papers),
-    )["results"]
-
-    selected = _select_by_threshold(
-        reranked_results=reranked,
-        threshold=payload.rerank_score_threshold,
-        min_papers=payload.min_papers,
-        max_papers=payload.max_papers,
-    )
-    if not selected:
-        raise HTTPException(status_code=400, detail="Auto research did not select any papers")
+    effective_max_search_rounds = min(20, max(1, int(payload.max_search_rounds or 3)))
+    effective_max_queries_per_round = min(10, max(1, int(payload.max_queries_per_round or 4)))
+    effective_max_full_reads = max(1, int(payload.max_full_reads or 8))
+    effective_years = _effective_target_years(payload.years)
+    initial_trace = {
+        "_agent_config": {
+            "query": payload.query,
+            "conferences": payload.conferences or [],
+            "years": effective_years,
+            "template_id": template_id,
+            "model_name": payload.model_name or "gemini-3-flash-preview",
+            "custom_reading_prompts": payload.custom_reading_prompts or [],
+            "rerank_score_threshold": payload.rerank_score_threshold,
+            "max_search_rounds": effective_max_search_rounds,
+            "max_queries_per_round": effective_max_queries_per_round,
+            "max_full_reads": effective_max_full_reads,
+        },
+        "_agent_runtime": {
+            "state": "queued",
+            "current_stage": "等待开始",
+        },
+        "用户问题": payload.query,
+        "预算": {
+            "最大搜索轮数": effective_max_search_rounds,
+            "每轮最多查询数": effective_max_queries_per_round,
+            "最大全文精读数": effective_max_full_reads,
+        },
+        "研究简报": None,
+        "搜索轮次": [],
+        "最终选中文章": [],
+        "汇总": {
+            "实际搜索轮数": 0,
+            "最终选中文章数": 0,
+        },
+    }
 
     task = models.Task(
         user_id=DEFAULT_USER_ID,
         name=(payload.name or f"Deep Research: {payload.query[:48]}").strip(),
-        description=(payload.description or f"Auto-selected from query: {payload.query}").strip(),
+        description=(payload.description or f"Agent-selected from query: {payload.query}").strip(),
         template_id=template_id,
+        custom_reading_prompts_json=serialize_prompt_list(payload.custom_reading_prompts),
+        agent_trace_json=json.dumps(initial_trace, ensure_ascii=False),
         model_name=payload.model_name or "gemini-3-flash-preview",
-        status="running",
+        status="preparing",
     )
     db.add(task)
     db.commit()
     db.refresh(task)
-
-    imported_count = 0
-    for item in selected:
-        paper = item["paper"]
-        db.add(
-            models.Paper(
-                task_id=task.id,
-                title=paper["title"],
-                source_url=paper.get("source_url"),
-                status="queued",
-            )
-        )
-        imported_count += 1
-
-    db.commit()
     return schemas.DeepResearchTaskCreateResponse(
         ok=True,
         task_id=task.id,
         task_name=task.name,
-        imported_count=imported_count,
+        imported_count=0,
     )
 
 
@@ -235,25 +1163,7 @@ def generate_task_report(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    papers = db.query(models.Paper).filter(models.Paper.task_id == task.id).all()
-    interpreted = []
-    for paper in papers:
-        interpretation = db.query(models.Interpretation).filter(
-            models.Interpretation.paper_id == paper.id
-        ).first()
-        if not interpretation:
-            continue
-        interpreted.append(
-            {
-                "paper_id": paper.id,
-                "title": paper.title,
-                "source": paper.source,
-                "source_url": paper.source_url,
-                "status": paper.status,
-                "interpretation": interpretation.content,
-                "template_used": interpretation.template_used,
-            }
-        )
+    interpreted = _load_interpreted_task_papers(db, task)
 
     if not interpreted:
         raise HTTPException(status_code=400, detail="Task has no interpreted papers yet")
@@ -263,26 +1173,16 @@ def generate_task_report(
             detail=f"Task needs at least {MIN_REPORT_PAPERS} interpreted papers before generating a report",
         )
 
-    client = _get_gemini_client()
-    request_payload = {
-        "query": payload.query or task.description or task.name,
-        "task": {
-            "id": task.id,
-            "name": task.name,
-            "description": task.description,
-            "model_name": task.model_name,
-        },
-        "papers": interpreted,
-    }
-    response = client.models.generate_content(
-        model=task.model_name or "gemini-3-flash-preview",
-        contents=json.dumps(request_payload, ensure_ascii=False),
-        config=types.GenerateContentConfig(
-            system_instruction=TASK_REPORT_PROMPT,
-            max_output_tokens=4096,
-        ),
+    trace = _parse_json_dict(task.agent_trace_json)
+    report_query = payload.query or trace.get("用户问题") or task.description or task.name
+    report_model = payload.model_name or task.model_name or "gemini-3-flash-preview"
+    content, generated_source_meta = _generate_task_report_content(
+        task=task,
+        report_query=report_query,
+        report_model=report_model,
+        interpreted=interpreted,
+        trace=trace,
     )
-    content = response.text or ""
     if not content.strip():
         raise HTTPException(status_code=500, detail="Empty report response from model")
 
@@ -292,17 +1192,19 @@ def generate_task_report(
     if report is None:
         report = models.DeepResearchReport(
             task_id=task.id,
-            query=payload.query,
+            query=report_query,
             source_type=payload.source_type or "task",
-            source_meta=payload.source_meta,
+            source_meta=generated_source_meta,
+            model_name=report_model,
             status="completed",
             content=content,
         )
         db.add(report)
     else:
-        report.query = payload.query
+        report.query = report_query
         report.source_type = payload.source_type or report.source_type
-        report.source_meta = payload.source_meta
+        report.source_meta = generated_source_meta
+        report.model_name = report_model
         report.status = "completed"
         report.content = content
     db.commit()

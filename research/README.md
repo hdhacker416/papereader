@@ -258,6 +258,37 @@ research/
 
 1. metadata 语料准备
 2. 粗排 retrieval
+3. pack 构建与分发
+
+## Pack Distribution
+
+第一版分发机制采用 `conference/year` 级别的 zip 包。
+
+- 构建侧把标准化语料、embedding 和 manifest 打成一个 pack
+- 推荐先发布到 GitHub Releases
+- 使用侧只需要下载 zip 并安装到本地 `installed_packs`
+
+pack 内容结构：
+
+```text
+manifest.json
+normalized/<conference><year>.jsonl
+embeddings/<conference><year>.embeddings.json
+metadata/<conference><year>.manifest.json
+```
+
+构建 pack：
+
+```bash
+python -m research.build.build_packs --conferences iclr nips --years 2025 --version v1
+```
+
+安装本地或远程 pack：
+
+```bash
+python -m research.runtime.install_pack /path/to/iclr-2025-v1.zip
+python -m research.runtime.install_pack https://github.com/<owner>/<repo>/releases/download/<tag>/iclr-2025-v1.zip
+```
 3. 精排 rerank
 4. 精读 analyze
 5. final report

@@ -9,6 +9,7 @@ from google import genai
 from google.genai import types
 
 from research.reader.paper_reader import PaperReader
+from research.targeting import normalize_target_years
 from research.tools.search_tools import SearchTools
 
 
@@ -106,6 +107,10 @@ class SemiFixedResearchRunner:
         conferences: list[str] | None = None,
         years: list[int] | None = None,
     ) -> SearchPlan:
+        effective_years = normalize_target_years(
+            years,
+            available_years=[asset.year for asset in self.search_tools.assets],
+        )
         prompt = (
             "You are planning an academic paper search. "
             "Return a compact JSON plan for semantic retrieval. "
@@ -117,7 +122,7 @@ class SemiFixedResearchRunner:
         user_payload = {
             "user_query": user_query,
             "preferred_conferences": conferences or [],
-            "preferred_years": years or [],
+            "preferred_years": effective_years,
         }
         response = self.client.models.generate_content(
             model=self.model,
@@ -134,7 +139,7 @@ class SemiFixedResearchRunner:
             sub_queries=[item.strip() for item in plan_data["sub_queries"] if item.strip()],
             rerank_query=plan_data["rerank_query"].strip(),
             target_conferences=[item.lower() for item in plan_data["target_conferences"]],
-            target_years=[int(item) for item in plan_data["target_years"]],
+            target_years=effective_years if years is None else [int(item) for item in plan_data["target_years"]],
         )
 
     def run(
@@ -146,8 +151,13 @@ class SemiFixedResearchRunner:
         top_k_global: int = 15,
         rerank_top_n: int = 12,
         details_top_n: int = 8,
-        read_top_n: int = 3,
+        read_top_n: int = 5,
+        reading_prompts_override: list[str] | None = None,
     ) -> SemiFixedRunResult:
+        effective_years = normalize_target_years(
+            years,
+            available_years=[asset.year for asset in self.search_tools.assets],
+        )
         plan = self.plan(user_query, conferences=conferences, years=years)
 
         coarse_results: list[dict[str, Any]] = []
@@ -155,7 +165,7 @@ class SemiFixedResearchRunner:
             coarse = self.search_tools.coarse_search(
                 query=sub_query,
                 conferences=plan.target_conferences,
-                years=plan.target_years,
+                years=effective_years,
                 top_k_per_asset=top_k_per_asset,
                 top_k_global=top_k_global,
             )
@@ -190,6 +200,7 @@ class SemiFixedResearchRunner:
             for item in self.paper_reader.read_papers(
                 papers=detail_results[:read_top_n],
                 user_query=user_query,
+                template_prompts=reading_prompts_override,
             )
         ]
 

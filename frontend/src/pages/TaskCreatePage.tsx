@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
+import PromptListEditor from '../components/PromptListEditor';
 import { tasksApi, templatesApi } from '../api/services';
 import { Template } from '../types';
 
@@ -10,6 +11,7 @@ const TaskCreatePage: React.FC = () => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [templateId, setTemplateId] = useState('');
+  const [customReadingPrompts, setCustomReadingPrompts] = useState<string[]>(['']);
   const [modelName, setModelName] = useState('gemini-3-flash-preview');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,6 +37,14 @@ const TaskCreatePage: React.FC = () => {
     };
     fetchTemplates();
   }, []);
+
+  useEffect(() => {
+    const selectedTemplate = templates.find((item) => item.id === templateId);
+    if (!selectedTemplate) {
+      return;
+    }
+    setCustomReadingPrompts(selectedTemplate.content.length > 0 ? selectedTemplate.content : ['']);
+  }, [templateId, templates]);
 
   const handleAddRow = () => {
     setPaperList([...paperList, '']);
@@ -62,7 +72,8 @@ const TaskCreatePage: React.FC = () => {
         name,
         description,
         template_id: templateId,
-        model_name: modelName
+        model_name: modelName,
+        custom_reading_prompts: customReadingPrompts.map((item) => item.trim()).filter(Boolean),
       });
 
       // 2. Add Papers if any
@@ -143,6 +154,13 @@ const TaskCreatePage: React.FC = () => {
               placeholder="Optional description..."
             />
           </div>
+
+          <PromptListEditor
+            title="Reading Prompts"
+            description="These prompts will be saved on the task and used when the papers are interpreted."
+            prompts={customReadingPrompts}
+            onChange={setCustomReadingPrompts}
+          />
 
           <div className="border-t pt-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Initial Papers</label>

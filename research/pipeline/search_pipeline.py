@@ -30,18 +30,25 @@ class SearchRunResult:
 
 
 def load_search_assets(summary_path: Path) -> list[SearchAsset]:
+    summary_path = summary_path.resolve()
     with summary_path.open("r", encoding="utf-8") as f:
         payload = json.load(f)
 
     assets: list[SearchAsset] = []
     for item in payload.get("results", []):
+        normalized_path = Path(item["normalized_path"])
+        embedding_path = Path(item["embedding_path"])
+        if not normalized_path.is_absolute():
+            normalized_path = (summary_path.parent / normalized_path).resolve()
+        if not embedding_path.is_absolute():
+            embedding_path = (summary_path.parent / embedding_path).resolve()
         assets.append(
             SearchAsset(
                 conference=item["conference"],
                 year=int(item["year"]),
                 paper_count=int(item["paper_count"]),
-                normalized_path=Path(item["normalized_path"]),
-                embedding_path=Path(item["embedding_path"]),
+                normalized_path=normalized_path,
+                embedding_path=embedding_path,
             )
         )
     return assets

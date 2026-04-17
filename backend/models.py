@@ -29,7 +29,6 @@ class User(Base):
     tasks = relationship("Task", back_populates="user")
     templates = relationship("Template", back_populates="user")
     collections = relationship("Collection", back_populates="user")
-    research_jobs = relationship("ResearchJob", back_populates="user")
 
 
 class Template(Base):
@@ -54,6 +53,8 @@ class Task(Base):
     name = Column(String, nullable=False)
     description = Column(String)
     template_id = Column(String, ForeignKey("templates.id"), nullable=True)
+    custom_reading_prompts_json = Column(Text, nullable=True)
+    agent_trace_json = Column(Text, nullable=True)
     model_name = Column(String, default="gemini-3-flash-preview")
     status = Column(
         String, default="created"
@@ -192,57 +193,6 @@ class ConferencePaper(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     conference = relationship("ConferenceSource", back_populates="papers")
-    research_candidates = relationship(
-        "ResearchPaperCandidate", back_populates="conference_paper"
-    )
-
-
-class ResearchJob(Base):
-    __tablename__ = "research_jobs"
-
-    id = Column(String, primary_key=True, default=generate_uuid)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    query = Column(Text, nullable=False)
-    selected_conferences_json = Column(Text, nullable=False)
-    mode = Column(String, default="quick")
-    status = Column(String, default="created")
-    stage = Column(String, default="created")
-    progress = Column(Integer, default=0)
-    model_name = Column(String, default="gemini-3-flash-preview")
-    summary = Column(Text)
-    opportunities = Column(Text)
-    themes = Column(Text)
-    error_message = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-    user = relationship("User", back_populates="research_jobs")
-    candidates = relationship("ResearchPaperCandidate", back_populates="research_job")
-
-
-class ResearchPaperCandidate(Base):
-    __tablename__ = "research_paper_candidates"
-
-    id = Column(String, primary_key=True, default=generate_uuid)
-    research_job_id = Column(String, ForeignKey("research_jobs.id"), nullable=False)
-    conference_paper_id = Column(
-        String, ForeignKey("conference_papers.id"), nullable=True
-    )
-    title = Column(String, nullable=False)
-    abstract = Column(Text, nullable=False)
-    conference_label = Column(String, nullable=False)
-    relevance_score = Column(Float, default=0.0)
-    reason = Column(Text)
-    status = Column(String, default="shortlisted")
-    is_selected = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    research_job = relationship("ResearchJob", back_populates="candidates")
-    conference_paper = relationship(
-        "ConferencePaper", back_populates="research_candidates"
-    )
 
 
 class DeepResearchReport(Base):
@@ -253,7 +203,13 @@ class DeepResearchReport(Base):
     query = Column(Text, nullable=True)
     source_type = Column(String, nullable=False, default="task")
     source_meta = Column(Text, nullable=True)
+    model_name = Column(String, nullable=True)
     status = Column(String, nullable=False, default="completed")
+    progress_stage = Column(String, nullable=True)
+    progress_message = Column(Text, nullable=True)
+    progress_completed = Column(Integer, nullable=False, default=0)
+    progress_total = Column(Integer, nullable=False, default=0)
+    error = Column(Text, nullable=True)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
@@ -261,3 +217,30 @@ class DeepResearchReport(Base):
     )
 
     task = relationship("Task", back_populates="deep_research_report")
+
+
+class PackBuildJob(Base):
+    __tablename__ = "pack_build_jobs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    status = Column(String, nullable=False, default="queued")
+    version = Column(String, nullable=False, default="v1")
+    requested_conferences_json = Column(Text, nullable=True)
+    requested_years_json = Column(Text, nullable=True)
+    total_targets = Column(Integer, nullable=False, default=0)
+    completed_targets = Column(Integer, nullable=False, default=0)
+    failed_targets = Column(Integer, nullable=False, default=0)
+    current_conference = Column(String, nullable=True)
+    current_year = Column(Integer, nullable=True)
+    current_stage = Column(String, nullable=True)
+    current_step_completed = Column(Integer, nullable=False, default=0)
+    current_step_total = Column(Integer, nullable=False, default=0)
+    progress_message = Column(Text, nullable=True)
+    target_states_json = Column(Text, nullable=False, default="[]")
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)

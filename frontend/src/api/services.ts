@@ -9,15 +9,17 @@ import {
   ChatMessage,
   Note,
   Collection,
-  ConferenceSource,
-  ResearchJob,
-  CreateResearchJobPayload,
-  ResearchCandidate,
-  ImportResearchCandidatesPayload,
-  ImportResearchCandidatesResponse,
   ConferenceSearchResponse,
+  DeepResearchTargetOptionsResponse,
   DeepResearchTaskCreateResponse,
-  DeepResearchReport
+  DeepResearchReport,
+  PackBuildJob,
+  ReleaseInstallResponse,
+  ReleaseListResponse,
+  PackTargetOptionsResponse,
+  ResearchPackInfo,
+  ResearchPackBuildResponse,
+  ResearchPackUploadResponse
 } from '../types';
 
 export const templatesApi = {
@@ -36,7 +38,8 @@ export const tasksApi = {
   batchDelete: (ids: string[]) => api.post<{deleted: number}>('/tasks/batch-delete', { ids }).then(res => res.data),
   addPapers: (id: string, data: AddPapersPayload) => api.post<Paper[]>(`/tasks/${id}/papers`, data).then(res => res.data),
   getPapers: (id: string) => api.get<Paper[]>(`/tasks/${id}/papers`).then(res => res.data),
-  reRead: (id: string, template_id?: string, model_name?: string) => api.post<{ok: boolean, count: number}>(`/tasks/${id}/reread`, { template_id, model_name }).then(res => res.data),
+  reRead: (id: string, template_id?: string, model_name?: string, custom_reading_prompts?: string[]) =>
+    api.post<{ok: boolean, count: number}>(`/tasks/${id}/reread`, { template_id, model_name, custom_reading_prompts }).then(res => res.data),
 };
 
 export const papersApi = {
@@ -61,16 +64,9 @@ export const collectionsApi = {
   reRead: (id: string, template_id?: string, model_name?: string) => api.post<{ok: boolean, count: number}>(`/collections/${id}/reread`, { template_id, model_name }).then(res => res.data),
 };
 
-export const researchApi = {
-  listConferences: () => api.get<ConferenceSource[]>('/research/conferences').then(res => res.data),
-  listJobs: () => api.get<ResearchJob[]>('/research/jobs').then(res => res.data),
-  getJob: (id: string) => api.get<ResearchJob>(`/research/jobs/${id}`).then(res => res.data),
-  createJob: (data: CreateResearchJobPayload) => api.post<ResearchJob>('/research/jobs', data).then(res => res.data),
-  getCandidates: (id: string) => api.get<ResearchCandidate[]>(`/research/jobs/${id}/candidates`).then(res => res.data),
-  importToTask: (id: string, data: ImportResearchCandidatesPayload) => api.post<ImportResearchCandidatesResponse>(`/research/jobs/${id}/import-to-task`, data).then(res => res.data),
-};
-
 export const deepResearchApi = {
+  listTargets: () =>
+    api.get<DeepResearchTargetOptionsResponse>('/deep-research/targets').then(res => res.data),
   search: (data: {
     query: string;
     conferences?: string[];
@@ -83,6 +79,7 @@ export const deepResearchApi = {
     description?: string;
     template_id?: string;
     model_name?: string;
+    custom_reading_prompts?: string[];
     selected_papers: Array<{ paper_id: string; conference: string; year: number }>;
   }) => api.post<DeepResearchTaskCreateResponse>('/deep-research/tasks/from-selection', data).then(res => res.data),
   createTaskFromAutoResearch: (data: {
@@ -93,12 +90,49 @@ export const deepResearchApi = {
     years?: number[];
     template_id?: string;
     model_name?: string;
+    custom_reading_prompts?: string[];
     rerank_score_threshold?: number;
-    min_papers?: number;
-    max_papers?: number;
+    max_search_rounds?: number;
+    max_queries_per_round?: number;
+    max_full_reads?: number;
   }) => api.post<DeepResearchTaskCreateResponse>('/deep-research/tasks/auto-create', data).then(res => res.data),
-  generateTaskReport: (taskId: string, data: { query?: string; source_type?: string; source_meta?: string }) =>
+  generateTaskReport: (taskId: string, data: { query?: string; source_type?: string; source_meta?: string; model_name?: string }) =>
     api.post<DeepResearchReport>(`/deep-research/tasks/${taskId}/report`, data).then(res => res.data),
   getTaskReport: (taskId: string) =>
     api.get<DeepResearchReport>(`/deep-research/tasks/${taskId}/report`).then(res => res.data),
+  listReleases: () =>
+    api.get<ReleaseListResponse>('/deep-research/releases').then(res => res.data),
+  installReleaseAssets: (data: {
+    assets: Array<{ release_tag: string; asset_name: string; download_url: string }>;
+  }) => api.post<ReleaseInstallResponse>('/deep-research/releases/install', data).then(res => res.data),
+  listPackTargets: () =>
+    api.get<PackTargetOptionsResponse>('/deep-research/pack-targets').then(res => res.data),
+  listPackBuildJobs: () =>
+    api.get<PackBuildJob[]>('/deep-research/packs/jobs').then(res => res.data),
+  createPackBuildJob: (data: {
+    conferences?: string[];
+    years?: number[];
+    version?: string;
+  }) => api.post<PackBuildJob>('/deep-research/packs/jobs', data).then(res => res.data),
+  resumePackBuildJob: (jobId: string) =>
+    api.post<PackBuildJob>(`/deep-research/packs/jobs/${jobId}/resume`).then(res => res.data),
+  listPacks: () =>
+    api.get<ResearchPackInfo[]>('/deep-research/packs').then(res => res.data),
+  buildPacks: (data: {
+    conferences?: string[];
+    years?: number[];
+    version?: string;
+  }) => api.post<ResearchPackBuildResponse>('/deep-research/packs/build', data).then(res => res.data),
+  uploadPack: (data: {
+    conference: string;
+    year: number;
+    version?: string;
+    owner: string;
+    repo: string;
+    tag: string;
+    release_name?: string;
+    release_body?: string;
+    draft?: boolean;
+    prerelease?: boolean;
+  }) => api.post<ResearchPackUploadResponse>('/deep-research/packs/upload', data).then(res => res.data),
 };

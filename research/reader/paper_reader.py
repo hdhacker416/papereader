@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import asdict, dataclass
@@ -68,17 +69,27 @@ class PaperReader:
         self,
         papers: list[dict[str, Any]],
         user_query: str,
+        template_prompts: list[str] | None = None,
     ) -> list[PaperReadingResult]:
         results: list[PaperReadingResult] = []
         for paper in papers:
-            results.append(self.read_paper(paper=paper, user_query=user_query))
+            results.append(
+                self.read_paper(
+                    paper=paper,
+                    user_query=user_query,
+                    template_prompts=template_prompts,
+                )
+            )
         return results
 
     def read_paper(
         self,
         paper: dict[str, Any],
         user_query: str,
+        template_prompts: list[str] | None = None,
     ) -> PaperReadingResult:
+        prompts = self._render_prompts(user_query=user_query, template_prompts=template_prompts)
+        prompt_cache_key = self._prompt_cache_key(prompts)
         resolved = self.resolve_source(paper)
         if resolved is None:
             return PaperReadingResult(
@@ -108,7 +119,10 @@ class PaperReader:
                 error=f"Failed to download PDF from {resolved.pdf_url}",
             )
 
-        reading_cache_path = self._reading_cache_path_for_paper(paper)
+        reading_cache_path = self._reading_cache_path_for_paper(
+            paper=paper,
+            prompt_cache_key=prompt_cache_key,
+        )
         if reading_cache_path.exists():
             cached = json.loads(reading_cache_path.read_text(encoding="utf-8"))
             return PaperReadingResult(
@@ -123,7 +137,6 @@ class PaperReader:
                 error=None,
             )
 
-        prompts = [item.format(user_query=user_query) for item in DEFAULT_READING_PROMPTS]
         try:
             reading_text, reading_turns = interpret_paper(
                 pdf_path=str(pdf_path),
@@ -149,6 +162,8 @@ class PaperReader:
                 {
                     "paper": paper,
                     "resolved_source": asdict(resolved),
+                    "prompt_cache_key": prompt_cache_key,
+                    "prompts": prompts,
                     "reading_text": reading_text,
                     "reading_turns": reading_turns,
                 },
@@ -209,8 +224,27 @@ class PaperReader:
         paper_id = _slugify_filename(str(paper.get("paper_id", paper.get("title", "paper"))))
         return self.pdf_cache_dir / conference / str(year) / f"{paper_id}.pdf"
 
-    def _reading_cache_path_for_paper(self, paper: dict[str, Any]) -> Path:
+    def _reading_cache_path_for_paper(
+        self,
+        paper: dict[str, Any],
+        prompt_cache_key: str,
+    ) -> Path:
         conference = str(paper.get("conference", "unknown")).lower()
         year = int(paper.get("year", 0))
         paper_id = _slugify_filename(str(paper.get("paper_id", paper.get("title", "paper"))))
-        return self.reading_cache_dir / conference / str(year) / f"{paper_id}.json"
+        return self.reading_cache_dir / conference / str(year) / prompt_cache_key / f"{paper_id}.json"
+
+    @staticmethod
+    def _render_prompts(
+        user_query: str,
+        template_prompts: list[str] | None = None,
+    ) -> list[str]:
+        prompts = template_prompts or list(DEFAULT_READING_PROMPTS)
+        return [item.format(user_query=user_query) for item in prompts]
+
+    @staticmethod
+    def _prompt_cache_key(prompts: list[str]) -> str:
+        digest = hashlib.sha1(
+            json.dumps(prompts, ensure_ascii=False).encode("utf-8")
+        ).hexdigest()
+        return f"prompt_{digest[:12]}"

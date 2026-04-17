@@ -4,13 +4,27 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 
+from research.config import DEFAULT_CONFIG
 from research.pipeline.search_pipeline import SearchAsset, SearchPipeline, load_search_assets
 from research.providers.dashscope_embedding import DashScopeEmbeddingClient
 from research.providers.dashscope_rerank import DashScopeRerankClient
 from research.retrieval.embedding_index import IndexedPaper, load_normalized_jsonl
 
 
-DEFAULT_SUMMARY_PATH = Path("data/research/build/build_summary_2025_2026.json")
+SUMMARY_PATH_CANDIDATES = [
+    DEFAULT_CONFIG.build.build_root_dir / "build_summary_ai_top_2024_2026.json",
+    DEFAULT_CONFIG.build.build_root_dir / "build_summary_2025_2026.json",
+]
+
+
+def _resolve_default_summary_path() -> Path:
+    for path in SUMMARY_PATH_CANDIDATES:
+        if path.exists():
+            return path
+    return SUMMARY_PATH_CANDIDATES[0]
+
+
+DEFAULT_SUMMARY_PATH = _resolve_default_summary_path()
 
 CONFERENCE_ALIASES = {
     "neurips": "nips",

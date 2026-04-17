@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
-import { Send, FileText, MessageSquare, Save, FolderOpen, FolderPlus, Trash2, Check, MessageSquarePlus, X } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Send, FileText, MessageSquare, Save, FolderOpen, FolderPlus, Trash2, Check, MessageSquarePlus, X, ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -11,7 +11,9 @@ import { Paper, ChatMessage, Collection } from '../types';
 import clsx from 'clsx';
 
 const ReadingRoomPage: React.FC = () => {
+  const navigate = useNavigate();
   const { paperId } = useParams<{ paperId: string }>();
+  const [searchParams] = useSearchParams();
   const [paper, setPaper] = useState<Paper | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -32,6 +34,8 @@ const ReadingRoomPage: React.FC = () => {
   const [paperCollections, setPaperCollections] = useState<Collection[]>([]);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [targetParentCollection, setTargetParentCollection] = useState<{id: string, name: string} | null>(null);
+  const fromTaskId = searchParams.get('fromTask');
+  const fromReport = searchParams.get('fromReport') === '1';
 
   const fetchCollections = useCallback(async () => {
       try {
@@ -269,7 +273,21 @@ const ReadingRoomPage: React.FC = () => {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
             <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (fromTaskId) {
+                                navigate(`/tasks/${fromTaskId}`);
+                                return;
+                            }
+                            navigate(-1);
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50 shrink-0"
+                    >
+                        <ArrowLeft size={16} />
+                        {fromTaskId ? (fromReport ? '返回任务报告' : '返回任务') : '返回'}
+                    </button>
                     <h1 className="font-semibold text-gray-900 truncate max-w-xl" title={paper.title}>
                         {paper.title}
                     </h1>

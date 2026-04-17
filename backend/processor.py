@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal, DATA_DIR
 import models
 from services import arxiv_service, openreview_service, pdf_service, gemini_service
+from services.template_service import parse_template_prompts
 import os
 from concurrent.futures import ThreadPoolExecutor
 
@@ -13,6 +14,61 @@ logger = logging.getLogger(__name__)
 # Concurrency limit
 MAX_CONCURRENT_PAPERS = 3
 executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_PAPERS)
+
+
+def resolve_existing_source(source_url: str | None):
+    if not source_url:
+        return None
+    url = source_url.strip()
+    if not url:
+        return None
+
+    lower_url = url.lower()
+    if "openreview.net" in lower_url:
+        if "/pdf?" in lower_url:
+            pdf_url = url
+            forum_url = url.replace("/pdf?", "/forum?")
+        elif "/forum?" in lower_url:
+            pdf_url = url.replace("/forum?", "/pdf?")
+            forum_url = url
+        else:
+            pdf_url = url
+            forum_url = url
+        return {
+            "title": None,
+            "authors": [],
+            "abstract": "",
+            "pdf_url": pdf_url,
+            "source": "openreview",
+            "source_url": forum_url,
+            "published": None,
+        }
+
+    if "arxiv.org" in lower_url:
+        if "/pdf/" in lower_url:
+            pdf_url = url
+            abs_url = url.replace("/pdf/", "/abs/")
+            if abs_url.endswith(".pdf"):
+                abs_url = abs_url[:-4]
+        elif "/abs/" in lower_url:
+            abs_url = url
+            pdf_url = url.replace("/abs/", "/pdf/")
+            if not pdf_url.endswith(".pdf"):
+                pdf_url = f"{pdf_url}.pdf"
+        else:
+            pdf_url = url
+            abs_url = url
+        return {
+            "title": None,
+            "authors": [],
+            "abstract": "",
+            "pdf_url": pdf_url,
+            "source": "arxiv",
+            "source_url": abs_url,
+            "published": None,
+        }
+
+    return None
 
 def log_error_to_chat(db: Session, paper: models.Paper, error_msg: str):
     """Helper to log error message to chat history so it's visible in UI."""
@@ -53,9 +109,11 @@ async def process_paper(paper_id: str):
             
         logger.info(f"Processing paper: {paper.title} ({paper.id})")
 
-        # 1. Search
-        # Try Arxiv first
-        search_result = await asyncio.get_event_loop().run_in_executor(executor, arxiv_service.search_arxiv, paper.title)
+        # 1. Resolve source
+        search_result = resolve_existing_source(paper.source_url)
+        if not search_result:
+            # Try Arxiv first
+            search_result = await asyncio.get_event_loop().run_in_executor(executor, arxiv_service.search_arxiv, paper.title)
         
         if not search_result:
             # Try OpenReview
@@ -63,7 +121,7 @@ async def process_paper(paper_id: str):
         
         if not search_result:
             paper.status = "failed"
-            paper.failure_reason = "Paper not found in Arxiv or OpenReview (ICLR/NeurIPS/ICML 2023-2026)"
+            paper.failure_reason = "Paper not found via existing source_url, Arxiv, or OpenReview"
             log_error_to_chat(db, paper, paper.failure_reason)
             db.commit()
             return
@@ -103,26 +161,22 @@ async def process_paper(paper_id: str):
         # 3. Interpret with Gemini
         # Get template
         task = db.query(models.Task).filter(models.Task.id == paper.task_id).first()
-        
-        # Check for overrides
-        template_id = paper.template_id if paper.template_id else task.template_id
-        template = db.query(models.Template).filter(models.Template.id == template_id).first()
-        
-        if not template:
-            paper.status = "failed"
-            paper.failure_reason = "Template not found"
-            log_error_to_chat(db, paper, paper.failure_reason)
-            db.commit()
-            return
 
         try:
-            # Parse template content (JSON list of prompts)
-            try:
-                prompts = json.loads(template.content)
-                if not isinstance(prompts, list):
-                     prompts = [template.content]
-            except json.JSONDecodeError:
-                prompts = [template.content]
+            prompts = parse_template_prompts(task.custom_reading_prompts_json or "")
+            template_used = task.custom_reading_prompts_json
+
+            if not prompts:
+                template_id = paper.template_id if paper.template_id else task.template_id
+                template = db.query(models.Template).filter(models.Template.id == template_id).first()
+                if not template:
+                    paper.status = "failed"
+                    paper.failure_reason = "Template not found"
+                    log_error_to_chat(db, paper, paper.failure_reason)
+                    db.commit()
+                    return
+                prompts = parse_template_prompts(template.content)
+                template_used = template.content
 
             # Pass model_name (check for override, then task default, then fallback)
             task_model = task.model_name if task.model_name else "gemini-3-flash-preview"
@@ -140,7 +194,7 @@ async def process_paper(paper_id: str):
             interp = models.Interpretation(
                 paper_id=paper.id,
                 content=interpretation_text,
-                template_used=template.content
+                template_used=template_used or json.dumps(prompts, ensure_ascii=False)
             )
             db.add(interp)
             
