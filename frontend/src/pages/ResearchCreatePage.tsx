@@ -7,6 +7,7 @@ import { deepResearchApi, templatesApi } from '../api/services';
 import {
   ConferenceSearchHit,
   DeepResearchTargetOptionsResponse,
+  InstalledResearchPackInfo,
   PackBuildJob,
   PackTargetOptionsResponse,
   ReleaseInfo,
@@ -112,6 +113,8 @@ const ResearchCreatePage: React.FC = () => {
   const [installMessage, setInstallMessage] = useState('');
   const [packs, setPacks] = useState<ResearchPackInfo[]>([]);
   const [loadingPacks, setLoadingPacks] = useState(false);
+  const [installedPacks, setInstalledPacks] = useState<InstalledResearchPackInfo[]>([]);
+  const [loadingInstalledPacks, setLoadingInstalledPacks] = useState(false);
   const [packJobs, setPackJobs] = useState<PackBuildJob[]>([]);
   const [loadingPackJobs, setLoadingPackJobs] = useState(false);
   const [buildingPacks, setBuildingPacks] = useState(false);
@@ -124,6 +127,9 @@ const ResearchCreatePage: React.FC = () => {
   const [researchConferencesExpanded, setResearchConferencesExpanded] = useState(true);
   const [packYearsExpanded, setPackYearsExpanded] = useState(true);
   const [packConferencesExpanded, setPackConferencesExpanded] = useState(true);
+  const [installedPacksExpanded, setInstalledPacksExpanded] = useState(true);
+  const [localPacksExpanded, setLocalPacksExpanded] = useState(false);
+  const [releasesExpanded, setReleasesExpanded] = useState(true);
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
   const [selfChecking, setSelfChecking] = useState(false);
   const [selfCheckResult, setSelfCheckResult] = useState<SelfCheckResponse | null>(null);
@@ -340,11 +346,13 @@ const ResearchCreatePage: React.FC = () => {
     if (workflow !== 'packs') {
       return;
     }
+    fetchInstalledPacks();
     fetchPackJobs();
     const interval = window.setInterval(() => {
       fetchPackJobs();
       if (hasActivePackJobs) {
         fetchPacks();
+        fetchInstalledPacks();
       }
     }, hasActivePackJobs ? 2500 : 10000);
     return () => window.clearInterval(interval);
@@ -501,6 +509,18 @@ const ResearchCreatePage: React.FC = () => {
       console.error('Failed to fetch local packs:', error);
     } finally {
       setLoadingPacks(false);
+    }
+  };
+
+  const fetchInstalledPacks = async () => {
+    setLoadingInstalledPacks(true);
+    try {
+      const data = await deepResearchApi.listInstalledPacks();
+      setInstalledPacks(data);
+    } catch (error) {
+      console.error('Failed to fetch installed packs:', error);
+    } finally {
+      setLoadingInstalledPacks(false);
     }
   };
 
@@ -698,6 +718,7 @@ const ResearchCreatePage: React.FC = () => {
       );
       const result = await deepResearchApi.installReleaseAssets({ assets });
       setInstallMessage(`Installed ${result.installed_count} pack(s).`);
+      await fetchInstalledPacks();
     } catch (error) {
       console.error('Failed to install selected release assets:', error);
       setInstallMessage('Install failed.');
@@ -722,6 +743,7 @@ const ResearchCreatePage: React.FC = () => {
       });
       setInstallMessage(`Installed ${result.installed_count} matching pack(s).`);
       await fetchPacks();
+      await fetchInstalledPacks();
     } catch (error) {
       console.error('Failed to install matching pack assets:', error);
       setInstallMessage('Install failed.');
@@ -894,6 +916,7 @@ const ResearchCreatePage: React.FC = () => {
             onClick={() => {
               setWorkflow('packs');
               fetchPacks();
+              fetchInstalledPacks();
               fetchPackJobs();
               if (releases.length === 0) {
                 fetchReleases();
@@ -982,269 +1005,60 @@ const ResearchCreatePage: React.FC = () => {
 
         {workflow === 'packs' ? (
           <div className="bg-white border border-gray-200 rounded-2xl p-6">
-            <div className="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-6">
+            <div className="space-y-6">
               <div className="border border-gray-200 rounded-2xl p-5">
-                <div className="flex items-center justify-between gap-4 mb-5">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Local Packs</h2>
-                    <p className="text-sm text-gray-500 mt-1">One-click build from raw conference paperlists: normalize, create embeddings, then pack. After that, upload if you want to publish.</p>
-                  </div>
+                <div className="flex items-center justify-between gap-4">
                   <button
                     type="button"
-                    onClick={fetchPacks}
-                    disabled={loadingPacks}
+                    onClick={() => setInstalledPacksExpanded((current) => !current)}
+                    className="flex items-center gap-2 text-xl font-semibold text-gray-900"
+                  >
+                    {installedPacksExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    <span>Installed Packs</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchInstalledPacks}
+                    disabled={loadingInstalledPacks}
                     className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
                   >
-                    {loadingPacks ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                    {loadingInstalledPacks ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
                     Refresh
                   </button>
                 </div>
-
-                <div className="grid grid-cols-1 gap-3 mb-4">
-                  <input
-                    value={releaseOwner}
-                    onChange={(event) => setReleaseOwner(event.target.value)}
-                    placeholder="GitHub owner"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    value={releaseRepo}
-                    onChange={(event) => setReleaseRepo(event.target.value)}
-                    placeholder="GitHub repo"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <input
-                    value={releaseTag}
-                    onChange={(event) => setReleaseTag(event.target.value)}
-                    placeholder="Release tag"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="mb-5 border border-gray-200 rounded-2xl p-4 space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between gap-4 mb-2">
-                      <button
-                        type="button"
-                        onClick={() => setPackYearsExpanded((current) => !current)}
-                        className="flex items-center gap-2 text-sm font-semibold text-gray-900"
-                      >
-                        {packYearsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                        <span>Target Years</span>
-                      </button>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={toggleAllPackYears}
-                          disabled={!packTargetOptions || packTargetOptions.years.length === 0}
-                          className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
-                        >
-                          {allPackYearsSelected ? 'Clear all' : 'Select all'}
-                        </button>
-                        <span className="text-xs text-gray-500">
-                          {selectedPackYears.length > 0 ? effectivePackYears.join(', ') : `Default: ${effectivePackYears.join(', ')}`}
-                        </span>
-                      </div>
-                    </div>
-                    {packYearsExpanded && packYearButtons}
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between gap-4 mb-2">
-                      <button
-                        type="button"
-                        onClick={() => setPackConferencesExpanded((current) => !current)}
-                        className="flex items-center gap-2 text-sm font-semibold text-gray-900"
-                      >
-                        {packConferencesExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                        <span>Target Conferences</span>
-                      </button>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={toggleAllVisiblePackConferences}
-                          disabled={filteredPackConferences.length === 0}
-                          className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
-                        >
-                          {allVisiblePackConferencesSelected ? 'Clear all' : 'Select all'}
-                        </button>
-                        <span className="text-xs text-gray-500">{selectedPackConferences.length} selected</span>
-                      </div>
-                    </div>
-                    {packConferencesExpanded && (
-                      <div className="max-h-80 overflow-y-auto pr-1">
-                        {packConferenceButtons}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mb-5 border border-gray-200 rounded-2xl p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-900">Release Availability</h3>
-                      <div className="text-sm text-gray-500 mt-1">
-                        {matchingReleaseAssets.length} / {selectedPackTargets.length} selected pack targets are already available in GitHub releases.
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleInstallMatchingPackAssets}
-                      disabled={installingAssets || matchingReleaseAssets.length === 0}
-                      className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                    >
-                      {installingAssets ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-                      Download Matching
-                    </button>
-                  </div>
-                  {matchingReleaseAssets.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {matchingReleaseAssets.map((asset) => (
-                        <span
-                          key={`${asset.releaseTag}:${asset.assetName}`}
-                          className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium"
-                        >
-                          {asset.conference.toUpperCase()} {asset.year} · {asset.releaseTag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {missingReleaseTargets.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {missingReleaseTargets.map((item) => (
-                        <span
-                          key={item.key}
-                          className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium"
-                        >
-                          {item.conference.toUpperCase()} {item.year} · not in release
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleBuildPacks}
-                  disabled={buildingPacks || selectedPackConferences.length === 0}
-                  className="w-full mb-4 flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
-                >
-                  {buildingPacks ? <Loader2 size={18} className="animate-spin" /> : <FolderPlus size={18} />}
-                  One-click Build Selected Packs
-                </button>
-
-                {packMessage && <div className="mb-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">{packMessage}</div>}
-
-                <div className="mb-5 border border-gray-200 rounded-2xl p-4">
-                  <div className="flex items-center justify-between gap-4 mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900">Build Jobs</h3>
-                    <button
-                      type="button"
-                      onClick={fetchPackJobs}
-                      disabled={loadingPackJobs}
-                      className="text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50"
-                    >
-                      {loadingPackJobs ? 'Refreshing...' : 'Refresh'}
-                    </button>
-                  </div>
-                  {packJobs.length === 0 ? (
-                    <div className="text-sm text-gray-500">No pack build jobs yet.</div>
-                  ) : (
-                    <div className="space-y-3">
-                      {packJobs.map((job) => (
-                        <div key={job.id} className="border border-gray-200 rounded-xl p-3">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <div className="font-medium text-gray-900">
-                                {job.total_targets} target(s) · {job.version}
-                              </div>
-                              <div className="text-sm text-gray-500 mt-1">
-                                {job.completed_targets}/{job.total_targets} completed
-                                {job.current_conference && job.current_year ? ` · ${job.current_conference.toUpperCase()} ${job.current_year}` : ''}
-                                {job.current_stage ? ` · ${job.current_stage}` : ''}
-                              </div>
-                            </div>
-                            <div className="shrink-0 flex items-center gap-2">
-                              <span className={clsx(
-                                'px-2 py-1 rounded-full text-xs font-medium',
-                                job.status === 'completed' && 'bg-emerald-50 text-emerald-700',
-                                job.status === 'running' && 'bg-blue-50 text-blue-700',
-                                job.status === 'queued' && 'bg-amber-50 text-amber-700',
-                                job.status === 'failed' && 'bg-red-50 text-red-700',
-                              )}>
-                                {job.status}
-                              </span>
-                              {job.can_resume && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleResumePackJob(job.id)}
-                                  className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-sm hover:bg-slate-800"
-                                >
-                                  Resume
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                          <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
-                            <div
-                              className={clsx(
-                                'h-full transition-all',
-                                job.status === 'failed' ? 'bg-red-500' : 'bg-blue-600',
-                              )}
-                              style={{ width: `${job.progress_percent}%` }}
-                            />
-                          </div>
-                          <div className="mt-2 text-xs text-gray-600">
-                            {job.progress_message || 'Waiting to start.'}
-                          </div>
-                          {job.error && (
-                            <div className="mt-2 text-xs text-red-600">
-                              {job.error}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {loadingPacks ? (
-                  <div className="text-sm text-gray-500">Loading local packs...</div>
-                ) : packs.length === 0 ? (
-                  <div className="text-sm text-gray-500">No local packs yet.</div>
-                ) : (
-                  <div className="space-y-3">
-                    {packs.map((pack) => {
-                      const key = `${pack.conference}-${pack.year}-${pack.version}`;
-                      return (
-                        <div key={key} className="border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
-                          <div className="min-w-0">
+                <p className="text-sm text-gray-500 mt-1">这些 pack 已经安装到本机，可以直接用于 Research 搜索和 Agent 选文。</p>
+                {installedPacksExpanded && (
+                  <div className="mt-5">
+                    {loadingInstalledPacks ? (
+                      <div className="text-sm text-gray-500">Loading installed packs...</div>
+                    ) : installedPacks.length === 0 ? (
+                      <div className="text-sm text-gray-500">No installed packs yet. Download packs from GitHub Releases below.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {installedPacks.map((pack) => (
+                          <div key={`${pack.conference}-${pack.year}-${pack.version}`} className="border border-gray-200 rounded-xl px-4 py-3">
                             <div className="font-medium text-gray-900">{pack.pack_name}</div>
                             <div className="text-sm text-gray-500 mt-1">
-                              {pack.conference.toUpperCase()} {pack.year} · {(pack.pack_size_bytes / (1024 * 1024)).toFixed(1)} MB
+                              {pack.conference.toUpperCase()} {pack.year} · {pack.version}
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleUploadPack(pack)}
-                            disabled={uploadingPackKey !== '' || !releaseOwner.trim() || !releaseRepo.trim() || !releaseTag.trim()}
-                            className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                          >
-                            {uploadingPackKey === key ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
-                            Upload
-                          </button>
-                        </div>
-                      );
-                    })}
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
               <div className="border border-gray-200 rounded-2xl p-5">
-                <div className="flex items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">GitHub Releases</h2>
-                    <p className="text-sm text-gray-500 mt-1">Refresh the latest release assets, select the packs you want, then download and install them locally.</p>
-                  </div>
+                <div className="flex items-center justify-between gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setReleasesExpanded((current) => !current)}
+                    className="flex items-center gap-2 text-xl font-semibold text-gray-900"
+                  >
+                    {releasesExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    <span>GitHub Releases</span>
+                  </button>
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
@@ -1266,74 +1080,345 @@ const ResearchCreatePage: React.FC = () => {
                     </button>
                   </div>
                 </div>
+                <p className="text-sm text-gray-500 mt-1">从公网 release 下载 pack 到本机。普通使用者只需要关心这一块。</p>
+                {releasesExpanded && (
+                  <div className="mt-5">
+                    <div className="mb-5 border border-gray-200 rounded-2xl p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900">Release Availability</h3>
+                          <div className="text-sm text-gray-500 mt-1">
+                            {matchingReleaseAssets.length} / {selectedPackTargets.length} selected pack targets are already available in GitHub releases.
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleInstallMatchingPackAssets}
+                          disabled={installingAssets || matchingReleaseAssets.length === 0}
+                          className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          {installingAssets ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                          Download Matching
+                        </button>
+                      </div>
+                      {matchingReleaseAssets.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {matchingReleaseAssets.map((asset) => (
+                            <span
+                              key={`${asset.releaseTag}:${asset.assetName}`}
+                              className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium"
+                            >
+                              {asset.conference.toUpperCase()} {asset.year} · {asset.releaseTag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {missingReleaseTargets.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {missingReleaseTargets.map((item) => (
+                            <span
+                              key={item.key}
+                              className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium"
+                            >
+                              {item.conference.toUpperCase()} {item.year} · not in release
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                <div className="flex items-center justify-between mb-4 text-sm text-gray-600">
+                    <div className="flex items-center justify-between mb-4 text-sm text-gray-600">
+                      <button
+                        type="button"
+                        onClick={handleToggleAllAssets}
+                        disabled={totalReleaseAssets === 0}
+                        className="flex items-center gap-2 hover:text-blue-700 transition-colors"
+                      >
+                        {selectedAssets.size === totalReleaseAssets && totalReleaseAssets > 0 ? <CheckSquare size={18} /> : <Square size={18} />}
+                        Select all assets
+                      </button>
+                      <span>{selectedAssets.size} selected / {totalReleaseAssets} assets</span>
+                    </div>
+
+                    {installMessage && <div className="mb-4 text-sm text-green-700">{installMessage}</div>}
+
+                    {loadingReleases ? (
+                      <div className="text-sm text-gray-500">Loading releases...</div>
+                    ) : releases.length === 0 ? (
+                      <div className="text-sm text-gray-500">No releases found yet.</div>
+                    ) : (
+                      <div className="space-y-4">
+                        {releases.map((release) => (
+                          <div key={release.id} className="border border-gray-200 rounded-2xl p-5">
+                            <div className="flex items-start justify-between gap-4 mb-4">
+                              <div>
+                                <h3 className="font-semibold text-gray-900">{release.name}</h3>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  {release.tag_name}
+                                  {release.published_at ? ` · ${new Date(release.published_at).toLocaleString()}` : ''}
+                                </div>
+                              </div>
+                              <a href={release.html_url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-700">
+                                View release
+                              </a>
+                            </div>
+
+                            {release.assets.length === 0 ? (
+                              <div className="text-sm text-gray-500">No zip assets in this release.</div>
+                            ) : (
+                              <div className="space-y-3">
+                                {release.assets.map((asset) => {
+                                  const selected = selectedAssets.has(assetKey(release.tag_name, asset.name));
+                                  return (
+                                    <button
+                                      key={asset.id}
+                                      type="button"
+                                      onClick={() => toggleAsset(release.tag_name, asset.name)}
+                                      className={`w-full text-left border rounded-xl px-4 py-3 transition-colors ${selected ? 'border-blue-400 bg-blue-50/50' : 'border-gray-200 hover:border-blue-300'}`}
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <div className="mt-1 text-blue-600 shrink-0">
+                                          {selected ? <CheckSquare size={18} /> : <Square size={18} />}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="font-medium text-gray-900">{asset.name}</div>
+                                          <div className="text-sm text-gray-500 mt-1">
+                                            {(asset.size / (1024 * 1024)).toFixed(1)} MB · {asset.download_count} downloads
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="border border-gray-200 rounded-2xl p-5">
+                <div className="flex items-center justify-between gap-4">
                   <button
                     type="button"
-                    onClick={handleToggleAllAssets}
-                    disabled={totalReleaseAssets === 0}
-                    className="flex items-center gap-2 hover:text-blue-700 transition-colors"
+                    onClick={() => setLocalPacksExpanded((current) => !current)}
+                    className="flex items-center gap-2 text-xl font-semibold text-gray-900"
                   >
-                    {selectedAssets.size === totalReleaseAssets && totalReleaseAssets > 0 ? <CheckSquare size={18} /> : <Square size={18} />}
-                    Select all assets
+                    {localPacksExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    <span>Local Packs <span className="text-sm font-medium text-gray-500">（开发者模式）</span></span>
                   </button>
-                  <span>{selectedAssets.size} selected / {totalReleaseAssets} assets</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      fetchPacks();
+                      fetchPackJobs();
+                    }}
+                    disabled={loadingPacks || loadingPackJobs}
+                    className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    {(loadingPacks || loadingPackJobs) ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                    Refresh
+                  </button>
                 </div>
+                <p className="text-sm text-gray-500 mt-1">只有开发者需要本地构建和上传 pack。普通使用者不用管这一块。</p>
+                {localPacksExpanded && (
+                  <div className="mt-5">
+                    <div className="grid grid-cols-1 gap-3 mb-4">
+                      <input
+                        value={releaseOwner}
+                        onChange={(event) => setReleaseOwner(event.target.value)}
+                        placeholder="GitHub owner"
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <input
+                        value={releaseRepo}
+                        onChange={(event) => setReleaseRepo(event.target.value)}
+                        placeholder="GitHub repo"
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <input
+                        value={releaseTag}
+                        onChange={(event) => setReleaseTag(event.target.value)}
+                        placeholder="Release tag"
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
 
-                {installMessage && <div className="mb-4 text-sm text-green-700">{installMessage}</div>}
-
-                {loadingReleases ? (
-                  <div className="text-sm text-gray-500">Loading releases...</div>
-                ) : releases.length === 0 ? (
-                  <div className="text-sm text-gray-500">No releases found yet.</div>
-                ) : (
-                  <div className="space-y-4">
-                    {releases.map((release) => (
-                      <div key={release.id} className="border border-gray-200 rounded-2xl p-5">
-                        <div className="flex items-start justify-between gap-4 mb-4">
-                          <div>
-                            <h3 className="font-semibold text-gray-900">{release.name}</h3>
-                            <div className="text-sm text-gray-500 mt-1">
-                              {release.tag_name}
-                              {release.published_at ? ` · ${new Date(release.published_at).toLocaleString()}` : ''}
-                            </div>
+                    <div className="mb-5 border border-gray-200 rounded-2xl p-4 space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between gap-4 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => setPackYearsExpanded((current) => !current)}
+                            className="flex items-center gap-2 text-sm font-semibold text-gray-900"
+                          >
+                            {packYearsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            <span>Target Years</span>
+                          </button>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={toggleAllPackYears}
+                              disabled={!packTargetOptions || packTargetOptions.years.length === 0}
+                              className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                            >
+                              {allPackYearsSelected ? 'Clear all' : 'Select all'}
+                            </button>
+                            <span className="text-xs text-gray-500">
+                              {selectedPackYears.length > 0 ? effectivePackYears.join(', ') : `Default: ${effectivePackYears.join(', ')}`}
+                            </span>
                           </div>
-                          <a href={release.html_url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-700">
-                            View release
-                          </a>
                         </div>
-
-                        {release.assets.length === 0 ? (
-                          <div className="text-sm text-gray-500">No zip assets in this release.</div>
-                        ) : (
-                          <div className="space-y-3">
-                            {release.assets.map((asset) => {
-                              const selected = selectedAssets.has(assetKey(release.tag_name, asset.name));
-                              return (
-                                <button
-                                  key={asset.id}
-                                  type="button"
-                                  onClick={() => toggleAsset(release.tag_name, asset.name)}
-                                  className={`w-full text-left border rounded-xl px-4 py-3 transition-colors ${selected ? 'border-blue-400 bg-blue-50/50' : 'border-gray-200 hover:border-blue-300'}`}
-                                >
-                                  <div className="flex items-start gap-3">
-                                    <div className="mt-1 text-blue-600 shrink-0">
-                                      {selected ? <CheckSquare size={18} /> : <Square size={18} />}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="font-medium text-gray-900">{asset.name}</div>
-                                      <div className="text-sm text-gray-500 mt-1">
-                                        {(asset.size / (1024 * 1024)).toFixed(1)} MB · {asset.download_count} downloads
-                                      </div>
-                                    </div>
-                                  </div>
-                                </button>
-                              );
-                            })}
+                        {packYearsExpanded && packYearButtons}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between gap-4 mb-2">
+                          <button
+                            type="button"
+                            onClick={() => setPackConferencesExpanded((current) => !current)}
+                            className="flex items-center gap-2 text-sm font-semibold text-gray-900"
+                          >
+                            {packConferencesExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            <span>Target Conferences</span>
+                          </button>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={toggleAllVisiblePackConferences}
+                              disabled={filteredPackConferences.length === 0}
+                              className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                            >
+                              {allVisiblePackConferencesSelected ? 'Clear all' : 'Select all'}
+                            </button>
+                            <span className="text-xs text-gray-500">{selectedPackConferences.length} selected</span>
+                          </div>
+                        </div>
+                        {packConferencesExpanded && (
+                          <div className="max-h-80 overflow-y-auto pr-1">
+                            {packConferenceButtons}
                           </div>
                         )}
                       </div>
-                    ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleBuildPacks}
+                      disabled={buildingPacks || selectedPackConferences.length === 0}
+                      className="w-full mb-4 flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    >
+                      {buildingPacks ? <Loader2 size={18} className="animate-spin" /> : <FolderPlus size={18} />}
+                      One-click Build Selected Packs
+                    </button>
+
+                    {packMessage && <div className="mb-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">{packMessage}</div>}
+
+                    <div className="mb-5 border border-gray-200 rounded-2xl p-4">
+                      <div className="flex items-center justify-between gap-4 mb-3">
+                        <h3 className="text-sm font-semibold text-gray-900">Build Jobs</h3>
+                        <button
+                          type="button"
+                          onClick={fetchPackJobs}
+                          disabled={loadingPackJobs}
+                          className="text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                        >
+                          {loadingPackJobs ? 'Refreshing...' : 'Refresh'}
+                        </button>
+                      </div>
+                      {packJobs.length === 0 ? (
+                        <div className="text-sm text-gray-500">No pack build jobs yet.</div>
+                      ) : (
+                        <div className="space-y-3">
+                          {packJobs.map((job) => (
+                            <div key={job.id} className="border border-gray-200 rounded-xl p-3">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                  <div className="font-medium text-gray-900">
+                                    {job.total_targets} target(s) · {job.version}
+                                  </div>
+                                  <div className="text-sm text-gray-500 mt-1">
+                                    {job.completed_targets}/{job.total_targets} completed
+                                    {job.current_conference && job.current_year ? ` · ${job.current_conference.toUpperCase()} ${job.current_year}` : ''}
+                                    {job.current_stage ? ` · ${job.current_stage}` : ''}
+                                  </div>
+                                </div>
+                                <div className="shrink-0 flex items-center gap-2">
+                                  <span className={clsx(
+                                    'px-2 py-1 rounded-full text-xs font-medium',
+                                    job.status === 'completed' && 'bg-emerald-50 text-emerald-700',
+                                    job.status === 'running' && 'bg-blue-50 text-blue-700',
+                                    job.status === 'queued' && 'bg-amber-50 text-amber-700',
+                                    job.status === 'failed' && 'bg-red-50 text-red-700',
+                                  )}>
+                                    {job.status}
+                                  </span>
+                                  {job.can_resume && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleResumePackJob(job.id)}
+                                      className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-sm hover:bg-slate-800"
+                                    >
+                                      Resume
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
+                                <div
+                                  className={clsx(
+                                    'h-full transition-all',
+                                    job.status === 'failed' ? 'bg-red-500' : 'bg-blue-600',
+                                  )}
+                                  style={{ width: `${job.progress_percent}%` }}
+                                />
+                              </div>
+                              <div className="mt-2 text-xs text-gray-600">
+                                {job.progress_message || 'Waiting to start.'}
+                              </div>
+                              {job.error && (
+                                <div className="mt-2 text-xs text-red-600">
+                                  {job.error}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {loadingPacks ? (
+                      <div className="text-sm text-gray-500">Loading local packs...</div>
+                    ) : packs.length === 0 ? (
+                      <div className="text-sm text-gray-500">No local packs yet.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {packs.map((pack) => {
+                          const key = `${pack.conference}-${pack.year}-${pack.version}`;
+                          return (
+                            <div key={key} className="border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
+                              <div className="min-w-0">
+                                <div className="font-medium text-gray-900">{pack.pack_name}</div>
+                                <div className="text-sm text-gray-500 mt-1">
+                                  {pack.conference.toUpperCase()} {pack.year} · {(pack.pack_size_bytes / (1024 * 1024)).toFixed(1)} MB
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleUploadPack(pack)}
+                                disabled={uploadingPackKey !== '' || !releaseOwner.trim() || !releaseRepo.trim() || !releaseTag.trim()}
+                                className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                              >
+                                {uploadingPackKey === key ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+                                Upload
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

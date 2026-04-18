@@ -115,6 +115,17 @@ class DeepResearchReport(BaseModel):
         from_attributes = True
 
 
+class InstalledResearchPackInfo(BaseModel):
+    conference: str
+    year: int
+    version: str
+    pack_name: str
+    install_dir: str
+    manifest_path: str
+    normalized_path: str
+    embedding_path: str
+
+
 class ConferenceSearchRequest(BaseModel):
     query: str
     conferences: Optional[List[str]] = None

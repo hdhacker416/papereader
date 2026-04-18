@@ -14,6 +14,7 @@ import {
   SelfCheckResponse,
   DeepResearchTaskCreateResponse,
   DeepResearchReport,
+  InstalledResearchPackInfo,
   PackBuildJob,
   ReleaseInstallResponse,
   ReleaseListResponse,
@@ -102,7 +103,7 @@ export const deepResearchApi = {
   generateTaskReport: (taskId: string, data: { query?: string; source_type?: string; source_meta?: string; model_name?: string }) =>
     api.post<DeepResearchReport>(`/deep-research/tasks/${taskId}/report`, data).then(res => res.data),
   getTaskReport: (taskId: string) =>
-    api.get<DeepResearchReport>(`/deep-research/tasks/${taskId}/report`).then(res => res.data),
+    api.get<DeepResearchReport | null>(`/deep-research/tasks/${taskId}/report`).then(res => res.data),
   listReleases: () =>
     api.get<ReleaseListResponse>('/deep-research/releases').then(res => res.data),
   installReleaseAssets: (data: {
@@ -121,6 +122,8 @@ export const deepResearchApi = {
     api.post<PackBuildJob>(`/deep-research/packs/jobs/${jobId}/resume`).then(res => res.data),
   listPacks: () =>
     api.get<ResearchPackInfo[]>('/deep-research/packs').then(res => res.data),
+  listInstalledPacks: () =>
+    api.get<InstalledResearchPackInfo[]>('/deep-research/packs/installed').then(res => res.data),
   buildPacks: (data: {
     conferences?: string[];
     years?: number[];

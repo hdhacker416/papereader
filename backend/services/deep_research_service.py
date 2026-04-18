@@ -1030,6 +1030,25 @@ def list_local_packs() -> list[schemas.ResearchPackInfo]:
     return results
 
 
+def list_installed_packs() -> list[schemas.InstalledResearchPackInfo]:
+    manager = PackManager()
+    results: list[schemas.InstalledResearchPackInfo] = []
+    for item in manager.list_installed():
+        results.append(
+            schemas.InstalledResearchPackInfo(
+                conference=item.conference,
+                year=item.year,
+                version=item.version,
+                pack_name=f"{item.conference}-{str(item.year)[-2:]}",
+                install_dir=str(item.install_dir),
+                manifest_path=str(item.manifest_path),
+                normalized_path=str(item.normalized_path),
+                embedding_path=str(item.embedding_path),
+            )
+        )
+    return results
+
+
 def list_pack_target_options() -> schemas.PackTargetOptionsResponse:
     ensure_paperlists_repo()
     files = list_conference_files()
@@ -1459,11 +1478,11 @@ def generate_task_report(
     return _serialize_report(report)
 
 
-def get_task_report(db: Session, task_id: str) -> schemas.DeepResearchReport:
+def get_task_report(db: Session, task_id: str) -> schemas.DeepResearchReport | None:
     report = db.query(models.DeepResearchReport).join(models.Task).filter(
         models.DeepResearchReport.task_id == task_id,
         models.Task.user_id == DEFAULT_USER_ID,
     ).first()
     if not report:
-        raise HTTPException(status_code=404, detail="Task report not found")
+        return None
     return _serialize_report(report)

@@ -48,6 +48,11 @@ def list_local_packs():
     return deep_research_service.list_local_packs()
 
 
+@router.get("/packs/installed", response_model=list[schemas.InstalledResearchPackInfo])
+def list_installed_packs():
+    return deep_research_service.list_installed_packs()
+
+
 @router.get("/pack-targets", response_model=schemas.PackTargetOptionsResponse)
 def list_pack_target_options():
     return deep_research_service.list_pack_target_options()
@@ -115,7 +120,7 @@ def generate_task_report(
     return report_generation_service.enqueue_task_report_generation(db, task_id, payload)
 
 
-@router.get("/tasks/{task_id}/report", response_model=schemas.DeepResearchReport)
+@router.get("/tasks/{task_id}/report", response_model=schemas.DeepResearchReport | None)
 def get_task_report(
     task_id: str,
     db: Session = Depends(get_db),

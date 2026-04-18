@@ -172,6 +172,17 @@ export interface DeepResearchReport {
   updated_at: string;
 }
 
+export interface InstalledResearchPackInfo {
+  conference: string;
+  year: number;
+  version: string;
+  pack_name: string;
+  install_dir: string;
+  manifest_path: string;
+  normalized_path: string;
+  embedding_path: string;
+}
+
 export interface ReleaseAsset {
   id: number;
   name: string;
