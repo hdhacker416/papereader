@@ -924,7 +924,12 @@ class BoundedResearchRunner:
             for item in reranked_results
         }
         selected_papers = []
-        for item in result["selected_papers"]:
+        raw_selected_papers = result.get("selected_papers") or []
+        if not isinstance(raw_selected_papers, list):
+            raw_selected_papers = []
+        for item in raw_selected_papers:
+            if not isinstance(item, dict):
+                continue
             key = (item["conference"], int(item["year"]), item["paper_id"])
             if key not in valid_keys:
                 continue
@@ -939,14 +944,22 @@ class BoundedResearchRunner:
                 )
             )
         return SearchRoundDecision(
-            continue_search=bool(result["continue_search"]) and remaining_search_rounds > 0,
-            rationale=result["rationale"].strip(),
+            continue_search=bool(result.get("continue_search")) and remaining_search_rounds > 0,
+            rationale=str(result.get("rationale") or "").strip(),
             additional_queries=self._sanitize_queries_for_scope(
-                queries=[item.strip() for item in result["additional_queries"] if item.strip()],
+                queries=[
+                    str(item).strip()
+                    for item in (result.get("additional_queries") or [])
+                    if str(item).strip()
+                ],
                 conferences=brief.target_conferences,
                 years=brief.target_years,
             ),
-            missing_axes=[item.strip() for item in result["missing_axes"] if item.strip()],
+            missing_axes=[
+                str(item).strip()
+                for item in (result.get("missing_axes") or [])
+                if str(item).strip()
+            ],
             selected_papers=selected_papers,
         )
 
