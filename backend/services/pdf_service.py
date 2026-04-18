@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 ARXIV_RETRY_STATUS_CODES = {429, 500, 502, 503, 504}
 ARXIV_RETRY_SLEEP_SECONDS = 5
 ARXIV_MAX_DOWNLOAD_ATTEMPTS = 4
+OPENREVIEW_RETRY_STATUS_CODES = {403, 429, 500, 502, 503, 504}
+OPENREVIEW_RETRY_SLEEP_SECONDS = 5
+OPENREVIEW_MAX_DOWNLOAD_ATTEMPTS = 4
 
 
 @dataclass(frozen=True)
@@ -39,6 +42,21 @@ def _normalize_pdf_url(url: str) -> str:
         normalized = normalized.replace("arxiv.org", "export.arxiv.org")
 
     return normalized
+
+
+def _retry_policy_for_url(url: str) -> tuple[set[int], int, int]:
+    lower = url.lower()
+    if "openreview.net" in lower:
+        return (
+            OPENREVIEW_RETRY_STATUS_CODES,
+            OPENREVIEW_RETRY_SLEEP_SECONDS,
+            OPENREVIEW_MAX_DOWNLOAD_ATTEMPTS,
+        )
+    return (
+        ARXIV_RETRY_STATUS_CODES,
+        ARXIV_RETRY_SLEEP_SECONDS,
+        ARXIV_MAX_DOWNLOAD_ATTEMPTS,
+    )
 
 
 def download_pdf_with_details(url: str, save_path: str) -> PdfDownloadResult:
@@ -72,26 +90,28 @@ def download_pdf_with_details(url: str, save_path: str) -> PdfDownloadResult:
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
 
+    retry_status_codes, retry_sleep_seconds, max_attempts = _retry_policy_for_url(pdf_url)
+
     last_error: str | None = None
     last_status_code: int | None = None
     last_response_url: str | None = None
 
-    for attempt in range(1, ARXIV_MAX_DOWNLOAD_ATTEMPTS + 1):
+    for attempt in range(1, max_attempts + 1):
         try:
             response = requests.get(pdf_url, headers=headers, stream=True, timeout=60, allow_redirects=True)
             last_status_code = response.status_code
             last_response_url = response.url
 
-            if response.status_code in ARXIV_RETRY_STATUS_CODES and attempt < ARXIV_MAX_DOWNLOAD_ATTEMPTS:
+            if response.status_code in retry_status_codes and attempt < max_attempts:
                 logger.warning(
                     "PDF download hit status %s for %s on attempt %s/%s. Sleeping %ss before retry.",
                     response.status_code,
                     pdf_url,
                     attempt,
-                    ARXIV_MAX_DOWNLOAD_ATTEMPTS,
-                    ARXIV_RETRY_SLEEP_SECONDS,
+                    max_attempts,
+                    retry_sleep_seconds,
                 )
-                time.sleep(ARXIV_RETRY_SLEEP_SECONDS)
+                time.sleep(retry_sleep_seconds)
                 continue
 
             response.raise_for_status()
@@ -122,13 +142,13 @@ def download_pdf_with_details(url: str, save_path: str) -> PdfDownloadResult:
             )
         except Exception as e:
             last_error = str(e)
-            logger.error("Failed to download PDF on attempt %s/%s: %s", attempt, ARXIV_MAX_DOWNLOAD_ATTEMPTS, e)
+            logger.error("Failed to download PDF on attempt %s/%s: %s", attempt, max_attempts, e)
             if os.path.exists(local_path):
                 try:
                     os.remove(local_path)
                 except OSError:
                     pass
-            if attempt >= ARXIV_MAX_DOWNLOAD_ATTEMPTS:
+            if attempt >= max_attempts:
                 break
 
     return PdfDownloadResult(

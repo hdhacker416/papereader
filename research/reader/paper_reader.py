@@ -105,7 +105,27 @@ class PaperReader:
             )
 
         pdf_path = self._pdf_path_for_paper(paper)
+        resolved_source = resolved
         download_result = download_pdf_with_details(resolved.pdf_url, str(pdf_path))
+        if not download_result.ok and resolved.source == "openreview":
+            fallback = search_arxiv(str(paper.get("title", "")).strip())
+            if fallback and fallback.get("pdf_url"):
+                fallback_resolved = ResolvedPaperSource(
+                    source=fallback.get("source", "arxiv"),
+                    pdf_url=fallback["pdf_url"],
+                    source_url=fallback.get("source_url", ""),
+                    title=fallback.get("title", str(paper.get("title", "")).strip()),
+                    abstract=fallback.get("abstract", str(paper.get("abstract", "")).strip()),
+                    authors=list(fallback.get("authors") or paper.get("authors") or []),
+                )
+                fallback_download_result = download_pdf_with_details(
+                    fallback_resolved.pdf_url,
+                    str(pdf_path),
+                )
+                if fallback_download_result.ok:
+                    resolved_source = fallback_resolved
+                    download_result = fallback_download_result
+
         if not download_result.ok:
             return PaperReadingResult(
                 paper=paper,
@@ -113,7 +133,7 @@ class PaperReader:
                 download_status="failed",
                 read_status="skipped",
                 local_pdf_path=str(pdf_path),
-                resolved_source=resolved,
+                resolved_source=resolved_source,
                 reading_text=None,
                 reading_turns=[],
                 error=(
@@ -136,7 +156,7 @@ class PaperReader:
                 download_status="downloaded",
                 read_status="cached",
                 local_pdf_path=str(pdf_path),
-                resolved_source=resolved,
+                resolved_source=resolved_source,
                 reading_text=cached.get("reading_text"),
                 reading_turns=cached.get("reading_turns", []),
                 error=None,
@@ -166,7 +186,7 @@ class PaperReader:
             json.dumps(
                 {
                     "paper": paper,
-                    "resolved_source": asdict(resolved),
+                    "resolved_source": asdict(resolved_source),
                     "prompt_cache_key": prompt_cache_key,
                     "prompts": prompts,
                     "reading_text": reading_text,
@@ -184,7 +204,7 @@ class PaperReader:
             download_status="downloaded",
             read_status="completed",
             local_pdf_path=str(pdf_path),
-            resolved_source=resolved,
+            resolved_source=resolved_source,
             reading_text=reading_text,
             reading_turns=reading_turns,
             error=None,

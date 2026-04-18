@@ -16,6 +16,14 @@ MAX_CONCURRENT_PAPERS = 3
 executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_PAPERS)
 
 
+def _should_try_arxiv_fallback(search_result: dict | None, download_result) -> bool:
+    if not search_result or search_result.get("source") != "openreview":
+        return False
+    if download_result.ok:
+        return False
+    return True
+
+
 def resolve_existing_source(source_url: str | None):
     if not source_url:
         return None
@@ -152,6 +160,31 @@ async def process_paper(paper_id: str):
             pdf_url,
             save_path,
         )
+
+        if _should_try_arxiv_fallback(search_result, download_result):
+            logger.warning(
+                "OpenReview download failed for '%s' (%s). Trying arXiv fallback.",
+                paper.title,
+                paper.id,
+            )
+            fallback_result = await asyncio.get_event_loop().run_in_executor(
+                executor,
+                arxiv_service.search_arxiv,
+                paper.title,
+            )
+            if fallback_result and fallback_result.get("pdf_url"):
+                fallback_download_result = await asyncio.get_event_loop().run_in_executor(
+                    executor,
+                    pdf_service.download_pdf_with_details,
+                    fallback_result["pdf_url"],
+                    save_path,
+                )
+                if fallback_download_result.ok:
+                    search_result = fallback_result
+                    download_result = fallback_download_result
+                    paper.source = fallback_result["source"]
+                    paper.source_url = fallback_result["source_url"]
+                    db.commit()
 
         if not download_result.ok:
             paper.status = "failed"
