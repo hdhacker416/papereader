@@ -740,9 +740,17 @@ const ResearchCreatePage: React.FC = () => {
       setSelfCheckResult(result);
     } catch (error) {
       console.error('Failed to run self-check:', error);
+      const status = typeof error === 'object' && error && 'response' in error
+        ? Number((error as { response?: { status?: number } }).response?.status)
+        : undefined;
+      const summary = status === 404
+        ? '自检接口不存在。当前后端版本太旧，请拉最新代码并重启后端。'
+        : status
+          ? `自检请求失败，后端返回了 HTTP ${status}。`
+          : '自检请求失败，后端没有正常返回结果。';
       setSelfCheckResult({
         overall_status: 'error',
-        summary: '自检请求失败，后端没有正常返回结果。',
+        summary,
         checked_at: new Date().toISOString(),
         items: [],
       });
