@@ -130,6 +130,23 @@ export interface DeepResearchTargetOptionsResponse {
   default_years: number[];
 }
 
+export interface SelfCheckItem {
+  key: string;
+  label: string;
+  status: 'ok' | 'warning' | 'error';
+  severity: 'required' | 'optional';
+  message: string;
+  hint?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface SelfCheckResponse {
+  overall_status: 'ok' | 'warning' | 'error';
+  summary: string;
+  checked_at: string;
+  items: SelfCheckItem[];
+}
+
 export interface DeepResearchTaskCreateResponse {
   ok: boolean;
   task_id: string;

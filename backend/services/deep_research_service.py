@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import datetime
 import json
 import os
 import re
@@ -33,8 +34,10 @@ from research.build.build_online_assets import build_online_assets, write_summar
 from research.build.packager import Packager
 from research.build.paperlists_repo import ensure_paperlists_repo, list_conference_files
 from research.pipeline.search_pipeline import load_search_assets
+from research.providers.dashscope_embedding import DashScopeEmbeddingClient
 from research.targeting import CONFERENCE_DISPLAY_NAMES, conference_display_name, normalize_target_years
 from research.tools.search_tools import DEFAULT_SUMMARY_PATH
+from research.tools.search_tools import load_default_search_assets
 from research.tools.search_tools import SearchTools
 from research.runtime.pack_manager import PackManager, RemotePackSpec
 
@@ -539,7 +542,9 @@ def _get_template_id(db: Session, template_id: str | None) -> str:
 
 
 def _load_target_assets():
-    return load_search_assets(DEFAULT_SUMMARY_PATH)
+    if DEFAULT_SUMMARY_PATH.exists():
+        return load_search_assets(DEFAULT_SUMMARY_PATH)
+    return load_default_search_assets()
 
 
 def _available_target_years() -> list[int]:
@@ -548,6 +553,245 @@ def _available_target_years() -> list[int]:
 
 def _effective_target_years(years: list[int] | None) -> list[int]:
     return normalize_target_years(years, available_years=_available_target_years())
+
+
+def _ensure_search_assets_available() -> None:
+    if _load_target_assets():
+        return
+    raise HTTPException(
+        status_code=400,
+        detail="No searchable research data is installed on this machine. Download packs from GitHub Releases first.",
+    )
+
+
+def run_self_check() -> schemas.SelfCheckResponse:
+    items: list[schemas.SelfCheckItem] = []
+
+    def add_item(
+        *,
+        key: str,
+        label: str,
+        status: str,
+        severity: str,
+        message: str,
+        hint: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        items.append(
+            schemas.SelfCheckItem(
+                key=key,
+                label=label,
+                status=status,
+                severity=severity,
+                message=message,
+                hint=hint,
+                details=details,
+            )
+        )
+
+    db_path = ROOT_DIR / "data" / "app.db"
+    add_item(
+        key="project_root",
+        label="项目目录",
+        status="ok" if ROOT_DIR.exists() else "error",
+        severity="required",
+        message=f"项目根目录: {ROOT_DIR}",
+        details={"path": str(ROOT_DIR)},
+    )
+    add_item(
+        key="database",
+        label="本地数据库",
+        status="ok" if db_path.exists() else "warning",
+        severity="required",
+        message="数据库文件已存在" if db_path.exists() else "数据库文件尚未生成",
+        hint=None if db_path.exists() else "先启动一次后端，系统会自动创建 data/app.db。",
+        details={"path": str(db_path)},
+    )
+
+    paperlists_dir = ROOT_DIR / "data" / "resource" / "paperlists"
+    paperlists_exists = paperlists_dir.exists()
+    add_item(
+        key="paperlists",
+        label="原始会议资源",
+        status="ok" if paperlists_exists else "warning",
+        severity="optional",
+        message="已找到 paperlists 原始资源" if paperlists_exists else "未找到 paperlists 原始资源",
+        hint=None if paperlists_exists else "如果这台机器只负责使用，不负责构建 pack，可以忽略；如果要本地构建 pack，请同步 data/resource/paperlists。",
+        details={"path": str(paperlists_dir)},
+    )
+
+    installed_packs = PackManager().list_installed()
+    add_item(
+        key="installed_packs",
+        label="已安装搜索数据",
+        status="ok" if installed_packs else "warning",
+        severity="required",
+        message=f"已安装 {len(installed_packs)} 个 pack" if installed_packs else "本机还没有安装任何 research pack",
+        hint=None if installed_packs else "先去 Packs 页面，从 GitHub Releases 下载需要的会议包。",
+        details={
+            "count": len(installed_packs),
+            "sample": [
+                f"{item.conference}-{item.year}-{item.version}"
+                for item in installed_packs[:5]
+            ],
+        },
+    )
+
+    assets = _load_target_assets()
+    add_item(
+        key="search_assets",
+        label="可搜索资产",
+        status="ok" if assets else "warning",
+        severity="required",
+        message=f"当前可搜索资产 {len(assets)} 个" if assets else "当前没有可搜索资产",
+        hint=None if assets else "安装 pack 之后，Research 页面才能真正执行搜索。",
+        details={
+            "count": len(assets),
+            "sample": [f"{asset.conference}-{asset.year}" for asset in assets[:8]],
+        },
+    )
+
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_key:
+        add_item(
+            key="gemini_api",
+            label="Gemini API",
+            status="error",
+            severity="required",
+            message="GEMINI_API_KEY 未配置",
+            hint="在后端环境或 backend/.env 中配置 GEMINI_API_KEY。",
+        )
+    else:
+        try:
+            client = genai.Client(api_key=gemini_key, http_options={"api_version": "v1beta"})
+            response = client.models.generate_content(
+                model="gemini-3-flash-preview",
+                contents="ping",
+                config=types.GenerateContentConfig(max_output_tokens=1),
+            )
+            add_item(
+                key="gemini_api",
+                label="Gemini API",
+                status="ok",
+                severity="required",
+                message="Gemini API 可用",
+                details={
+                    "model": "gemini-3-flash-preview",
+                    "response_preview": (getattr(response, "text", "") or "").strip()[:40],
+                },
+            )
+        except Exception as exc:
+            add_item(
+                key="gemini_api",
+                label="Gemini API",
+                status="error",
+                severity="required",
+                message=f"Gemini API 检查失败: {exc}",
+                hint="确认 API key 正确、账户可用，并且目标模型有权限访问。",
+            )
+
+    dashscope_key = os.getenv("DASHSCOPE_API_KEY")
+    if not dashscope_key:
+        add_item(
+            key="dashscope_api",
+            label="DashScope API",
+            status="error",
+            severity="required",
+            message="DASHSCOPE_API_KEY 未配置",
+            hint="在后端环境或 shell 环境中配置 DASHSCOPE_API_KEY。",
+        )
+    else:
+        try:
+            embedding_client = DashScopeEmbeddingClient(api_key=dashscope_key, batch_size=1)
+            result = embedding_client.embed_text("ping")
+            add_item(
+                key="dashscope_api",
+                label="DashScope API",
+                status="ok",
+                severity="required",
+                message="DashScope embedding API 可用",
+                details={"embedding_dim": len(result.embedding)},
+            )
+        except Exception as exc:
+            add_item(
+                key="dashscope_api",
+                label="DashScope API",
+                status="error",
+                severity="required",
+                message=f"DashScope API 检查失败: {exc}",
+                hint="确认百炼 API key 正确，且 embedding 服务已开通。",
+            )
+
+    github_token = os.getenv("GITHUB_TOKEN")
+    if not github_token:
+        add_item(
+            key="github_api",
+            label="GitHub Release 上传",
+            status="warning",
+            severity="optional",
+            message="GITHUB_TOKEN 未配置",
+            hint="如果这台机器只负责搜索和阅读，可以忽略；如果要上传 packs，请配置 GITHUB_TOKEN。",
+        )
+    else:
+        try:
+            response = requests.get(
+                "https://api.github.com/user",
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"Bearer {github_token}",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+                timeout=20,
+            )
+            if response.status_code == 200:
+                payload = response.json()
+                add_item(
+                    key="github_api",
+                    label="GitHub Release 上传",
+                    status="ok",
+                    severity="optional",
+                    message="GitHub token 可用",
+                    details={"login": payload.get("login")},
+                )
+            else:
+                add_item(
+                    key="github_api",
+                    label="GitHub Release 上传",
+                    status="warning",
+                    severity="optional",
+                    message=f"GitHub token 检查失败: HTTP {response.status_code}",
+                    hint="如果要上传 pack，请确认 token 仍然有效，并有目标仓库的写权限。",
+                )
+        except Exception as exc:
+            add_item(
+                key="github_api",
+                label="GitHub Release 上传",
+                status="warning",
+                severity="optional",
+                message=f"GitHub token 检查失败: {exc}",
+                hint="如果要上传 pack，请确认网络可用且 token 正确。",
+            )
+
+    required_errors = [item for item in items if item.severity == "required" and item.status == "error"]
+    required_warnings = [item for item in items if item.severity == "required" and item.status == "warning"]
+    optional_warnings = [item for item in items if item.severity == "optional" and item.status != "ok"]
+
+    if required_errors:
+        overall_status = "error"
+        summary = f"自检发现 {len(required_errors)} 个关键问题，系统还不能完整工作。"
+    elif required_warnings or optional_warnings:
+        overall_status = "warning"
+        summary = "自检通过，但有一些缺失项需要补齐。"
+    else:
+        overall_status = "ok"
+        summary = "自检通过，核心环境和 API 都可用。"
+
+    return schemas.SelfCheckResponse(
+        overall_status=overall_status,
+        summary=summary,
+        checked_at=datetime.datetime.utcnow(),
+        items=items,
+    )
 
 
 def _to_chinese_breadth_mode(value: str) -> str:
@@ -1004,6 +1248,7 @@ def _resolve_or_build_local_pack(
 
 
 def search_conference_papers(payload: schemas.ConferenceSearchRequest) -> schemas.ConferenceSearchResponse:
+    _ensure_search_assets_available()
     tools = SearchTools()
     effective_years = _effective_target_years(payload.years)
     result = tools.coarse_search(
@@ -1036,6 +1281,7 @@ def create_task_from_selection(
         raise HTTPException(status_code=400, detail="selected_papers is required")
 
     template_id = _get_template_id(db, payload.template_id)
+    _ensure_search_assets_available()
     tools = SearchTools()
     paper_refs = [item.model_dump() for item in payload.selected_papers]
     details = tools.get_paper_details(paper_refs)
@@ -1081,6 +1327,7 @@ def create_task_from_auto_research(
     db: Session,
     payload: schemas.AutoResearchTaskCreate,
 ) -> schemas.DeepResearchTaskCreateResponse:
+    _ensure_search_assets_available()
     template_id = _get_template_id(db, payload.template_id)
     effective_max_search_rounds = min(20, max(1, int(payload.max_search_rounds or 3)))
     effective_max_queries_per_round = min(10, max(1, int(payload.max_queries_per_round or 4)))

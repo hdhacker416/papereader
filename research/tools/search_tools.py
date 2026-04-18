@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import json
 from pathlib import Path
 from typing import Iterable
 
@@ -9,6 +10,7 @@ from research.pipeline.search_pipeline import SearchAsset, SearchPipeline, load_
 from research.providers.dashscope_embedding import DashScopeEmbeddingClient
 from research.providers.dashscope_rerank import DashScopeRerankClient
 from research.retrieval.embedding_index import IndexedPaper, load_normalized_jsonl
+from research.runtime.pack_manager import PackManager
 
 
 SUMMARY_PATH_CANDIDATES = [
@@ -89,13 +91,47 @@ def _normalize_conference_name(name: str) -> str:
     return CONFERENCE_ALIASES.get(value, value)
 
 
+def load_default_search_assets() -> list[SearchAsset]:
+    for path in SUMMARY_PATH_CANDIDATES:
+        if path.exists():
+            return load_search_assets(path)
+
+    installed = PackManager().list_installed()
+    if installed:
+        assets: list[SearchAsset] = []
+        for item in installed:
+            if not item.normalized_path.exists() or not item.embedding_path.exists():
+                continue
+            paper_count = 0
+            try:
+                manifest = json.loads(item.manifest_path.read_text(encoding="utf-8"))
+                paper_count = int(manifest.get("paper_count") or 0)
+            except Exception:
+                paper_count = 0
+            assets.append(
+                SearchAsset(
+                    conference=item.conference,
+                    year=item.year,
+                    paper_count=paper_count,
+                    normalized_path=item.normalized_path,
+                    embedding_path=item.embedding_path,
+                )
+            )
+        return assets
+
+    return []
+
+
 class SearchTools:
     def __init__(
         self,
-        summary_path: Path = DEFAULT_SUMMARY_PATH,
+        summary_path: Path | None = DEFAULT_SUMMARY_PATH,
     ) -> None:
         self.summary_path = summary_path
-        self.assets = load_search_assets(summary_path)
+        if summary_path is not None and summary_path.exists():
+            self.assets = load_search_assets(summary_path)
+        else:
+            self.assets = load_default_search_assets()
         self.pipeline = SearchPipeline(
             embedding_client=DashScopeEmbeddingClient(batch_size=10),
             rerank_client=DashScopeRerankClient(),

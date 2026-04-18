@@ -26,6 +26,11 @@ def list_target_options():
     return deep_research_service.list_target_options()
 
 
+@router.get("/self-check", response_model=schemas.SelfCheckResponse)
+def run_self_check():
+    return deep_research_service.run_self_check()
+
+
 @router.get("/releases", response_model=schemas.ReleaseListResponse)
 def list_release_packs():
     return deep_research_service.list_release_packs()

@@ -11,6 +11,7 @@ import {
   PackTargetOptionsResponse,
   ReleaseInfo,
   ResearchPackInfo,
+  SelfCheckResponse,
   Template,
 } from '../types';
 import clsx from 'clsx';
@@ -124,6 +125,8 @@ const ResearchCreatePage: React.FC = () => {
   const [packYearsExpanded, setPackYearsExpanded] = useState(true);
   const [packConferencesExpanded, setPackConferencesExpanded] = useState(true);
   const [preferencesHydrated, setPreferencesHydrated] = useState(false);
+  const [selfChecking, setSelfChecking] = useState(false);
+  const [selfCheckResult, setSelfCheckResult] = useState<SelfCheckResponse | null>(null);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -244,6 +247,7 @@ const ResearchCreatePage: React.FC = () => {
         0,
       );
   }, [effectiveTargetYears, selectedTargetConferences, targetOptions]);
+  const hasLocalResearchData = (targetOptions?.conferences.length || 0) > 0;
 
   const normalizedSearchTopKPerAsset = Math.max(1, Math.floor(searchTopKPerAsset));
   const normalizedSearchTopKGlobal = Math.max(normalizedSearchTopKPerAsset, Math.floor(searchTopKGlobal));
@@ -726,6 +730,27 @@ const ResearchCreatePage: React.FC = () => {
     }
   };
 
+  const handleRunSelfCheck = async () => {
+    if (selfChecking) {
+      return;
+    }
+    setSelfChecking(true);
+    try {
+      const result = await deepResearchApi.runSelfCheck();
+      setSelfCheckResult(result);
+    } catch (error) {
+      console.error('Failed to run self-check:', error);
+      setSelfCheckResult({
+        overall_status: 'error',
+        summary: '自检请求失败，后端没有正常返回结果。',
+        checked_at: new Date().toISOString(),
+        items: [],
+      });
+    } finally {
+      setSelfChecking(false);
+    }
+  };
+
   const targetYearButtons = targetOptions ? (
     <div className="flex flex-wrap gap-2">
       {targetOptions.years.map((year) => {
@@ -870,6 +895,81 @@ const ResearchCreatePage: React.FC = () => {
           >
             Packs
           </button>
+        </div>
+
+        <div className="mb-6 border border-gray-200 rounded-2xl p-5 bg-white">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">环境自检</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                检查关键环境变量、已安装搜索数据，以及 Gemini / DashScope / GitHub 的可用性。
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleRunSelfCheck}
+              disabled={selfChecking}
+              className="shrink-0 flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              {selfChecking ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+              {selfChecking ? 'Checking...' : 'Run Self-check'}
+            </button>
+          </div>
+
+          {selfCheckResult && (
+            <div className="mt-4 space-y-3">
+              <div
+                className={clsx(
+                  'rounded-xl px-4 py-3 text-sm border',
+                  selfCheckResult.overall_status === 'ok' && 'bg-emerald-50 border-emerald-200 text-emerald-800',
+                  selfCheckResult.overall_status === 'warning' && 'bg-amber-50 border-amber-200 text-amber-800',
+                  selfCheckResult.overall_status === 'error' && 'bg-red-50 border-red-200 text-red-800',
+                )}
+              >
+                <div className="font-medium">{selfCheckResult.summary}</div>
+                <div className="mt-1 text-xs opacity-80">
+                  Checked at {new Date(selfCheckResult.checked_at).toLocaleString()}
+                </div>
+              </div>
+              {selfCheckResult.items.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {selfCheckResult.items.map((item) => (
+                    <div key={item.key} className="border border-gray-200 rounded-xl px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900">{item.label}</div>
+                          <div className="text-sm text-gray-700 mt-1">{item.message}</div>
+                        </div>
+                        <span
+                          className={clsx(
+                            'shrink-0 px-2 py-1 rounded-full text-xs font-medium',
+                            item.status === 'ok' && 'bg-emerald-50 text-emerald-700',
+                            item.status === 'warning' && 'bg-amber-50 text-amber-700',
+                            item.status === 'error' && 'bg-red-50 text-red-700',
+                          )}
+                        >
+                          {item.status}
+                        </span>
+                      </div>
+                      {item.hint && (
+                        <div className="mt-2 text-xs text-gray-500">{item.hint}</div>
+                      )}
+                      {item.details && Object.keys(item.details).length > 0 && (
+                        <div className="mt-2 text-xs text-gray-500 break-all">
+                          {Object.entries(item.details).map(([key, value]) => (
+                            <div key={key}>
+                              <span className="font-medium text-gray-600">{key}:</span>{' '}
+                              {Array.isArray(value) ? value.join(', ') : String(value)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {workflow === 'packs' ? (
@@ -1297,6 +1397,12 @@ const ResearchCreatePage: React.FC = () => {
                   <span className="text-sm text-gray-500">{selectedTargetConferences.length} conferences</span>
                 </div>
 
+                {!loading && !hasLocalResearchData && (
+                  <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    This machine has no installed research packs yet. Go to <span className="font-semibold">Packs</span> and download the conference packs you need from GitHub Releases first.
+                  </div>
+                )}
+
                 {loading ? (
                   <div className="text-sm text-gray-500">Loading scope...</div>
                 ) : (
@@ -1434,7 +1540,7 @@ const ResearchCreatePage: React.FC = () => {
                 <div className="space-y-3 mt-6">
                   <button
                     onClick={handleSearch}
-                    disabled={searching || !query.trim() || selectedTargetConferences.length === 0}
+                    disabled={searching || !query.trim() || selectedTargetConferences.length === 0 || !hasLocalResearchData}
                     className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
                     {searching ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
@@ -1442,7 +1548,7 @@ const ResearchCreatePage: React.FC = () => {
                   </button>
                   <button
                     onClick={handleAutoCreateTask}
-                    disabled={creatingTask || !query.trim() || selectedTargetConferences.length === 0}
+                    disabled={creatingTask || !query.trim() || selectedTargetConferences.length === 0 || !hasLocalResearchData}
                     className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50"
                   >
                     {creatingTask ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}

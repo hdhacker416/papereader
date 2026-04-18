@@ -159,6 +159,23 @@ class DeepResearchTargetOptionsResponse(BaseModel):
     default_years: List[int]
 
 
+class SelfCheckItem(BaseModel):
+    key: str
+    label: str
+    status: str
+    severity: str
+    message: str
+    hint: Optional[str] = None
+    details: Optional[dict] = None
+
+
+class SelfCheckResponse(BaseModel):
+    overall_status: str
+    summary: str
+    checked_at: datetime
+    items: List[SelfCheckItem]
+
+
 class TaskPaperSelection(BaseModel):
     paper_id: str
     conference: str
