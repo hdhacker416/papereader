@@ -92,6 +92,7 @@ class ReReadRequest(BaseModel):
     template_id: Optional[str] = None
     model_name: Optional[str] = None
     custom_reading_prompts: Optional[List[str]] = None
+    only_failed: bool = False
 
 
 class DeepResearchReport(BaseModel):

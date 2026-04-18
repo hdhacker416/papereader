@@ -167,10 +167,15 @@ const TaskDetailPage: React.FC = () => {
     }
   };
 
-  const handleReRead = async (templateId: string, modelName: string, customReadingPrompts: string[]) => {
+  const handleReRead = async (
+    templateId: string,
+    modelName: string,
+    customReadingPrompts: string[],
+    onlyFailed: boolean,
+  ) => {
     if (!id) return;
     try {
-      await tasksApi.reRead(id, templateId, modelName, customReadingPrompts);
+      await tasksApi.reRead(id, templateId, modelName, customReadingPrompts, onlyFailed);
       fetchData();
     } catch (error) {
       console.error('Failed to reread task:', error);

@@ -97,8 +97,10 @@ def reread_task(task_id: str, request: schemas.ReReadRequest, db: Session = Depe
     if request.custom_reading_prompts is not None:
         task.custom_reading_prompts_json = serialize_prompt_list(request.custom_reading_prompts)
     
-    # Reset all papers in task
-    papers = db.query(models.Paper).filter(models.Paper.task_id == task.id).all()
+    papers_query = db.query(models.Paper).filter(models.Paper.task_id == task.id)
+    if request.only_failed:
+        papers_query = papers_query.filter(models.Paper.status == "failed")
+    papers = papers_query.all()
     for paper in papers:
         paper.status = "queued"
         paper.failure_reason = None

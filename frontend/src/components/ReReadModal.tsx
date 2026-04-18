@@ -7,7 +7,12 @@ import { Template } from '../types';
 interface ReReadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (templateId: string, modelName: string, customReadingPrompts: string[]) => Promise<void>;
+  onConfirm: (
+    templateId: string,
+    modelName: string,
+    customReadingPrompts: string[],
+    onlyFailed: boolean,
+  ) => Promise<void>;
   title: string;
   initialTemplateId?: string;
   initialModelName?: string;
@@ -27,6 +32,7 @@ const ReReadModal: React.FC<ReReadModalProps> = ({
   const [modelName, setModelName] = useState('gemini-3-flash-preview');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [customReadingPrompts, setCustomReadingPrompts] = useState<string[]>(['']);
+  const [onlyFailed, setOnlyFailed] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -59,6 +65,7 @@ const ReReadModal: React.FC<ReReadModalProps> = ({
     if (!isOpen) {
       return;
     }
+    setOnlyFailed(false);
     if (initialPrompts && initialPrompts.length > 0) {
       return;
     }
@@ -76,6 +83,7 @@ const ReReadModal: React.FC<ReReadModalProps> = ({
         templateId,
         modelName,
         customReadingPrompts.map((item) => item.trim()).filter(Boolean),
+        onlyFailed,
       );
       onClose();
     } catch (error) {
@@ -99,7 +107,7 @@ const ReReadModal: React.FC<ReReadModalProps> = ({
 
         <h2 className="text-xl font-semibold mb-4">{title}</h2>
         <p className="text-sm text-gray-500 mb-6">
-          This will re-process all papers in this task/collection using the selected configuration.
+          This will re-process papers in this task/collection using the selected configuration.
           Existing interpretations will be overwritten.
         </p>
 
@@ -137,6 +145,21 @@ const ReReadModal: React.FC<ReReadModalProps> = ({
             prompts={customReadingPrompts}
             onChange={setCustomReadingPrompts}
           />
+
+          <label className="flex items-start gap-3 rounded-lg border border-gray-200 px-3 py-2">
+            <input
+              type="checkbox"
+              checked={onlyFailed}
+              onChange={(e) => setOnlyFailed(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div>
+              <div className="text-sm font-medium text-gray-900">Only re-read failed papers</div>
+              <div className="text-xs text-gray-500">
+                Leave unchecked to queue all papers again.
+              </div>
+            </div>
+          </label>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">

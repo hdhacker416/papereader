@@ -40,8 +40,19 @@ export const tasksApi = {
   batchDelete: (ids: string[]) => api.post<{deleted: number}>('/tasks/batch-delete', { ids }).then(res => res.data),
   addPapers: (id: string, data: AddPapersPayload) => api.post<Paper[]>(`/tasks/${id}/papers`, data).then(res => res.data),
   getPapers: (id: string) => api.get<Paper[]>(`/tasks/${id}/papers`).then(res => res.data),
-  reRead: (id: string, template_id?: string, model_name?: string, custom_reading_prompts?: string[]) =>
-    api.post<{ok: boolean, count: number}>(`/tasks/${id}/reread`, { template_id, model_name, custom_reading_prompts }).then(res => res.data),
+  reRead: (
+    id: string,
+    template_id?: string,
+    model_name?: string,
+    custom_reading_prompts?: string[],
+    only_failed?: boolean,
+  ) =>
+    api.post<{ok: boolean, count: number}>(`/tasks/${id}/reread`, {
+      template_id,
+      model_name,
+      custom_reading_prompts,
+      only_failed,
+    }).then(res => res.data),
 };
 
 export const papersApi = {
@@ -63,7 +74,12 @@ export const collectionsApi = {
   addPaper: (collectionId: string, paperId: string) => api.post(`/collections/${collectionId}/papers/${paperId}`).then(res => res.data),
   removePaper: (collectionId: string, paperId: string) => api.delete(`/collections/${collectionId}/papers/${paperId}`).then(res => res.data),
   getPaperCollections: (paperId: string) => api.get<Collection[]>(`/collections/paper/${paperId}`).then(res => res.data),
-  reRead: (id: string, template_id?: string, model_name?: string) => api.post<{ok: boolean, count: number}>(`/collections/${id}/reread`, { template_id, model_name }).then(res => res.data),
+  reRead: (id: string, template_id?: string, model_name?: string, only_failed?: boolean) =>
+    api.post<{ok: boolean, count: number}>(`/collections/${id}/reread`, {
+      template_id,
+      model_name,
+      only_failed,
+    }).then(res => res.data),
 };
 
 export const deepResearchApi = {
