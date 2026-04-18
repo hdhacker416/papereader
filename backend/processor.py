@@ -146,11 +146,21 @@ async def process_paper(paper_id: str):
         rel_path = os.path.join("pdfs", paper.task_id, f"{paper.id}.pdf")
         save_path = os.path.join(DATA_DIR, rel_path)
         
-        success = await asyncio.get_event_loop().run_in_executor(executor, pdf_service.download_pdf, pdf_url, save_path)
-        
-        if not success:
+        download_result = await asyncio.get_event_loop().run_in_executor(
+            executor,
+            pdf_service.download_pdf_with_details,
+            pdf_url,
+            save_path,
+        )
+
+        if not download_result.ok:
             paper.status = "failed"
-            paper.failure_reason = "Failed to download PDF"
+            paper.failure_reason = (
+                f"Failed to download PDF from {download_result.url}. "
+                f"Final URL: {download_result.final_url or '-'}; "
+                f"Status: {download_result.status_code or '-'}; "
+                f"Error: {download_result.error or 'Unknown error'}"
+            )
             log_error_to_chat(db, paper, paper.failure_reason)
             db.commit()
             return

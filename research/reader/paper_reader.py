@@ -10,7 +10,7 @@ from typing import Any
 from backend.services.arxiv_service import search_arxiv
 from backend.services.gemini_service import interpret_paper
 from backend.services.openreview_service import search_openreview
-from backend.services.pdf_service import download_pdf
+from backend.services.pdf_service import download_pdf_with_details
 from research.config import DEFAULT_CONFIG
 
 
@@ -105,8 +105,8 @@ class PaperReader:
             )
 
         pdf_path = self._pdf_path_for_paper(paper)
-        ok = download_pdf(resolved.pdf_url, str(pdf_path))
-        if not ok:
+        download_result = download_pdf_with_details(resolved.pdf_url, str(pdf_path))
+        if not download_result.ok:
             return PaperReadingResult(
                 paper=paper,
                 resolve_status="resolved",
@@ -116,7 +116,12 @@ class PaperReader:
                 resolved_source=resolved,
                 reading_text=None,
                 reading_turns=[],
-                error=f"Failed to download PDF from {resolved.pdf_url}",
+                error=(
+                    f"Failed to download PDF from {download_result.url}. "
+                    f"Final URL: {download_result.final_url or '-'}; "
+                    f"Status: {download_result.status_code or '-'}; "
+                    f"Error: {download_result.error or 'Unknown error'}"
+                ),
             )
 
         reading_cache_path = self._reading_cache_path_for_paper(
