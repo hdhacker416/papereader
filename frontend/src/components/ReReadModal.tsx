@@ -37,6 +37,7 @@ const ReReadModal: React.FC<ReReadModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      setOnlyFailed(false);
       const fetchTemplates = async () => {
         try {
           const data = await templatesApi.list();
@@ -59,13 +60,12 @@ const ReReadModal: React.FC<ReReadModalProps> = ({
       };
       fetchTemplates();
     }
-  }, [isOpen]);
+  }, [initialModelName, initialPrompts, initialTemplateId, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
       return;
     }
-    setOnlyFailed(false);
     if (initialPrompts && initialPrompts.length > 0) {
       return;
     }
