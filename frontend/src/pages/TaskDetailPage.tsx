@@ -209,6 +209,9 @@ const TaskDetailPage: React.FC = () => {
   const traceSelected = (task.agent_trace?.最终选中文章 as Array<Record<string, unknown>> | undefined) || [];
   const traceSummary = task.agent_trace?.汇总 as Record<string, unknown> | undefined;
   const traceRuntime = (task.agent_trace as Record<string, unknown> | undefined)?.['_agent_runtime'] as Record<string, unknown> | undefined;
+  const traceError = String(traceRuntime?.['error'] ?? task.agent_trace?.错误 ?? '').trim();
+  const traceErrorType = String(traceRuntime?.['error_type'] ?? '').trim();
+  const traceErrorDetail = String(traceRuntime?.['error_detail'] ?? '').trim();
   const reportBusy = report?.status === 'queued' || report?.status === 'running';
   const reportProgressPercent = report && report.progress_total > 0
     ? Math.min(100, Math.max(0, (report.progress_completed / report.progress_total) * 100))
@@ -310,6 +313,20 @@ const TaskDetailPage: React.FC = () => {
               {traceRuntime && (
                 <div className="text-sm text-gray-600 mt-2">
                   当前状态：{String(traceRuntime['state'] ?? '-')} · 当前阶段：{String(traceRuntime['current_stage'] ?? '-')}
+                </div>
+              )}
+              {traceError && (
+                <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 max-w-3xl">
+                  <div className="font-medium">
+                    执行失败
+                    {traceErrorType ? ` · ${traceErrorType}` : ''}
+                  </div>
+                  <div className="mt-1 break-words">{traceError}</div>
+                  {traceErrorDetail && traceErrorDetail !== traceError && (
+                    <div className="mt-2 text-xs text-red-700 whitespace-pre-wrap break-words">
+                      {traceErrorDetail}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

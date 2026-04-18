@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import sys
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -267,6 +268,8 @@ def _process_preparing_task(task_id: str) -> None:
         if not selected:
             runtime["state"] = "failed"
             runtime["current_stage"] = "没有选出可导入任务的论文"
+            runtime["error"] = "Auto research did not select any papers"
+            runtime["error_type"] = "NoSelectedPapers"
             trace["错误"] = "Auto research did not select any papers"
             task.status = "failed"
             _save_trace(db, task, trace)
@@ -309,6 +312,11 @@ def _process_preparing_task(task_id: str) -> None:
             runtime = _runtime(trace)
             runtime["state"] = "failed"
             runtime["current_stage"] = "执行失败"
+            runtime["error"] = str(exc)
+            runtime["error_type"] = exc.__class__.__name__
+            runtime["error_detail"] = "".join(
+                traceback.format_exception_only(type(exc), exc)
+            ).strip()
             trace["错误"] = str(exc)
             task.status = "failed"
             task.agent_trace_json = json.dumps(trace, ensure_ascii=False)

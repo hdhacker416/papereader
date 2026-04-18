@@ -22,6 +22,7 @@ export interface AgentTrace {
   搜索轮次?: Array<Record<string, unknown>>;
   最终选中文章?: Array<Record<string, unknown>>;
   汇总?: Record<string, unknown>;
+  错误?: string;
 }
 
 export interface Task {
