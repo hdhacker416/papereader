@@ -7,6 +7,7 @@ import rehypeKatex from 'rehype-katex';
 import Sidebar from '../components/Sidebar';
 import Layout from '../components/Layout';
 import { papersApi, collectionsApi } from '../api/services';
+import { buildApiUrl } from '../api';
 import { Paper, ChatMessage, Collection } from '../types';
 import clsx from 'clsx';
 
@@ -320,7 +321,7 @@ const ReadingRoomPage: React.FC = () => {
                     {paper.pdf_path ? (
                         <>
                             <iframe 
-                                src={`http://localhost:8000/api/pdfs/${paper.task_id}/${paper.id}.pdf`}
+                                src={buildApiUrl(`/pdfs/${paper.task_id}/${paper.id}.pdf`)}
                                 className={clsx("w-full h-full", isResizing && "pointer-events-none select-none")}
                                 title="PDF Viewer"
                             />
