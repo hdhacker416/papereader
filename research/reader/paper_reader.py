@@ -16,13 +16,7 @@ from research.config import DEFAULT_CONFIG
 
 OPENREVIEW_FIRST_CONFERENCES = {"iclr", "nips", "neurips", "icml", "colm"}
 DEFAULT_READING_PROMPTS = (
-    "Read this paper carefully. Summarize the problem, main idea, and technical method. "
-    "Be concrete and avoid generic praise.",
-    "Summarize the experimental evidence, strongest results, and the main limitations or caveats.",
-    "For this research question: {user_query}\n"
-    "Explain why this paper is relevant or not relevant. "
-    "Classify it into one primary type: attack, defense, evaluation, alignment, mechanism, or other. "
-    "Then give 3 concrete takeaways.",
+    "请你使用中文总结一下这篇文章的内容，并且举一个例子加以说明。",
 )
 
 

@@ -1,0 +1,60 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug ICLR 2026 Safety Alignment",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/debug_iclr2026_safety_alignment.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "envFile": "${workspaceFolder}/backend/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/backend"
+      }
+    },
+    {
+      "name": "Debug Auto Research Task",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/debug_auto_research_task.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "envFile": "${workspaceFolder}/backend/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/backend",
+        "DEBUG_RESEARCH_QUERY": "请你帮我看看，大模型对齐技术和后训练技术有什么新的进展",
+        "DEBUG_RESEARCH_NAME": "Debug Research Task",
+        "DEBUG_RESEARCH_CONFERENCES": "iclr,icml,nips",
+        "DEBUG_RESEARCH_YEARS": "2026,2025",
+        "DEBUG_RESEARCH_MODEL": "gemini-3-flash-preview",
+        "DEBUG_RESEARCH_MAX_SEARCH_ROUNDS": "5",
+        "DEBUG_RESEARCH_MAX_QUERIES_PER_ROUND": "5",
+        "DEBUG_RESEARCH_MAX_FULL_READS": "12"
+      }
+    },
+    {
+      "name": "Debug Backend API",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "envFile": "${workspaceFolder}/backend/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/backend"
+      },
+      "args": [
+        "main:app",
+        "--reload",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ]
+    }
+  ]
+}

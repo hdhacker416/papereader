@@ -123,20 +123,9 @@ def _build_task_report_brief(
 ) -> ResearchBrief:
     brief_data = trace.get("研究简报")
     brief = brief_data if isinstance(brief_data, dict) else {}
-    breadth_raw = str(brief.get("范围模式") or "聚焦").strip().lower()
-    breadth_mode = {
-        "聚焦": "focused",
-        "宽范围": "broad",
-        "focused": "focused",
-        "broad": "broad",
-    }.get(breadth_raw, "focused")
     reading_prompts = parse_template_prompts(task.custom_reading_prompts_json or "")
     if not reading_prompts:
-        reading_prompts = [
-            "概括这篇论文解决的问题、核心方法与关键假设。",
-            "分析这篇论文最强的实验或论证证据、主要局限，以及作者没有解决的问题。",
-            f"结合用户问题“{user_query}”，说明这篇论文为什么重要、适合放在整个研究脉络中的什么位置。",
-        ]
+        reading_prompts = ["请你使用中文总结一下这篇文章的内容，并且举一个例子加以说明。"]
     target_conferences = [
         _conference_code_from_trace(item)
         for item in (brief.get("目标会议") or [])
@@ -156,7 +145,6 @@ def _build_task_report_brief(
         initial_queries = [user_query]
     return ResearchBrief(
         research_goal=str(brief.get("研究目标") or user_query).strip(),
-        breadth_mode=breadth_mode,
         search_axes=search_axes,
         initial_queries=initial_queries,
         rerank_query=str(brief.get("精排查询") or user_query).strip(),
@@ -794,13 +782,6 @@ def run_self_check() -> schemas.SelfCheckResponse:
     )
 
 
-def _to_chinese_breadth_mode(value: str) -> str:
-    return {
-        "focused": "聚焦",
-        "broad": "宽范围",
-    }.get(value, value)
-
-
 def _build_agent_trace(selection, *, user_query: str, max_search_rounds: int, max_queries_per_round: int, max_full_reads: int) -> dict[str, Any]:
     detail_lookup = {
         (item["conference"], int(item["year"]), item["paper_id"]): item
@@ -826,7 +807,7 @@ def _build_agent_trace(selection, *, user_query: str, max_search_rounds: int, ma
     rounds = []
     for round_item in selection.rounds:
         round_selected = []
-        for selected in round_item.decision.selected_papers:
+        for selected in round_item.selected_papers:
             matched = next(
                 (
                     item for item in round_item.reranked_results
@@ -838,7 +819,7 @@ def _build_agent_trace(selection, *, user_query: str, max_search_rounds: int, ma
             )
             round_selected.append(
                 {
-                    "论文标题": matched["paper"]["title"] if matched else selected.paper_id,
+                    "论文标题": selected.title or (matched["paper"]["title"] if matched else selected.paper_id),
                     "会议": conference_display_name(selected.conference),
                     "年份": int(selected.year),
                     "方向": selected.axis,
@@ -871,7 +852,6 @@ def _build_agent_trace(selection, *, user_query: str, max_search_rounds: int, ma
         },
         "研究简报": {
             "研究目标": selection.brief.research_goal,
-            "范围模式": _to_chinese_breadth_mode(selection.brief.breadth_mode),
             "搜索方向": selection.brief.search_axes,
             "初始查询": selection.brief.initial_queries,
             "精排查询": selection.brief.rerank_query,

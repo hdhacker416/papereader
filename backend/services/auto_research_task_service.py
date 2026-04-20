@@ -56,7 +56,6 @@ def _runtime(trace: dict[str, Any]) -> dict[str, Any]:
 def _build_brief_trace(brief: ResearchBrief) -> dict[str, Any]:
     return {
         "研究目标": brief.research_goal,
-        "范围模式": {"focused": "聚焦", "broad": "宽范围"}.get(brief.breadth_mode, brief.breadth_mode),
         "搜索方向": brief.search_axes,
         "初始查询": brief.initial_queries,
         "精排查询": brief.rerank_query,
@@ -78,7 +77,7 @@ def _build_round_selected_trace(round_item: SearchRoundResult, selected: Selecte
     )
     return {
         "paper_id": selected.paper_id,
-        "论文标题": matched["paper"]["title"] if matched else selected.paper_id,
+        "论文标题": selected.title or (matched["paper"]["title"] if matched else selected.paper_id),
         "会议": conference_display_name(selected.conference),
         "年份": int(selected.year),
         "方向": selected.axis,
@@ -105,7 +104,7 @@ def _build_round_summary(round_item: SearchRoundResult) -> str:
     query_text = "；".join(queries) if queries else "无查询"
     selected_titles = [
         str(item["论文标题"]).strip()
-        for item in [_build_round_selected_trace(round_item, selected) for selected in round_item.decision.selected_papers]
+        for item in [_build_round_selected_trace(round_item, selected) for selected in round_item.selected_papers]
         if str(item.get("论文标题", "")).strip()
     ]
     selected_text = "；".join(selected_titles[:3]) if selected_titles else "本轮没有新增重点论文"
@@ -117,7 +116,7 @@ def _build_round_summary(round_item: SearchRoundResult) -> str:
         f"本轮围绕 {query_text} 进行搜索。"
         f"粗排命中 {sum(len(item['results']) for item in round_item.coarse_results)} 条，"
         f"合并后保留 {len(round_item.merged_candidates)} 条候选，"
-        f"精排后重点关注 {len(round_item.decision.selected_papers)} 篇。"
+        f"精排后重点关注 {len(round_item.selected_papers)} 篇。"
         f"模型判断：{round_item.decision.rationale}。"
         f"本轮重点论文：{selected_text}。"
         f"当前缺口：{missing_text}。"
@@ -143,7 +142,7 @@ def _build_round_trace(round_item: SearchRoundResult) -> dict[str, Any]:
         "下一轮查询": round_item.decision.additional_queries,
         "本轮选中文章": [
             _build_round_selected_trace(round_item, item)
-            for item in round_item.decision.selected_papers
+            for item in round_item.selected_papers
         ],
     }
 

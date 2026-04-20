@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable
 
 from google import genai
@@ -20,55 +20,55 @@ DEFAULT_MAX_QUERIES_PER_ROUND = 4
 DEFAULT_MAX_CANDIDATE_POOL = 60
 DEFAULT_MAX_FULL_READS = 8
 DEFAULT_MIN_FULL_READS = 3
+DEFAULT_READING_PROMPTS = [
+    "请你使用中文总结一下这篇文章的内容，并且举一个例子加以说明。"
+]
 QUERY_WHITESPACE_RE = re.compile(r"\s+")
 JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```", re.DOTALL | re.IGNORECASE)
 
-BRIEF_SCHEMA: dict[str, Any] = {
+RESEARCH_GOAL_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "research_goal": {"type": "string"},
-        "breadth_mode": {"type": "string", "enum": ["focused", "broad"]},
+    },
+    "required": ["research_goal"],
+}
+
+SEARCH_AXES_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
         "search_axes": {
             "type": "array",
             "items": {"type": "string"},
             "minItems": 2,
-            "maxItems": 5,
+            "maxItems": 6,
         },
+    },
+    "required": ["search_axes"],
+}
+
+INITIAL_QUERIES_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
         "initial_queries": {
             "type": "array",
             "items": {"type": "string"},
             "minItems": 2,
             "maxItems": 10,
         },
-        "rerank_query": {"type": "string"},
-        "reading_prompts": {
-            "type": "array",
-            "items": {"type": "string"},
-            "minItems": 3,
-            "maxItems": 3,
-        },
-        "target_conferences": {
-            "type": "array",
-            "items": {"type": "string"},
-        },
-        "target_years": {
-            "type": "array",
-            "items": {"type": "integer"},
-        },
     },
-    "required": [
-        "research_goal",
-        "breadth_mode",
-        "search_axes",
-        "initial_queries",
-        "rerank_query",
-        "reading_prompts",
-        "target_conferences",
-        "target_years",
-    ],
+    "required": ["initial_queries"],
 }
 
-SELECTION_SCHEMA: dict[str, Any] = {
+RERANK_QUERY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "rerank_query": {"type": "string"},
+    },
+    "required": ["rerank_query"],
+}
+
+SEARCH_CONTROL_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "continue_search": {"type": "boolean"},
@@ -83,30 +83,19 @@ SELECTION_SCHEMA: dict[str, Any] = {
             "items": {"type": "string"},
             "maxItems": 5,
         },
-        "selected_papers": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "conference": {"type": "string"},
-                    "year": {"type": "integer"},
-                    "paper_id": {"type": "string"},
-                    "axis": {"type": "string"},
-                    "reason": {"type": "string"},
-                    "priority": {"type": "integer", "minimum": 1, "maximum": 10},
-                },
-                "required": ["conference", "year", "paper_id", "axis", "reason", "priority"],
-            },
-            "maxItems": 8,
-        },
     },
-    "required": [
-        "continue_search",
-        "rationale",
-        "additional_queries",
-        "missing_axes",
-        "selected_papers",
-    ],
+    "required": ["continue_search", "rationale", "additional_queries", "missing_axes"],
+}
+
+PAPER_ADMISSION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "should_read": {"type": "boolean"},
+        "axis": {"type": "string"},
+        "reason": {"type": "string"},
+        "priority": {"type": "integer", "minimum": 1, "maximum": 10},
+    },
+    "required": ["should_read", "axis", "reason", "priority"],
 }
 
 EVIDENCE_PACK_SCHEMA: dict[str, Any] = {
@@ -408,7 +397,6 @@ REPORT_REPAIR_SYSTEM_PROMPT = (
 @dataclass(frozen=True)
 class ResearchBrief:
     research_goal: str
-    breadth_mode: str
     search_axes: list[str]
     initial_queries: list[str]
     rerank_query: str
@@ -419,6 +407,7 @@ class ResearchBrief:
 
 @dataclass(frozen=True)
 class SelectedPaper:
+    title: str
     conference: str
     year: int
     paper_id: str
@@ -433,7 +422,6 @@ class SearchRoundDecision:
     rationale: str
     additional_queries: list[str]
     missing_axes: list[str]
-    selected_papers: list[SelectedPaper]
 
 
 @dataclass(frozen=True)
@@ -444,6 +432,7 @@ class SearchRoundResult:
     merged_candidates: list[dict[str, Any]]
     reranked_results: list[dict[str, Any]]
     decision: SearchRoundDecision
+    selected_papers: list[SelectedPaper]
 
 
 @dataclass(frozen=True)
@@ -554,62 +543,116 @@ class BoundedResearchRunner:
         self,
         user_query: str,
         conferences: list[str] | None = None,
-        years: list[int] | None = None,
+        effective_years: list[int] | None = None,
+        max_search_rounds: int = DEFAULT_MAX_SEARCH_ROUNDS,
         reading_prompts_override: list[str] | None = None,
     ) -> ResearchBrief:
-        effective_years = normalize_target_years(
-            years,
-            available_years=[asset.year for asset in self.search_tools.assets],
+        effective_years = effective_years or []
+        brief_conferences = [item.lower() for item in (conferences or []) if str(item).strip()]
+        brief_years = [int(item) for item in effective_years]
+        explicit_scope = bool(brief_conferences or brief_years)
+        axis_count_instruction = (
+            "Return exactly 1 distinct research axis. "
+            if max_search_rounds <= 1
+            else f"Return 2-{max_search_rounds} distinct research axes that together cover the topic broadly. "
         )
-        explicit_scope = bool(conferences or years)
-        prompt = (
-            "You are designing a bounded academic research workflow for paper search. "
-            "Return compact JSON only. "
-            "If the user explicitly asks for breadth, set breadth_mode to 'broad' and make sure the search axes cover both the narrow topic and the broader topic. "
-            "initial_queries must be short retrieval-oriented queries. "
-            "If preferred_conferences or preferred_years are provided, treat them as hard scope constraints controlled outside retrieval. "
-            "When scope constraints are provided, do not include conference names, venue names, or explicit years inside initial_queries or rerank_query unless the user explicitly asks to compare venues themselves. "
-            "reading_prompts must be three prompts for full-paper reading. "
-            "The third reading prompt should explicitly connect the paper back to the user's question."
-        )
-        user_payload = {
+        base_payload = {
             "user_query": user_query,
-            "preferred_conferences": conferences or [],
-            "preferred_years": effective_years,
+            "preferred_conferences": brief_conferences,
+            "preferred_years": brief_years,
         }
-        payload = self._generate_json_dict(
-            system_instruction=prompt,
-            payload=user_payload,
-            schema=BRIEF_SCHEMA,
-            max_output_tokens=2048,
-        )
-        reading_prompts = [item.strip() for item in payload["reading_prompts"] if item.strip()]
-        if reading_prompts_override:
-            normalized_override = [item.strip() for item in reading_prompts_override if item.strip()]
-            if normalized_override:
-                reading_prompts = normalized_override
-        brief_conferences = [item.lower() for item in payload["target_conferences"]]
-        if conferences is not None:
-            brief_conferences = [item.lower() for item in conferences]
-        brief_years = effective_years if years is None else [int(item) for item in years]
+        research_goal = self._generate_json_dict(
+            system_instruction=(
+                "You are generating the research goal for a deep-research paper search workflow. "
+                "Return one concise sentence that states what the user is trying to understand or collect. "
+                "Assume deep research is always coverage-first and comprehensive."
+            ),
+            payload=base_payload,
+            schema=RESEARCH_GOAL_SCHEMA,
+            max_output_tokens=512,
+        )["research_goal"].strip()
+        search_axes = [
+            item.strip()
+            for item in self._generate_json_dict(
+                system_instruction=(
+                    "You are generating search axes for a comprehensive deep-research workflow. "
+                    f"{axis_count_instruction}"
+                    "Each axis should itself be a usable retrieval phrase. "
+                    "Do not include conference names or years in the axes. "
+                    "The number of axes must not exceed the maximum search rounds."
+                ),
+                payload={
+                    **base_payload,
+                    "research_goal": research_goal,
+                    "max_search_rounds": max_search_rounds,
+                },
+                schema=SEARCH_AXES_SCHEMA,
+                max_output_tokens=1024,
+            )["search_axes"]
+            if item.strip()
+        ]
+        initial_queries = [
+            item.strip()
+            for item in self._generate_json_dict(
+                system_instruction=(
+                    "You are generating initial retrieval queries for deep-research paper search. "
+                    "Return 2-10 short retrieval-oriented queries that maximize topical coverage. "
+                    "Each query should be a search phrase, not a full sentence. "
+                    "If conference/year scope is already fixed outside retrieval, do not include venue names or explicit years in the queries."
+                ),
+                payload={
+                    **base_payload,
+                    "research_goal": research_goal,
+                    "search_axes": search_axes,
+                },
+                schema=INITIAL_QUERIES_SCHEMA,
+                max_output_tokens=1024,
+            )["initial_queries"]
+            if item.strip()
+        ]
+        rerank_query = self._generate_json_dict(
+            system_instruction=(
+                "You are generating the rerank query for a paper reranker. "
+                "Return one task-oriented question or instruction sentence, not a keyword list. "
+                "It should describe what papers are most relevant to the user's research goal. "
+                "If conference/year scope is already fixed outside retrieval, do not include venue names or explicit years."
+            ),
+            payload={
+                **base_payload,
+                "research_goal": research_goal,
+                "search_axes": search_axes,
+                "initial_queries": initial_queries,
+            },
+            schema=RERANK_QUERY_SCHEMA,
+            max_output_tokens=768,
+        )["rerank_query"].strip()
+        reading_prompts = [item.strip() for item in (reading_prompts_override or []) if item.strip()]
+        if not reading_prompts:
+            reading_prompts = list(DEFAULT_READING_PROMPTS)
 
-        initial_queries = [item.strip() for item in payload["initial_queries"] if item.strip()]
-        rerank_query = payload["rerank_query"].strip()
-        if explicit_scope:
-            initial_queries = self._sanitize_queries_for_scope(
+        search_axes = self._dedupe_queries(
+            self._sanitize_queries_for_scope(
+                queries=search_axes,
+                conferences=brief_conferences,
+                years=brief_years,
+            )
+        )[:max_search_rounds]
+        initial_queries = self._dedupe_queries(
+            self._sanitize_queries_for_scope(
                 queries=initial_queries,
                 conferences=brief_conferences,
                 years=brief_years,
             )
+        )
+        if explicit_scope:
             rerank_query = self._sanitize_query_for_scope(
                 query=rerank_query,
                 conferences=brief_conferences,
                 years=brief_years,
             )
         return ResearchBrief(
-            research_goal=payload["research_goal"].strip(),
-            breadth_mode=payload["breadth_mode"].strip(),
-            search_axes=[item.strip() for item in payload["search_axes"] if item.strip()],
+            research_goal=research_goal,
+            search_axes=search_axes,
             initial_queries=initial_queries,
             rerank_query=rerank_query,
             reading_prompts=reading_prompts,
@@ -723,7 +766,8 @@ class BoundedResearchRunner:
         brief = self.make_brief(
             user_query,
             conferences=conferences,
-            years=years,
+            effective_years=effective_years,
+            max_search_rounds=max_search_rounds,
             reading_prompts_override=reading_prompts_override,
         )
         if trace_callback is not None:
@@ -739,12 +783,17 @@ class BoundedResearchRunner:
         selected_map: dict[tuple[str, int, str], SelectedPaper] = {}
         rounds: list[SearchRoundResult] = []
 
-        current_queries = self._dedupe_queries(brief.initial_queries)[:max_queries_per_round]
+        axis_queue = list(brief.search_axes[:max_search_rounds])
+        current_queries = [axis_queue.pop(0)] if axis_queue else self._dedupe_queries(brief.initial_queries)[:max_queries_per_round]
         for round_index in range(1, max_search_rounds + 1):
             if not current_queries:
                 break
 
             round_coarse_results: list[dict[str, Any]] = []
+            selected_keys = {
+                (item.conference, int(item.year), item.paper_id)
+                for item in selected_map.values()
+            }
             effective_conferences = conferences or brief.target_conferences or None
             for query in current_queries:
                 if query in all_queries_seen:
@@ -759,30 +808,70 @@ class BoundedResearchRunner:
                 )
                 coarse_item = {
                     "sub_query": query,
-                    "results": coarse["results"],
+                    "results": self._filter_search_results_by_selected_keys(
+                        coarse["results"],
+                        selected_keys=selected_keys,
+                    ),
                     "elapsed_sec": coarse["elapsed_sec"],
                 }
                 round_coarse_results.append(coarse_item)
                 all_coarse_results.append(coarse_item)
 
-            merged_candidates = self._merge_candidates(all_coarse_results)[:max_candidate_pool]
+            merged_candidates = self._filter_candidate_payloads_by_selected_keys(
+                self._merge_candidates(all_coarse_results),
+                selected_keys=selected_keys,
+            )[:max_candidate_pool]
             reranked = self.search_tools.rerank_search(
                 query=brief.rerank_query,
                 candidates=merged_candidates,
                 top_n=min(rerank_top_n, len(merged_candidates)),
             )
             reranked_results = reranked["results"]
-            decision = self._select_next_actions(
+            round_selected_papers = self._evaluate_candidates_for_reading(
+                user_query=user_query,
+                brief=brief,
+                reranked_results=reranked_results,
+                selected_papers=list(selected_map.values()),
+                max_full_reads=max_full_reads,
+            )
+            decision = self._decide_search_control(
                 user_query=user_query,
                 brief=brief,
                 round_index=round_index,
                 queries_this_round=current_queries,
                 searched_queries=all_queries_seen,
-                reranked_results=reranked_results,
                 selected_papers=list(selected_map.values()),
+                selected_this_round=round_selected_papers,
+                coarse_hit_count=sum(len(item["results"]) for item in round_coarse_results),
+                merged_candidate_count=len(merged_candidates),
+                reranked_candidate_count=len(reranked_results),
                 max_full_reads=max_full_reads,
                 remaining_search_rounds=max_search_rounds - round_index,
             )
+            fallback_queries: list[str] = []
+            if not axis_queue and self._should_force_fallback_round(
+                decision=decision,
+                selected_so_far=selected_map,
+                selected_this_round_count=len(round_selected_papers),
+                max_full_reads=max_full_reads,
+                remaining_search_rounds=max_search_rounds - round_index,
+            ):
+                fallback_queries = self._build_fallback_queries(
+                    brief=brief,
+                    searched_queries=all_queries_seen,
+                    max_queries_per_round=max_queries_per_round,
+                )
+                if fallback_queries:
+                    decision = replace(
+                        decision,
+                        continue_search=True,
+                        rationale=(
+                            "The model returned an empty stop decision before the reading budget was used. "
+                            "Continue with fallback queries derived from the research brief to improve coverage."
+                        ),
+                        additional_queries=fallback_queries,
+                        missing_axes=brief.search_axes[: min(3, len(brief.search_axes))],
+                    )
             round_result = SearchRoundResult(
                 round_index=round_index,
                 queries=list(current_queries),
@@ -790,10 +879,11 @@ class BoundedResearchRunner:
                 merged_candidates=merged_candidates,
                 reranked_results=reranked_results,
                 decision=decision,
+                selected_papers=round_selected_papers,
             )
             rounds.append(round_result)
 
-            for item in decision.selected_papers:
+            for item in round_selected_papers:
                 key = (item.conference, item.year, item.paper_id)
                 existing = selected_map.get(key)
                 if existing is None or item.priority < existing.priority:
@@ -811,6 +901,9 @@ class BoundedResearchRunner:
 
             if len(selected_map) >= max_full_reads:
                 break
+            if axis_queue:
+                current_queries = [axis_queue.pop(0)]
+                continue
             if not decision.continue_search:
                 break
             current_queries = [
@@ -853,45 +946,33 @@ class BoundedResearchRunner:
             detail_results=detail_results,
         )
 
-    def _select_next_actions(
+    def _decide_search_control(
         self,
         user_query: str,
         brief: ResearchBrief,
         round_index: int,
         queries_this_round: list[str],
         searched_queries: list[str],
-        reranked_results: list[dict[str, Any]],
         selected_papers: list[SelectedPaper],
+        selected_this_round: list[SelectedPaper],
+        coarse_hit_count: int,
+        merged_candidate_count: int,
+        reranked_candidate_count: int,
         max_full_reads: int,
         remaining_search_rounds: int,
     ) -> SearchRoundDecision:
-        candidate_payload = [
-            {
-                "conference": item["paper"]["conference"],
-                "year": item["paper"]["year"],
-                "paper_id": item["paper"]["paper_id"],
-                "title": item["paper"]["title"],
-                "abstract": item["paper"]["abstract"],
-                "rerank_score": item["rerank_score"],
-                "coarse_score": item["coarse_score"],
-            }
-            for item in reranked_results[:20]
-        ]
         prompt = (
-            "You are controlling a bounded deep-research agent. "
-            "Choose which papers deserve full reading. "
-            "Respect the user's desired breadth. "
-            "If breadth_mode is 'broad', avoid selecting only one narrow subtopic when broader post-training coverage is available. "
-            "If preferred_conferences or preferred_years are already fixed, do not put venue names or explicit years into additional_queries. "
-            "The search system already scopes by conference and year outside the query text. "
-            "Use continue_search only when important axes are still missing and there are search rounds left. "
-            "Never reference papers that are not in the candidate list."
+            "You are controlling the search loop for a comprehensive deep-research workflow. "
+            "Your task is only to decide whether another search round is needed. "
+            "Do not decide paper admission here. "
+            "Use continue_search only when important research axes are still missing and there are search rounds left. "
+            "If conference/year scope is already fixed outside retrieval, do not put venue names or explicit years into additional_queries. "
+            "If you stop searching, rationale must explicitly explain why current coverage is sufficient."
         )
         payload = {
             "user_query": user_query,
             "brief": {
                 "research_goal": brief.research_goal,
-                "breadth_mode": brief.breadth_mode,
                 "search_axes": brief.search_axes,
                 "rerank_query": brief.rerank_query,
             },
@@ -900,8 +981,28 @@ class BoundedResearchRunner:
             "searched_queries": searched_queries,
             "remaining_search_rounds": remaining_search_rounds,
             "max_full_reads": max_full_reads,
+            "search_stats": {
+                "coarse_hit_count": coarse_hit_count,
+                "merged_candidate_count": merged_candidate_count,
+                "reranked_candidate_count": reranked_candidate_count,
+                "selected_count_total": len(selected_papers),
+                "selected_count_this_round": len(selected_this_round),
+            },
             "already_selected": [
                 {
+                    "title": item.title,
+                    "conference": item.conference,
+                    "year": item.year,
+                    "paper_id": item.paper_id,
+                     "axis": item.axis,
+                    "reason": item.reason,
+                    "priority": item.priority,
+                }
+                for item in selected_papers
+            ],
+            "selected_this_round": [
+                {
+                    "title": item.title,
                     "conference": item.conference,
                     "year": item.year,
                     "paper_id": item.paper_id,
@@ -909,40 +1010,15 @@ class BoundedResearchRunner:
                     "reason": item.reason,
                     "priority": item.priority,
                 }
-                for item in selected_papers
+                for item in selected_this_round
             ],
-            "candidate_papers": candidate_payload,
         }
         result = self._generate_json_dict(
             system_instruction=prompt,
             payload=payload,
-            schema=SELECTION_SCHEMA,
-            max_output_tokens=3072,
+            schema=SEARCH_CONTROL_SCHEMA,
+            max_output_tokens=2048,
         )
-        valid_keys = {
-            (item["paper"]["conference"], int(item["paper"]["year"]), item["paper"]["paper_id"])
-            for item in reranked_results
-        }
-        selected_papers = []
-        raw_selected_papers = result.get("selected_papers") or []
-        if not isinstance(raw_selected_papers, list):
-            raw_selected_papers = []
-        for item in raw_selected_papers:
-            if not isinstance(item, dict):
-                continue
-            key = (item["conference"], int(item["year"]), item["paper_id"])
-            if key not in valid_keys:
-                continue
-            selected_papers.append(
-                SelectedPaper(
-                    conference=item["conference"],
-                    year=int(item["year"]),
-                    paper_id=item["paper_id"],
-                    axis=item["axis"].strip(),
-                    reason=item["reason"].strip(),
-                    priority=int(item["priority"]),
-                )
-            )
         return SearchRoundDecision(
             continue_search=bool(result.get("continue_search")) and remaining_search_rounds > 0,
             rationale=str(result.get("rationale") or "").strip(),
@@ -960,8 +1036,152 @@ class BoundedResearchRunner:
                 for item in (result.get("missing_axes") or [])
                 if str(item).strip()
             ],
-            selected_papers=selected_papers,
         )
+
+    def _evaluate_candidates_for_reading(
+        self,
+        *,
+        user_query: str,
+        brief: ResearchBrief,
+        reranked_results: list[dict[str, Any]],
+        selected_papers: list[SelectedPaper],
+        max_full_reads: int,
+    ) -> list[SelectedPaper]:
+        accepted: list[SelectedPaper] = []
+        selected_keys = {
+            (item.conference, int(item.year), item.paper_id)
+            for item in selected_papers
+        }
+        for item in reranked_results:
+            if len(selected_keys) + len(accepted) >= max_full_reads:
+                break
+            paper = item["paper"]
+            key = (paper["conference"], int(paper["year"]), paper["paper_id"])
+            if key in selected_keys:
+                continue
+            decision = self._evaluate_candidate_for_reading(
+                user_query=user_query,
+                brief=brief,
+                candidate=item,
+                selected_papers=selected_papers + accepted,
+                max_full_reads=max_full_reads,
+            )
+            if not decision["should_read"]:
+                continue
+            accepted.append(
+                SelectedPaper(
+                    title=paper["title"],
+                    conference=paper["conference"],
+                    year=int(paper["year"]),
+                    paper_id=paper["paper_id"],
+                    axis=str(decision["axis"]).strip() or "selected",
+                    reason=str(decision["reason"]).strip(),
+                    priority=int(decision["priority"]),
+                )
+            )
+        return accepted
+
+    def _evaluate_candidate_for_reading(
+        self,
+        *,
+        user_query: str,
+        brief: ResearchBrief,
+        candidate: dict[str, Any],
+        selected_papers: list[SelectedPaper],
+        max_full_reads: int,
+    ) -> dict[str, Any]:
+        paper = candidate["paper"]
+        prompt = (
+            "You are deciding whether a single academic paper should enter the full-reading list for a deep-research workflow. "
+            "Coverage is more important than compression. "
+            "Do not reject a paper merely because another selected paper is in the same direction. "
+            "Accept any paper that appears genuinely relevant and potentially useful for the final research report. "
+            "Return JSON only."
+        )
+        payload = {
+            "user_query": user_query,
+            "brief": {
+                "research_goal": brief.research_goal,
+                "search_axes": brief.search_axes,
+                "rerank_query": brief.rerank_query,
+            },
+            "max_full_reads": max_full_reads,
+            "selected_count": len(selected_papers),
+            "already_selected": [
+                {
+                    "title": item.title,
+                    "conference": item.conference,
+                    "year": item.year,
+                    "axis": item.axis,
+                    "reason": item.reason,
+                    "priority": item.priority,
+                }
+                for item in selected_papers
+            ],
+            "candidate_paper": {
+                "conference": paper["conference"],
+                "year": int(paper["year"]),
+                "paper_id": paper["paper_id"],
+                "title": paper["title"],
+                "abstract": paper["abstract"],
+                "rerank_score": candidate["rerank_score"],
+                "coarse_score": candidate["coarse_score"],
+            },
+        }
+        return self._generate_json_dict(
+            system_instruction=prompt,
+            payload=payload,
+            schema=PAPER_ADMISSION_SCHEMA,
+            max_output_tokens=1024,
+        )
+
+    @staticmethod
+    def _should_force_fallback_round(
+        *,
+        decision: SearchRoundDecision,
+        selected_so_far: dict[tuple[str, int, str], SelectedPaper],
+        selected_this_round_count: int,
+        max_full_reads: int,
+        remaining_search_rounds: int,
+    ) -> bool:
+        if remaining_search_rounds <= 0:
+            return False
+        if len(selected_so_far) >= max_full_reads:
+            return False
+        if decision.continue_search:
+            return False
+        if selected_this_round_count > 0:
+            return False
+        if decision.rationale.strip():
+            return False
+        if decision.additional_queries:
+            return False
+        if decision.missing_axes:
+            return False
+        return True
+
+    def _build_fallback_queries(
+        self,
+        *,
+        brief: ResearchBrief,
+        searched_queries: list[str],
+        max_queries_per_round: int,
+    ) -> list[str]:
+        candidates = self._sanitize_queries_for_scope(
+            queries=(
+                brief.search_axes
+                + [brief.research_goal, brief.rerank_query]
+            ),
+            conferences=brief.target_conferences,
+            years=brief.target_years,
+        )
+        searched_keys = {item.strip().lower() for item in searched_queries if item.strip()}
+        fallback_queries = [
+            item
+            for item in self._dedupe_queries(candidates)
+            if item.strip().lower() not in searched_keys
+        ]
+        return fallback_queries[:max_queries_per_round]
 
     def _materialize_selected_papers(
         self,
@@ -1026,6 +1246,40 @@ class BoundedResearchRunner:
                 break
         return selected_records[:max_full_reads]
 
+    @staticmethod
+    def _filter_search_results_by_selected_keys(
+        results: list[dict[str, Any]],
+        *,
+        selected_keys: set[tuple[str, int, str]],
+    ) -> list[dict[str, Any]]:
+        if not selected_keys:
+            return results
+        filtered: list[dict[str, Any]] = []
+        for item in results:
+            paper = item["paper"]
+            key = (paper["conference"], int(paper["year"]), paper["paper_id"])
+            if key in selected_keys:
+                continue
+            filtered.append(item)
+        return filtered
+
+    @staticmethod
+    def _filter_candidate_payloads_by_selected_keys(
+        candidates: list[dict[str, Any]],
+        *,
+        selected_keys: set[tuple[str, int, str]],
+    ) -> list[dict[str, Any]]:
+        if not selected_keys:
+            return candidates
+        filtered: list[dict[str, Any]] = []
+        for item in candidates:
+            paper = item["paper"]
+            key = (paper["conference"], int(paper["year"]), paper["paper_id"])
+            if key in selected_keys:
+                continue
+            filtered.append(item)
+        return filtered
+
     def _merge_candidates(self, coarse_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         merged: dict[tuple[str, int, str], dict[str, Any]] = {}
         for item in coarse_results:
@@ -1080,7 +1334,6 @@ class BoundedResearchRunner:
             "user_query": user_query,
             "brief": {
                 "research_goal": brief.research_goal,
-                "breadth_mode": brief.breadth_mode,
                 "search_axes": brief.search_axes,
                 "initial_queries": brief.initial_queries,
                 "rerank_query": brief.rerank_query,
@@ -1117,7 +1370,6 @@ class BoundedResearchRunner:
             "user_query": user_query,
             "brief": {
                 "research_goal": brief.research_goal,
-                "breadth_mode": brief.breadth_mode,
                 "search_axes": brief.search_axes,
                 "initial_queries": brief.initial_queries,
                 "rerank_query": brief.rerank_query,
@@ -1202,7 +1454,6 @@ class BoundedResearchRunner:
             "user_query": user_query,
             "brief": {
                 "research_goal": brief.research_goal,
-                "breadth_mode": brief.breadth_mode,
                 "search_axes": brief.search_axes,
                 "rerank_query": brief.rerank_query,
             },
@@ -1232,7 +1483,6 @@ class BoundedResearchRunner:
             "user_query": user_query,
             "brief": {
                 "research_goal": brief.research_goal,
-                "breadth_mode": brief.breadth_mode,
                 "search_axes": brief.search_axes,
             },
             "evidence_pack": evidence_pack,
@@ -1267,7 +1517,6 @@ class BoundedResearchRunner:
             "user_query": user_query,
             "brief": {
                 "research_goal": brief.research_goal,
-                "breadth_mode": brief.breadth_mode,
                 "search_axes": brief.search_axes,
                 "rerank_query": brief.rerank_query,
             },

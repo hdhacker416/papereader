@@ -7,7 +7,7 @@ import models
 
 
 DEFAULT_RESEARCH_TEMPLATE = [
-    "Summarize the paper's main contribution, technical method, experimental evidence, limitations, and the most important safety implications."
+    "请你使用中文总结一下这篇文章的内容，并且举一个例子加以说明。"
 ]
 
 
