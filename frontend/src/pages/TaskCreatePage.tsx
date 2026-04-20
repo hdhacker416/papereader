@@ -5,6 +5,7 @@ import Layout from '../components/Layout';
 import PromptListEditor from '../components/PromptListEditor';
 import { tasksApi, templatesApi } from '../api/services';
 import { Template } from '../types';
+import { MODEL_OPTIONS } from '../constants/models';
 
 const TaskCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -118,8 +119,11 @@ const TaskCreatePage: React.FC = () => {
                   onChange={(e) => setModelName(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="gemini-3-flash-preview">Gemini 3 Flash (Faster/Cheaper)</option>
-                  <option value="gemini-3-pro-preview">Gemini 3 Pro (Higher Quality)</option>
+                  {MODEL_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 

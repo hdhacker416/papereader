@@ -9,6 +9,10 @@ from typing import Any, Callable
 from google import genai
 from google.genai import types
 
+try:
+    from backend.services import qwen_service
+except ModuleNotFoundError:
+    from services import qwen_service
 from research.reader.paper_reader import PaperReader
 from research.targeting import CONFERENCE_DISPLAY_NAMES, normalize_target_years
 from research.tools.search_tools import SearchTools
@@ -25,6 +29,7 @@ DEFAULT_READING_PROMPTS = [
 ]
 QUERY_WHITESPACE_RE = re.compile(r"\s+")
 JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```", re.DOTALL | re.IGNORECASE)
+JSON_START_RE = re.compile(r"^\s*```(?:json)?\s*[\[{]|\s*[\[{]", re.IGNORECASE)
 
 RESEARCH_GOAL_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -478,13 +483,20 @@ class BoundedResearchRunner:
         search_tools: SearchTools | None = None,
         paper_reader: PaperReader | None = None,
     ) -> None:
-        api_key = api_key or os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise RuntimeError("GEMINI_API_KEY is not configured")
-        self.client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
         self.model = model
+        self.client = None
+        if qwen_service.is_gemini_model(model):
+            api_key = api_key or os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                raise RuntimeError("GEMINI_API_KEY is not configured")
+            self.client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
+        elif qwen_service.is_qwen_model(model):
+            if not (api_key or os.getenv("DASHSCOPE_API_KEY")):
+                raise RuntimeError("DASHSCOPE_API_KEY is not configured")
+        else:
+            raise RuntimeError(f"Unsupported model: {model}")
         self.search_tools = search_tools or SearchTools()
-        self.paper_reader = paper_reader or PaperReader()
+        self.paper_reader = paper_reader or PaperReader(model_name=model)
 
     def _extract_json(self, text: str) -> dict[str, Any]:
         value = text.strip()
@@ -514,6 +526,28 @@ class BoundedResearchRunner:
                 return parsed
         raise ValueError(f"Could not extract JSON object from model response: {text[:400]}")
 
+    def _looks_like_truncated_json(self, text: str) -> bool:
+        value = (text or "").strip()
+        if not value:
+            return False
+        if not JSON_START_RE.search(value):
+            return False
+        fence_count = value.count("```")
+        if fence_count == 1:
+            return True
+        stripped = value.rstrip()
+        if stripped.startswith("```") and not stripped.endswith("```"):
+            return True
+        open_braces = value.count("{")
+        close_braces = value.count("}")
+        open_brackets = value.count("[")
+        close_brackets = value.count("]")
+        if open_braces > close_braces or open_brackets > close_brackets:
+            return True
+        if value.endswith(":") or value.endswith(",") or value.endswith('"'):
+            return True
+        return False
+
     def _generate_json_dict(
         self,
         *,
@@ -521,38 +555,97 @@ class BoundedResearchRunner:
         payload: dict[str, Any],
         schema: dict[str, Any],
         max_output_tokens: int = 4096,
-        retries: int = 2,
+        retries: int = 3,
     ) -> dict[str, Any]:
         schema_text = json.dumps(schema, ensure_ascii=False)
-        contents = json.dumps(payload, ensure_ascii=False)
+        current_contents = json.dumps(payload, ensure_ascii=False)
+        current_instruction = system_instruction
+        current_max_output_tokens = max_output_tokens
         last_error: Exception | None = None
         for attempt in range(1, retries + 1):
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=contents,
-                config=types.GenerateContentConfig(
+            if qwen_service.is_qwen_model(self.model):
+                response_text = qwen_service.complete_json(
+                    model_name=self.model,
                     system_instruction=(
-                        f"{system_instruction} "
+                        f"{current_instruction} "
                         "Return exactly one JSON object and nothing else. "
                         "Do not add markdown fences, prefaces, explanations, or trailing commentary. "
                         f"The required JSON schema is: {schema_text}"
                     ),
-                    max_output_tokens=max_output_tokens,
-                ),
-            )
+                    user_content=current_contents,
+                )
+            else:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=current_contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=(
+                            f"{current_instruction} "
+                            "Return exactly one JSON object and nothing else. "
+                            "Do not add markdown fences, prefaces, explanations, or trailing commentary. "
+                            f"The required JSON schema is: {schema_text}"
+                        ),
+                        response_mime_type="application/json",
+                        response_schema=schema,
+                        temperature=0,
+                        max_output_tokens=current_max_output_tokens,
+                    ),
+                )
+                response_text = response.text or ""
             try:
-                return self._extract_json(response.text or "")
+                return self._extract_json(response_text)
             except Exception as exc:
                 last_error = exc
-                contents = json.dumps(
+                previous_response = response_text
+                if self._looks_like_truncated_json(previous_response):
+                    current_instruction = (
+                        "You are repairing a truncated structured JSON response. "
+                        "Reconstruct the full JSON object so that it satisfies the original task and schema. "
+                        "Preserve the intended meaning of the partial response, but complete it into one valid JSON object."
+                    )
+                    current_contents = json.dumps(
+                        {
+                            "original_payload": payload,
+                            "partial_response": previous_response,
+                            "error": str(exc),
+                        },
+                        ensure_ascii=False,
+                    )
+                    current_max_output_tokens = min(max(current_max_output_tokens * 2, 1024), 16384)
+                    continue
+                current_contents = json.dumps(
                     {
                         "original_payload": payload,
-                        "previous_response": response.text or "",
+                        "previous_response": previous_response,
                         "error": str(exc),
                     },
                     ensure_ascii=False,
                 )
         raise ValueError(f"Structured JSON generation failed after {retries} attempts: {last_error}")
+
+    def _generate_text(
+        self,
+        *,
+        system_instruction: str,
+        payload: dict[str, Any],
+        max_output_tokens: int = 4096,
+    ) -> str:
+        contents = json.dumps(payload, ensure_ascii=False)
+        if qwen_service.is_qwen_model(self.model):
+            return qwen_service.complete_text(
+                model_name=self.model,
+                system_instruction=system_instruction,
+                user_content=contents,
+            )
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                max_output_tokens=max_output_tokens,
+            ),
+        )
+        return response.text or ""
 
     def make_brief(
         self,
@@ -1373,15 +1466,11 @@ class BoundedResearchRunner:
             "report_outline": report_outline,
             "paper_title_map": paper_title_map,
         }
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=json.dumps(payload, ensure_ascii=False),
-            config=types.GenerateContentConfig(
-                system_instruction=REPORT_SYSTEM_PROMPT,
-                max_output_tokens=12288,
-            ),
+        return self._generate_text(
+            system_instruction=REPORT_SYSTEM_PROMPT,
+            payload=payload,
+            max_output_tokens=12288,
         )
-        return response.text or ""
 
     def _repair_report(
         self,
@@ -1410,15 +1499,11 @@ class BoundedResearchRunner:
             "paper_title_map": paper_title_map,
             "draft_report": draft_report,
         }
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=json.dumps(payload, ensure_ascii=False),
-            config=types.GenerateContentConfig(
-                system_instruction=REPORT_REPAIR_SYSTEM_PROMPT,
-                max_output_tokens=12288,
-            ),
+        return self._generate_text(
+            system_instruction=REPORT_REPAIR_SYSTEM_PROMPT,
+            payload=payload,
+            max_output_tokens=12288,
         )
-        return response.text or ""
 
     def _build_evidence_pack(
         self,

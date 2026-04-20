@@ -212,7 +212,6 @@ class AutoResearchTaskCreate(BaseModel):
     template_id: Optional[str] = None
     model_name: Optional[str] = "gemini-3-flash-preview"
     custom_reading_prompts: Optional[List[str]] = None
-    rerank_score_threshold: float = 0.5
     max_search_rounds: Optional[int] = None
     max_queries_per_round: Optional[int] = None
     max_full_reads: Optional[int] = None

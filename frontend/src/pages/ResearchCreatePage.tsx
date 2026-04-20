@@ -16,6 +16,7 @@ import {
   Template,
 } from '../types';
 import clsx from 'clsx';
+import { ALLOWED_MODEL_NAMES, MODEL_OPTIONS } from '../constants/models';
 
 const PACK_NAME_ALIASES: Record<string, string> = {
   nips: 'neurips',
@@ -24,8 +25,6 @@ const PACK_NAME_ALIASES: Record<string, string> = {
 const PREFERRED_PACK_RELEASE_TAG = 'research-packs-ai-top-2024-2026';
 const LEGACY_PACK_RELEASE_TAGS = new Set(['research-packs-v1']);
 const RESEARCH_PREFERENCES_STORAGE_KEY = 'research-create-preferences-v1';
-const ALLOWED_MODEL_NAMES = new Set(['gemini-3-flash-preview', 'gemini-3-pro-preview']);
-
 const normalizePackConference = (conference: string) => PACK_NAME_ALIASES[conference] || conference;
 
 type ResearchPreferences = {
@@ -1459,8 +1458,11 @@ const ResearchCreatePage: React.FC = () => {
                       onChange={(event) => setModelName(event.target.value)}
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="gemini-3-flash-preview">Gemini 3 Flash (Faster/Cheaper)</option>
-                      <option value="gemini-3-pro-preview">Gemini 3 Pro (Stronger)</option>
+                      {MODEL_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>

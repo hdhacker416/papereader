@@ -4,7 +4,7 @@ import logging
 from sqlalchemy.orm import Session
 from database import SessionLocal, DATA_DIR
 import models
-from services import arxiv_service, openreview_service, pdf_service, gemini_service
+from services import arxiv_service, openreview_service, pdf_service, llm_service
 from services.template_service import parse_template_prompts
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +14,31 @@ logger = logging.getLogger(__name__)
 # Concurrency limit
 MAX_CONCURRENT_PAPERS = 3
 executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_PAPERS)
+
+
+def _refresh_task_status_if_terminal(db: Session, task_id: str) -> None:
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task or task.status != "running":
+        return
+
+    total = db.query(models.Paper).filter(models.Paper.task_id == task_id).count()
+    if total <= 0:
+        return
+
+    active = db.query(models.Paper).filter(
+        models.Paper.task_id == task_id,
+        models.Paper.status.in_(["queued", "processing"]),
+    ).count()
+    if active > 0:
+        return
+
+    failed = db.query(models.Paper).filter(
+        models.Paper.task_id == task_id,
+        models.Paper.status == "failed",
+    ).count()
+
+    task.status = "failed" if failed == total else "completed"
+    db.commit()
 
 
 def _should_try_arxiv_fallback(search_result: dict | None, download_result) -> bool:
@@ -92,6 +117,7 @@ def log_error_to_chat(db: Session, paper: models.Paper, error_msg: str):
 
 async def process_paper(paper_id: str):
     db: Session = SessionLocal()
+    paper = None
     try:
         paper = db.query(models.Paper).filter(models.Paper.id == paper_id).first()
         if not paper:
@@ -201,7 +227,7 @@ async def process_paper(paper_id: str):
         paper.pdf_path = rel_path # Store relative path
         db.commit()
 
-        # 3. Interpret with Gemini
+        # 3. Interpret with configured model
         # Get template
         task = db.query(models.Task).filter(models.Task.id == paper.task_id).first()
 
@@ -226,11 +252,11 @@ async def process_paper(paper_id: str):
             model_name = paper.model_name if paper.model_name else task_model
             
             interpretation_text, chat_history = await asyncio.get_event_loop().run_in_executor(
-                executor, 
-                gemini_service.interpret_paper, 
-                save_path, 
+                executor,
+                llm_service.interpret_paper,
+                save_path,
                 prompts,
-                model_name
+                model_name,
             )
             
             # Save interpretation
@@ -288,13 +314,19 @@ async def process_paper(paper_id: str):
         logger.error(f"Error processing paper {paper_id}: {e}")
         # Try to update status if possible
         try:
-            paper.status = "failed"
-            paper.failure_reason = f"System error: {str(e)}"
-            log_error_to_chat(db, paper, paper.failure_reason)
-            db.commit()
+            if paper is not None:
+                paper.status = "failed"
+                paper.failure_reason = f"System error: {str(e)}"
+                log_error_to_chat(db, paper, paper.failure_reason)
+                db.commit()
         except:
             pass
     finally:
+        try:
+            if paper is not None and paper.task_id and paper.status in {"done", "failed", "skipped"}:
+                _refresh_task_status_if_terminal(db, paper.task_id)
+        except Exception as exc:
+            logger.error("Failed to refresh task status for paper %s: %s", paper_id, exc)
         db.close()
 
 async def processor_loop():

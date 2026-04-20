@@ -162,7 +162,8 @@ def start_services():
         str(frontend_port),
     ]
     frontend_env = os.environ.copy()
-    frontend_env["VITE_API_BASE_URL"] = f"http://localhost:{backend_port}/api"
+    frontend_env["VITE_API_BASE_URL"] = "/api"
+    frontend_env["VITE_BACKEND_PROXY_TARGET"] = f"http://localhost:{backend_port}"
     
     try:
         frontend_proc = subprocess.Popen(frontend_cmd, cwd=FRONTEND_DIR, env=frontend_env)

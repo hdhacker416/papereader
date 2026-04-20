@@ -111,7 +111,6 @@ export const deepResearchApi = {
     template_id?: string;
     model_name?: string;
     custom_reading_prompts?: string[];
-    rerank_score_threshold?: number;
     max_search_rounds?: number;
     max_queries_per_round?: number;
     max_full_reads?: number;

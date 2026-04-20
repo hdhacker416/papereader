@@ -1354,7 +1354,6 @@ def create_task_from_auto_research(
             "template_id": template_id,
             "model_name": payload.model_name or "gemini-3-flash-preview",
             "custom_reading_prompts": payload.custom_reading_prompts or [],
-            "rerank_score_threshold": payload.rerank_score_threshold,
             "max_search_rounds": effective_max_search_rounds,
             "max_queries_per_round": effective_max_queries_per_round,
             "max_full_reads": effective_max_full_reads,
@@ -1397,20 +1396,6 @@ def create_task_from_auto_research(
         task_name=task.name,
         imported_count=0,
     )
-
-
-def _select_by_threshold(
-    reranked_results: list[dict[str, Any]],
-    threshold: float,
-    min_papers: int,
-    max_papers: int,
-) -> list[dict[str, Any]]:
-    selected = [item for item in reranked_results if float(item["rerank_score"]) >= threshold]
-    if len(selected) < min_papers:
-        selected = reranked_results[:min_papers]
-    return selected[:max_papers]
-
-
 def generate_task_report(
     db: Session,
     task_id: str,

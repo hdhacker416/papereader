@@ -9,6 +9,7 @@ import ReReadModal from '../components/ReReadModal';
 import { tasksApi, papersApi, deepResearchApi } from '../api/services';
 import { Task, Paper, DeepResearchReport } from '../types';
 import clsx from 'clsx';
+import { MODEL_OPTIONS } from '../constants/models';
 
 const MIN_REPORT_PAPERS = 2;
 const REPORT_SCROLL_KEY_PREFIX = 'task-report-scroll:';
@@ -575,8 +576,11 @@ const TaskDetailPage: React.FC = () => {
                   }}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                 >
-                  <option value="gemini-3-flash-preview">Gemini 3 Flash (Faster/Cheaper)</option>
-                  <option value="gemini-3-pro-preview">Gemini 3 Pro (Higher Quality)</option>
+                  {MODEL_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
                 <button
                   onClick={handleGenerateReport}

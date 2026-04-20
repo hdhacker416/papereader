@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from backend.services.arxiv_service import search_arxiv
-from backend.services.gemini_service import interpret_paper
+try:
+    from backend.services.llm_service import interpret_paper
+except ModuleNotFoundError:
+    from services.llm_service import interpret_paper
 from backend.services.openreview_service import search_openreview
 from backend.services.pdf_service import download_pdf_with_details
 from research.config import DEFAULT_CONFIG

@@ -232,14 +232,6 @@ def _apply_trace_event(task_id: str, event: dict[str, Any]) -> None:
     finally:
         db.close()
 
-
-def _select_by_threshold(reranked_results: list[dict[str, Any]], threshold: float, min_papers: int, max_papers: int) -> list[dict[str, Any]]:
-    selected = [item for item in reranked_results if float(item["rerank_score"]) >= threshold]
-    if len(selected) < min_papers:
-        selected = reranked_results[:min_papers]
-    return selected[:max_papers]
-
-
 def _process_preparing_task(task_id: str) -> None:
     db = SessionLocal()
     try:
@@ -274,12 +266,7 @@ def _process_preparing_task(task_id: str) -> None:
             trace_callback=lambda event: _apply_trace_event(task_id, event),
         )
 
-        selected = _select_by_threshold(
-            reranked_results=selection.selected_papers,
-            threshold=float(config.get("rerank_score_threshold") or 0.5),
-            min_papers=1,
-            max_papers=int(config.get("max_full_reads") or 8),
-        )
+        selected = selection.selected_papers
         db.refresh(task)
         trace = _parse_trace(task.agent_trace_json)
         runtime = _runtime(trace)

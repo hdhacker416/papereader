@@ -3,6 +3,7 @@ import { Task } from '../types';
 import { format } from 'date-fns';
 import { Clock, File, Trash2, CheckSquare, Square } from 'lucide-react';
 import clsx from 'clsx';
+import { formatModelLabel } from '../constants/models';
 
 interface TaskCardProps {
   task: Task;
@@ -92,7 +93,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onClick, selected, onSelect, 
         </div>
         {task.model_name && (
             <div className="flex items-center gap-1.5 text-xs bg-gray-50 px-2 py-0.5 rounded text-gray-500">
-                Model: {task.model_name.replace('gemini-3-', '').replace('-preview', '')}
+                Model: {formatModelLabel(task.model_name)}
             </div>
         )}
       </div>

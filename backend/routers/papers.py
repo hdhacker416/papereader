@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import models, schemas
 from database import get_db, DATA_DIR
-from services import gemini_service
+from services import llm_service
 import logging
 import os
 
@@ -112,7 +112,12 @@ def chat_with_paper(paper_id: str, message: str = Body(..., embed=True), db: Ses
         task = db.query(models.Task).filter(models.Task.id == paper.task_id).first()
         model_name = task.model_name if task else "gemini-3-flash-preview"
         
-        response_text, _, cost, time_cost = gemini_service.chat_with_paper(pdf_path, history_for_ai, message, model_name=model_name)
+        response_text, _, cost, time_cost = llm_service.chat_with_paper(
+            pdf_path,
+            history_for_ai,
+            message,
+            model_name=model_name,
+        )
         
         # Save assistant message
         ai_msg = models.ChatMessage(
