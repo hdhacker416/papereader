@@ -417,6 +417,20 @@ class SelectedPaper:
 
 
 @dataclass(frozen=True)
+class CandidateAdmissionDecision:
+    title: str
+    conference: str
+    year: int
+    paper_id: str
+    should_read: bool
+    axis: str
+    reason: str
+    priority: int
+    rerank_score: float
+    coarse_score: float
+
+
+@dataclass(frozen=True)
 class SearchRoundDecision:
     continue_search: bool
     rationale: str
@@ -433,6 +447,7 @@ class SearchRoundResult:
     reranked_results: list[dict[str, Any]]
     decision: SearchRoundDecision
     selected_papers: list[SelectedPaper]
+    candidate_admissions: list[CandidateAdmissionDecision]
 
 
 @dataclass(frozen=True)
@@ -827,7 +842,7 @@ class BoundedResearchRunner:
                 top_n=min(rerank_top_n, len(merged_candidates)),
             )
             reranked_results = reranked["results"]
-            round_selected_papers = self._evaluate_candidates_for_reading(
+            round_selected_papers, round_candidate_admissions = self._evaluate_candidates_for_reading(
                 user_query=user_query,
                 brief=brief,
                 reranked_results=reranked_results,
@@ -880,6 +895,7 @@ class BoundedResearchRunner:
                 reranked_results=reranked_results,
                 decision=decision,
                 selected_papers=round_selected_papers,
+                candidate_admissions=round_candidate_admissions,
             )
             rounds.append(round_result)
 
@@ -1046,8 +1062,9 @@ class BoundedResearchRunner:
         reranked_results: list[dict[str, Any]],
         selected_papers: list[SelectedPaper],
         max_full_reads: int,
-    ) -> list[SelectedPaper]:
+    ) -> tuple[list[SelectedPaper], list[CandidateAdmissionDecision]]:
         accepted: list[SelectedPaper] = []
+        decisions: list[CandidateAdmissionDecision] = []
         selected_keys = {
             (item.conference, int(item.year), item.paper_id)
             for item in selected_papers
@@ -1066,6 +1083,20 @@ class BoundedResearchRunner:
                 selected_papers=selected_papers + accepted,
                 max_full_reads=max_full_reads,
             )
+            decisions.append(
+                CandidateAdmissionDecision(
+                    title=paper["title"],
+                    conference=paper["conference"],
+                    year=int(paper["year"]),
+                    paper_id=paper["paper_id"],
+                    should_read=bool(decision["should_read"]),
+                    axis=str(decision["axis"]).strip() or "selected",
+                    reason=str(decision["reason"]).strip(),
+                    priority=int(decision["priority"]),
+                    rerank_score=float(item["rerank_score"]),
+                    coarse_score=float(item["coarse_score"]),
+                )
+            )
             if not decision["should_read"]:
                 continue
             accepted.append(
@@ -1079,7 +1110,7 @@ class BoundedResearchRunner:
                     priority=int(decision["priority"]),
                 )
             )
-        return accepted
+        return accepted, decisions
 
     def _evaluate_candidate_for_reading(
         self,

@@ -99,6 +99,21 @@ def _build_round_candidate_trace(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _build_round_admission_trace(item) -> dict[str, Any]:
+    return {
+        "paper_id": item.paper_id,
+        "论文标题": item.title,
+        "会议": conference_display_name(item.conference),
+        "年份": int(item.year),
+        "是否精读": bool(item.should_read),
+        "方向": item.axis,
+        "判断理由": item.reason,
+        "优先级": int(item.priority),
+        "粗排分数": round(float(item.coarse_score), 4),
+        "精排分数": round(float(item.rerank_score), 4),
+    }
+
+
 def _build_round_summary(round_item: SearchRoundResult) -> str:
     queries = [str(item).strip() for item in round_item.queries if str(item).strip()]
     query_text = "；".join(queries) if queries else "无查询"
@@ -143,6 +158,10 @@ def _build_round_trace(round_item: SearchRoundResult) -> dict[str, Any]:
         "本轮选中文章": [
             _build_round_selected_trace(round_item, item)
             for item in round_item.selected_papers
+        ],
+        "本轮候选判断": [
+            _build_round_admission_trace(item)
+            for item in round_item.candidate_admissions
         ],
     }
 

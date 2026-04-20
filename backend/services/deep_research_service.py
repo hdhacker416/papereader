@@ -840,6 +840,20 @@ def _build_agent_trace(selection, *, user_query: str, max_search_rounds: int, ma
                 "缺失方向": round_item.decision.missing_axes,
                 "下一轮查询": round_item.decision.additional_queries,
                 "本轮选中文章": round_selected,
+                "本轮候选判断": [
+                    {
+                        "论文标题": item.title,
+                        "会议": conference_display_name(item.conference),
+                        "年份": int(item.year),
+                        "是否精读": bool(item.should_read),
+                        "方向": item.axis,
+                        "判断理由": item.reason,
+                        "优先级": int(item.priority),
+                        "粗排分数": round(float(item.coarse_score), 4),
+                        "精排分数": round(float(item.rerank_score), 4),
+                    }
+                    for item in round_item.candidate_admissions
+                ],
             }
         )
 
