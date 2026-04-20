@@ -9,6 +9,8 @@ export const MODEL_OPTIONS: ModelOption[] = [
   { value: 'qwen-flash', label: 'Qwen Flash' },
   { value: 'qwen-plus', label: 'Qwen Plus' },
   { value: 'qwen-max', label: 'Qwen Max' },
+  { value: 'qwen-long', label: 'Qwen Long (Direct PDF)' },
+  { value: 'qwen-doc-turbo', label: 'Qwen Doc Turbo (Direct PDF)' },
 ];
 
 export const ALLOWED_MODEL_NAMES = new Set(MODEL_OPTIONS.map((item) => item.value));
