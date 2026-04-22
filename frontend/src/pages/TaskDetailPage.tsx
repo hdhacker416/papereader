@@ -9,11 +9,15 @@ import ReReadModal from '../components/ReReadModal';
 import { tasksApi, papersApi, deepResearchApi } from '../api/services';
 import { Task, Paper, DeepResearchReport } from '../types';
 import clsx from 'clsx';
-import { MODEL_OPTIONS } from '../constants/models';
+import { MODEL_OPTIONS, REPORT_MODEL_OPTIONS } from '../constants/models';
 
 const MIN_REPORT_PAPERS = 2;
 const REPORT_SCROLL_KEY_PREFIX = 'task-report-scroll:';
 const REPORT_PANEL_SCROLL_KEY_PREFIX = 'task-report-panel-scroll:';
+const TRACE_EXPANDED_KEY_PREFIX = 'task-trace-expanded:';
+const TRACE_ROUNDS_EXPANDED_KEY_PREFIX = 'task-trace-rounds-expanded:';
+const ALLOWED_REPORT_MODELS = new Set(REPORT_MODEL_OPTIONS.map((item) => item.value));
+const DEFAULT_REPORT_MODEL = 'gemini-3-flash-preview';
 
 const TaskDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,9 +31,9 @@ const TaskDetailPage: React.FC = () => {
   const [report, setReport] = useState<DeepResearchReport | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
-  const [traceExpanded, setTraceExpanded] = useState(true);
+  const [traceExpanded, setTraceExpanded] = useState(false);
   const [traceRoundsExpanded, setTraceRoundsExpanded] = useState(false);
-  const [reportModel, setReportModel] = useState('gemini-3-flash-preview');
+  const [reportModel, setReportModel] = useState(DEFAULT_REPORT_MODEL);
   const [reportModelDirty, setReportModelDirty] = useState(false);
   const reportContentRef = useRef<HTMLDivElement | null>(null);
 
@@ -73,14 +77,32 @@ const TaskDetailPage: React.FC = () => {
   }, [fetchData, fetchReport]);
 
   useEffect(() => {
-    setReportModel('gemini-3-flash-preview');
+    setReportModel(DEFAULT_REPORT_MODEL);
     setReportModelDirty(false);
   }, [id]);
 
   useEffect(() => {
+    if (!id) return;
+    const savedTraceExpanded = sessionStorage.getItem(`${TRACE_EXPANDED_KEY_PREFIX}${id}`);
+    const savedTraceRoundsExpanded = sessionStorage.getItem(`${TRACE_ROUNDS_EXPANDED_KEY_PREFIX}${id}`);
+    setTraceExpanded(savedTraceExpanded === 'true');
+    setTraceRoundsExpanded(savedTraceRoundsExpanded === 'true');
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    sessionStorage.setItem(`${TRACE_EXPANDED_KEY_PREFIX}${id}`, String(traceExpanded));
+  }, [id, traceExpanded]);
+
+  useEffect(() => {
+    if (!id) return;
+    sessionStorage.setItem(`${TRACE_ROUNDS_EXPANDED_KEY_PREFIX}${id}`, String(traceRoundsExpanded));
+  }, [id, traceRoundsExpanded]);
+
+  useEffect(() => {
     if (reportModelDirty) return;
-    const preferredModel = report?.model_name || task?.model_name || 'gemini-3-flash-preview';
-    setReportModel(preferredModel);
+    const preferredModel = report?.model_name || task?.model_name || DEFAULT_REPORT_MODEL;
+    setReportModel(ALLOWED_REPORT_MODELS.has(preferredModel) ? preferredModel : DEFAULT_REPORT_MODEL);
   }, [task?.model_name, report?.model_name, reportModelDirty]);
 
   useEffect(() => {
@@ -576,7 +598,7 @@ const TaskDetailPage: React.FC = () => {
                   }}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                 >
-                  {MODEL_OPTIONS.map((option) => (
+                  {REPORT_MODEL_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -609,8 +631,11 @@ const TaskDetailPage: React.FC = () => {
                       </>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {report.progress_total > 0 ? `${report.progress_completed}/${report.progress_total}` : '-'}
+                  <div className="text-xs text-gray-500 text-right">
+                    <div>{report.progress_total > 0 ? `${report.progress_completed}/${report.progress_total}` : '-'}</div>
+                    {report.progress_total > 0 && (
+                      <div className="mt-1">{Math.round(reportProgressPercent)}%</div>
+                    )}
                   </div>
                 </div>
                 {report.progress_message && (
@@ -619,7 +644,10 @@ const TaskDetailPage: React.FC = () => {
                 {report.progress_total > 0 && (
                   <div className="mt-3 h-2 rounded-full bg-gray-200 overflow-hidden">
                     <div
-                      className="h-full bg-slate-900 transition-all"
+                      className={clsx(
+                        "h-full transition-all",
+                        reportBusy ? "bg-slate-900 animate-pulse" : "bg-slate-900"
+                      )}
                       style={{ width: `${reportProgressPercent}%` }}
                     />
                   </div>

@@ -22,6 +22,9 @@ QWEN_PAPER_MODEL_ALIASES = {
 }
 FILE_PROCESSING_POLL_SECONDS = 2.0
 FILE_PROCESSING_TIMEOUT_SECONDS = 120.0
+QWEN_CHAT_TIMEOUT_SECONDS = 300.0
+QWEN_RETRY_ATTEMPTS = 3
+QWEN_RETRY_SLEEP_SECONDS = 3.0
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +47,55 @@ def _get_client(api_key: str | None = None, base_url: str | None = None) -> Open
         api_key=resolved_key,
         base_url=base_url or os.getenv("DASHSCOPE_BASE_URL") or DEFAULT_DASHSCOPE_BASE_URL,
     )
+
+
+def _is_retryable_qwen_exception(exc: Exception) -> bool:
+    message = str(exc)
+    lowered = message.lower()
+    return (
+        "requesttimeout" in message
+        or "request timed out" in lowered
+        or "timed out" in lowered
+        or "read timeout" in lowered
+        or "connection reset" in lowered
+    )
+
+
+def _create_chat_completion_with_retry(
+    client: OpenAI,
+    *,
+    model: str,
+    messages: list[dict[str, str]],
+    response_format: dict[str, str] | None = None,
+):
+    last_exc: Exception | None = None
+    for attempt in range(1, QWEN_RETRY_ATTEMPTS + 1):
+        try:
+            kwargs: dict[str, Any] = {
+                "model": model,
+                "messages": messages,
+                "timeout": QWEN_CHAT_TIMEOUT_SECONDS,
+            }
+            if response_format is not None:
+                kwargs["response_format"] = response_format
+            return client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            last_exc = exc
+            if attempt >= QWEN_RETRY_ATTEMPTS or not _is_retryable_qwen_exception(exc):
+                raise
+            sleep_seconds = QWEN_RETRY_SLEEP_SECONDS * attempt
+            logger.warning(
+                "Retryable Qwen completion error on attempt %s/%s for model %s: %s. Sleeping %.1fs before retry.",
+                attempt,
+                QWEN_RETRY_ATTEMPTS,
+                model,
+                exc,
+                sleep_seconds,
+            )
+            time.sleep(sleep_seconds)
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("Qwen completion failed without a captured exception")
 
 
 def _resolve_qwen_paper_model(model_name: str | None) -> str:
@@ -152,7 +204,8 @@ def _chat_with_uploaded_file(
         {"role": "user", "content": message},
     ]
     effective_model = _resolve_qwen_paper_model(model_name)
-    response = client.chat.completions.create(
+    response = _create_chat_completion_with_retry(
+        client,
         model=effective_model,
         messages=messages,
     )
@@ -173,7 +226,8 @@ def complete_text(
     api_key: str | None = None,
 ) -> str:
     client = _get_client(api_key=api_key)
-    response = client.chat.completions.create(
+    response = _create_chat_completion_with_retry(
+        client,
         model=model_name or DEFAULT_QWEN_MODEL,
         messages=[
             {"role": "system", "content": system_instruction},
@@ -192,7 +246,8 @@ def complete_json(
     api_key: str | None = None,
 ) -> str:
     client = _get_client(api_key=api_key)
-    response = client.chat.completions.create(
+    response = _create_chat_completion_with_retry(
+        client,
         model=model_name or DEFAULT_QWEN_MODEL,
         messages=[
             {"role": "system", "content": f"{system_instruction}\n请严格输出 JSON。"},
@@ -244,7 +299,7 @@ def interpret_paper(
                 message=prompt_text,
                 model_name=model_name,
             )
-            full_response += f"## Step {index}\n\n**Prompt:** {prompt_text}\n\n**Response:**\n{response_text}\n\n---\n\n"
+            full_response += f"## 第 {index} 步\n\n**提示词：** {prompt_text}\n\n**回答：**\n{response_text}\n\n---\n\n"
         return full_response, history["turns"]
     finally:
         _delete_uploaded_file(client, file_id)

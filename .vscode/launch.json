@@ -55,6 +55,27 @@
         "--port",
         "8000"
       ]
+    },
+    {
+      "name": "Debug Task Report Pipeline",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/debug_task_report_pipeline.py",
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "envFile": "${workspaceFolder}/backend/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/backend"
+      },
+      "args": [
+        "--task-id",
+        "86dbd6c6-eac1-4327-8115-fc5922a827bd",
+        "--report-model",
+        "qwen-plus",
+        "--stage",
+        "report"
+      ]
     }
   ]
 }

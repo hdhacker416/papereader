@@ -17,6 +17,7 @@ from services import deep_research_service
 logger = logging.getLogger(__name__)
 
 REPORT_POLL_SECONDS = 2
+UNSUPPORTED_REPORT_MODELS = {"qwen-long", "qwen-doc-turbo"}
 
 
 def _utcnow() -> datetime:
@@ -55,6 +56,11 @@ def enqueue_task_report_generation(
 
     report_query = _resolve_report_query(task, payload)
     report_model = payload.model_name or task.model_name or "gemini-3-flash-preview"
+    if str(report_model).strip().lower() in UNSUPPORTED_REPORT_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail="Selected model is only supported for direct PDF reading, not report generation. Use Gemini or Qwen Flash/Plus/Max.",
+        )
 
     report = db.query(models.DeepResearchReport).filter(
         models.DeepResearchReport.task_id == task.id

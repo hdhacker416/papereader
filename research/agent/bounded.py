@@ -1450,7 +1450,7 @@ class BoundedResearchRunner:
         report_outline: dict[str, Any],
     ) -> str:
         paper_title_map = {
-            str(item["paper_id"]): str(item["title"])
+            str(item.get("paper_id")): str(item.get("title"))
             for item in evidence_pack.get("evidence_cards", [])
             if item.get("paper_id") and item.get("title")
         }
@@ -1482,7 +1482,7 @@ class BoundedResearchRunner:
         draft_report: str,
     ) -> str:
         paper_title_map = {
-            str(item["paper_id"]): str(item["title"])
+            str(item.get("paper_id")): str(item.get("title"))
             for item in evidence_pack.get("evidence_cards", [])
             if item.get("paper_id") and item.get("title")
         }
@@ -1602,7 +1602,11 @@ class BoundedResearchRunner:
                 "search_axes": brief.search_axes,
             },
             "evidence_pack": evidence_pack,
-            "required_paper_ids": [item["paper_id"] for item in evidence_pack.get("evidence_cards", [])],
+            "required_paper_ids": [
+                str(item.get("paper_id"))
+                for item in evidence_pack.get("evidence_cards", [])
+                if item.get("paper_id")
+            ],
         }
         outline = self._generate_json_dict(
             system_instruction=REPORT_OUTLINE_SYSTEM_PROMPT,
@@ -1610,7 +1614,11 @@ class BoundedResearchRunner:
             schema=REPORT_OUTLINE_SCHEMA,
             max_output_tokens=6144,
         )
-        required_ids = [item["paper_id"] for item in evidence_pack.get("evidence_cards", [])]
+        required_ids = [
+            str(item.get("paper_id"))
+            for item in evidence_pack.get("evidence_cards", [])
+            if item.get("paper_id")
+        ]
         paper_analysis_order = [str(item) for item in (outline.get("paper_analysis_order") or []) if str(item)]
         seen: set[str] = set()
         normalized_order: list[str] = []
@@ -1638,12 +1646,20 @@ class BoundedResearchRunner:
             },
             "paper": paper,
         }
-        return self._generate_json_dict(
+        card = self._generate_json_dict(
             system_instruction=EVIDENCE_PACK_SYSTEM_PROMPT,
             payload=payload,
             schema=PER_PAPER_EVIDENCE_CARD_SCHEMA,
             max_output_tokens=3072,
         )
+        # Keep stable paper identity fields under program control even if the
+        # model omits or rewrites them in an otherwise valid evidence card.
+        card["conference"] = str(paper["conference"])
+        card["year"] = int(paper["year"])
+        card["paper_id"] = str(paper["paper_id"])
+        card["title"] = str(paper["title"])
+        card["selection_reason"] = str(card.get("selection_reason") or paper.get("selection_reason", ""))
+        return card
 
     @staticmethod
     def _build_weak_signals(

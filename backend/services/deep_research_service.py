@@ -459,9 +459,14 @@ def _generate_task_report_content(
         trace=trace,
     )
     runner = BoundedResearchRunner(model=report_model)
+    evidence_steps = max(len(reading_results), 1)
+    base_total_steps = 1 + evidence_steps + 1 + 1
+    after_preparing = 1
+    after_evidence = after_preparing + evidence_steps
+    after_outline = after_evidence + 1
     if progress_callback is not None:
-        progress_callback("preparing", 1, 1, "已整理任务中的精读论文与弱信号")
-        progress_callback("evidence", 0, len(reading_results), "开始逐篇提取证据卡")
+        progress_callback("preparing", after_preparing, base_total_steps, "已整理任务中的精读论文与弱信号")
+        progress_callback("evidence", after_preparing, base_total_steps, "开始逐篇提取证据卡")
     evidence_pack = runner._build_evidence_pack(
         user_query=report_query,
         brief=brief,
@@ -469,30 +474,39 @@ def _generate_task_report_content(
         reading_results=reading_results,
         weak_signals=weak_signals,
         progress_callback=(
-            (lambda completed, total, message: progress_callback("evidence", completed, total, message))
+            (
+                lambda completed, total, message: progress_callback(
+                    "evidence",
+                    after_preparing + min(max(completed, 0), evidence_steps),
+                    base_total_steps,
+                    message,
+                )
+            )
             if progress_callback is not None
             else None
         ),
     )
     if progress_callback is not None:
-        progress_callback("outline", 0, 1, "正在构建报告提纲")
+        progress_callback("outline", after_evidence, base_total_steps, "正在构建报告提纲")
     report_outline = runner._build_report_outline(
         user_query=report_query,
         brief=brief,
         evidence_pack=evidence_pack,
     )
     if progress_callback is not None:
-        progress_callback("outline", 1, 1, "报告提纲已完成")
-        progress_callback("writing", 0, 1, "正在撰写最终报告")
+        progress_callback("outline", after_outline, base_total_steps, "报告提纲已完成")
+        progress_callback("writing", after_outline, base_total_steps, "正在撰写最终报告")
     content = runner._summarize(
         user_query=report_query,
         brief=brief,
         evidence_pack=evidence_pack,
         report_outline=report_outline,
     )
+    repaired = False
     if _report_needs_repair(content):
+        repaired = True
         if progress_callback is not None:
-            progress_callback("repairing", 0, 1, "初稿未满足格式要求，正在修复结构与引用")
+            progress_callback("repairing", after_outline + 1, base_total_steps + 1, "初稿未满足格式要求，正在修复结构与引用")
         content = runner._repair_report(
             user_query=report_query,
             brief=brief,
@@ -501,13 +515,15 @@ def _generate_task_report_content(
             draft_report=content,
         )
         if progress_callback is not None:
-            progress_callback("repairing", 1, 1, "报告修复完成")
+            progress_callback("repairing", base_total_steps + 1, base_total_steps + 1, "报告修复完成")
     content = _sanitize_report_visible_paper_ids(
         content=content,
         reading_results=reading_results,
     )
     if progress_callback is not None:
-        progress_callback("writing", 1, 1, "最终报告已生成")
+        final_total = base_total_steps + 1 if repaired else base_total_steps
+        final_completed = final_total
+        progress_callback("writing", final_completed, final_total, "最终报告已生成")
     return _rewrite_report_evidence_links(
         content=content,
         task_id=task.id,
