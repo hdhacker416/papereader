@@ -3,6 +3,7 @@ import { Task } from '../types';
 import { format } from 'date-fns';
 import { Clock, File, Trash2, CheckSquare, Square } from 'lucide-react';
 import clsx from 'clsx';
+import { formatModelLabel } from '../constants/models';
 
 interface TaskCardProps {
   task: Task;
@@ -17,6 +18,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onClick, selected, onSelect, 
   
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'preparing': return 'bg-purple-100 text-purple-800';
       case 'running': return 'bg-green-100 text-green-800';
       case 'paused': return 'bg-yellow-100 text-yellow-800';
       case 'completed': return 'bg-blue-100 text-blue-800';
@@ -91,7 +93,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onClick, selected, onSelect, 
         </div>
         {task.model_name && (
             <div className="flex items-center gap-1.5 text-xs bg-gray-50 px-2 py-0.5 rounded text-gray-500">
-                Model: {task.model_name.replace('gemini-3-', '').replace('-preview', '')}
+                Model: {formatModelLabel(task.model_name)}
             </div>
         )}
       </div>

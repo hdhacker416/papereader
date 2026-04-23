@@ -1,6 +1,8 @@
 # User requested ignore
 data/
 test/
+papereader.zip
+frontend/dist/
 # Python
 __pycache__/
 *.pyc

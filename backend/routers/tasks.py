@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List
+import json
+from app_constants import DEFAULT_USER_ID
 import models, schemas
 from database import get_db
+from services.template_service import parse_template_prompts, serialize_prompt_list
 
 router = APIRouter(
     prefix="/api/tasks",
@@ -10,8 +14,45 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-# Dummy user ID for now
-DEFAULT_USER_ID = "default_user_id"
+
+def _parse_agent_trace(payload: str | None):
+    if not payload:
+        return None
+    try:
+        return json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+
+def _serialize_task(task: models.Task) -> schemas.Task:
+    return schemas.Task(
+        id=task.id,
+        user_id=task.user_id,
+        name=task.name,
+        description=task.description,
+        template_id=task.template_id,
+        model_name=task.model_name or "gemini-3-flash-preview",
+        custom_reading_prompts=parse_template_prompts(task.custom_reading_prompts_json or "") or None,
+        agent_trace=_parse_agent_trace(task.agent_trace_json),
+        status=task.status,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+    )
+
+
+def _serialize_task_summary(task: models.Task) -> schemas.Task:
+    return schemas.Task(
+        id=task.id,
+        user_id=task.user_id,
+        name=task.name,
+        description=task.description,
+        template_id=task.template_id,
+        model_name=task.model_name or "gemini-3-flash-preview",
+        custom_reading_prompts=None,
+        agent_trace=None,
+        status=task.status,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+    )
 
 @router.post("/", response_model=schemas.Task)
 def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
@@ -27,11 +68,20 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
         # If we made it Optional in schema, Pydantic won't block None.
         raise HTTPException(status_code=400, detail="Template ID is required")
     
-    db_task = models.Task(**task.dict(), user_id=DEFAULT_USER_ID, status="running")
+    db_task = models.Task(
+        name=task.name,
+        description=task.description,
+        template_id=task.template_id,
+        custom_reading_prompts_json=serialize_prompt_list(task.custom_reading_prompts),
+        agent_trace_json=json.dumps(task.agent_trace, ensure_ascii=False) if task.agent_trace else None,
+        model_name=task.model_name,
+        user_id=DEFAULT_USER_ID,
+        status="running",
+    )
     db.add(db_task)
     db.commit()
     db.refresh(db_task)
-    return db_task
+    return _serialize_task(db_task)
 
 @router.post("/{task_id}/reread")
 def reread_task(task_id: str, request: schemas.ReReadRequest, db: Session = Depends(get_db)):
@@ -44,9 +94,13 @@ def reread_task(task_id: str, request: schemas.ReReadRequest, db: Session = Depe
         task.template_id = request.template_id
     if request.model_name:
         task.model_name = request.model_name
+    if request.custom_reading_prompts is not None:
+        task.custom_reading_prompts_json = serialize_prompt_list(request.custom_reading_prompts)
     
-    # Reset all papers in task
-    papers = db.query(models.Paper).filter(models.Paper.task_id == task.id).all()
+    papers_query = db.query(models.Paper).filter(models.Paper.task_id == task.id)
+    if request.only_failed:
+        papers_query = papers_query.filter(models.Paper.status == "failed")
+    papers = papers_query.all()
     for paper in papers:
         paper.status = "queued"
         paper.failure_reason = None
@@ -63,20 +117,52 @@ def reread_task(task_id: str, request: schemas.ReReadRequest, db: Session = Depe
 @router.get("/", response_model=List[schemas.TaskWithStats])
 def read_tasks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     tasks = db.query(models.Task).filter(models.Task.user_id == DEFAULT_USER_ID).order_by(models.Task.created_at.desc()).offset(skip).limit(limit).all()
-    
+
+    task_ids = [task.id for task in tasks]
+    counts_by_task: dict[str, dict[str, int]] = {
+        task_id: {
+            "total": 0,
+            "done": 0,
+            "failed": 0,
+            "skipped": 0,
+            "queued": 0,
+            "processing": 0,
+        }
+        for task_id in task_ids
+    }
+    if task_ids:
+        rows = (
+            db.query(
+                models.Paper.task_id,
+                models.Paper.status,
+                func.count(models.Paper.id),
+            )
+            .filter(models.Paper.task_id.in_(task_ids))
+            .group_by(models.Paper.task_id, models.Paper.status)
+            .all()
+        )
+        for task_id, status, count in rows:
+            bucket = counts_by_task.get(task_id)
+            if bucket is None:
+                continue
+            bucket["total"] += int(count)
+            if status in bucket:
+                bucket[str(status)] = int(count)
+
     result = []
     for task in tasks:
+        bucket = counts_by_task.get(task.id) or {}
         stats = schemas.TaskStatistics(
-            total=db.query(models.Paper).filter(models.Paper.task_id == task.id).count(),
-            done=db.query(models.Paper).filter(models.Paper.task_id == task.id, models.Paper.status == "done").count(),
-            failed=db.query(models.Paper).filter(models.Paper.task_id == task.id, models.Paper.status == "failed").count(),
-            skipped=db.query(models.Paper).filter(models.Paper.task_id == task.id, models.Paper.status == "skipped").count(),
-            queued=db.query(models.Paper).filter(models.Paper.task_id == task.id, models.Paper.status == "queued").count(),
-            processing=db.query(models.Paper).filter(models.Paper.task_id == task.id, models.Paper.status == "processing").count(),
+            total=int(bucket.get("total", 0)),
+            done=int(bucket.get("done", 0)),
+            failed=int(bucket.get("failed", 0)),
+            skipped=int(bucket.get("skipped", 0)),
+            queued=int(bucket.get("queued", 0)),
+            processing=int(bucket.get("processing", 0)),
         )
-        task_base = schemas.Task.from_orm(task)
+        task_base = _serialize_task_summary(task)
         task_with_stats = schemas.TaskWithStats(
-            **task_base.dict(),
+            **task_base.model_dump(),
             statistics=stats
         )
         result.append(task_with_stats)
@@ -99,9 +185,9 @@ def read_task(task_id: str, db: Session = Depends(get_db)):
     )
     
     # Create TaskWithStats manually to avoid validation error on missing statistics in ORM object
-    task_base = schemas.Task.from_orm(task)
+    task_base = _serialize_task(task)
     task_with_stats = schemas.TaskWithStats(
-        **task_base.dict(),
+        **task_base.model_dump(),
         statistics=stats
     )
     return task_with_stats
@@ -119,7 +205,7 @@ def update_task(task_id: str, task_update: schemas.TaskUpdate, db: Session = Dep
     
     db.commit()
     db.refresh(db_task)
-    return db_task
+    return _serialize_task(db_task)
 
 @router.post("/{task_id}/papers", response_model=List[schemas.Paper])
 def add_papers(task_id: str, papers: schemas.PaperCreate, db: Session = Depends(get_db)):

@@ -123,7 +123,6 @@ const CollectionNode: React.FC<{
 
 const CollectionsPage: React.FC = () => {
   const [collections, setCollections] = useState<Collection[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [targetParentId, setTargetParentId] = useState<string | undefined>(undefined);
@@ -135,8 +134,6 @@ const CollectionsPage: React.FC = () => {
       setCollections(data);
     } catch (error) {
       console.error('Failed to fetch collections:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -170,10 +167,15 @@ const CollectionsPage: React.FC = () => {
     setReReadTargetId(id);
   };
 
-  const handleReReadConfirm = async (templateId: string, modelName: string) => {
+  const handleReReadConfirm = async (
+    templateId: string,
+    modelName: string,
+    _customReadingPrompts: string[],
+    onlyFailed: boolean,
+  ) => {
     if (!reReadTargetId) return;
     try {
-      await collectionsApi.reRead(reReadTargetId, templateId, modelName);
+      await collectionsApi.reRead(reReadTargetId, templateId, modelName, onlyFailed);
       // Optional: show toast or something
     } catch (error) {
       console.error('Failed to reread collection:', error);
