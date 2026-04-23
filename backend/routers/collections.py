@@ -124,7 +124,10 @@ def reread_collection(collection_id: str, request: schemas.ReReadRequest, db: Se
     if not paper_ids:
         return {"ok": True, "count": 0}
 
-    papers = db.query(models.Paper).filter(models.Paper.id.in_(paper_ids)).all()
+    papers_query = db.query(models.Paper).filter(models.Paper.id.in_(paper_ids))
+    if request.only_failed:
+        papers_query = papers_query.filter(models.Paper.status == "failed")
+    papers = papers_query.all()
     
     for paper in papers:
         # Reset status

@@ -447,7 +447,7 @@ def interpret_paper(pdf_path: str, template_prompts: List[str], model_name: str 
         )
         
         # Accumulate response with formatting
-        full_response += f"## Step {i+1}\n\n**Prompt:** {prompt_text}\n\n**Response:**\n{response_text}\n\n---\n\n"
+        full_response += f"## 第 {i+1} 步\n\n**提示词：** {prompt_text}\n\n**回答：**\n{response_text}\n\n---\n\n"
         
         # Update history for next turn
         history = updated_history

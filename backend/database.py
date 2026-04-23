@@ -37,8 +37,11 @@ def check_and_migrate_database():
     """
     Checks database schema and performs auto-migrations for backward compatibility.
     1. Adds missing columns (template_id, model_name) to papers table.
-    2. Updates legacy absolute PDF paths to relative paths.
-    3. Verifies critical schema integrity.
+    2. Adds missing task-level custom reading prompts and agent trace columns.
+    3. Updates legacy absolute PDF paths to relative paths.
+    4. Adds missing deep-research report progress columns.
+    5. Drops deprecated legacy research tables that are no longer part of the app schema.
+    6. Verifies critical schema integrity.
     """
     logger.info("Checking database schema...")
     inspector = inspect(engine)
@@ -100,8 +103,62 @@ def check_and_migrate_database():
                 logger.info("PDF path migration completed.")
             else:
                 logger.info("No legacy PDF paths found.")
-                
+
+            deprecated_tables = [
+                "research_paper_candidates",
+                "research_jobs",
+            ]
+            for table_name in deprecated_tables:
+                logger.info("Migrating: Dropping deprecated table if it exists: %s", table_name)
+                conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+
             conn.commit()
+
+    if inspector.has_table("tasks"):
+        with engine.connect() as conn:
+            task_columns = {
+                row[1]
+                for row in conn.execute(text("PRAGMA table_info(tasks)")).fetchall()
+            }
+            if "custom_reading_prompts_json" not in task_columns:
+                logger.info("Migrating: Adding custom_reading_prompts_json to tasks table")
+                conn.execute(text("ALTER TABLE tasks ADD COLUMN custom_reading_prompts_json TEXT"))
+                conn.commit()
+            if "agent_trace_json" not in task_columns:
+                logger.info("Migrating: Adding agent_trace_json to tasks table")
+                conn.execute(text("ALTER TABLE tasks ADD COLUMN agent_trace_json TEXT"))
+                conn.commit()
+
+    if inspector.has_table("deep_research_reports"):
+        with engine.connect() as conn:
+            report_columns = {
+                row[1]
+                for row in conn.execute(text("PRAGMA table_info(deep_research_reports)")).fetchall()
+            }
+            if "model_name" not in report_columns:
+                logger.info("Migrating: Adding model_name to deep_research_reports table")
+                conn.execute(text("ALTER TABLE deep_research_reports ADD COLUMN model_name VARCHAR"))
+                conn.commit()
+            if "progress_stage" not in report_columns:
+                logger.info("Migrating: Adding progress_stage to deep_research_reports table")
+                conn.execute(text("ALTER TABLE deep_research_reports ADD COLUMN progress_stage VARCHAR"))
+                conn.commit()
+            if "progress_message" not in report_columns:
+                logger.info("Migrating: Adding progress_message to deep_research_reports table")
+                conn.execute(text("ALTER TABLE deep_research_reports ADD COLUMN progress_message TEXT"))
+                conn.commit()
+            if "progress_completed" not in report_columns:
+                logger.info("Migrating: Adding progress_completed to deep_research_reports table")
+                conn.execute(text("ALTER TABLE deep_research_reports ADD COLUMN progress_completed INTEGER NOT NULL DEFAULT 0"))
+                conn.commit()
+            if "progress_total" not in report_columns:
+                logger.info("Migrating: Adding progress_total to deep_research_reports table")
+                conn.execute(text("ALTER TABLE deep_research_reports ADD COLUMN progress_total INTEGER NOT NULL DEFAULT 0"))
+                conn.commit()
+            if "error" not in report_columns:
+                logger.info("Migrating: Adding error to deep_research_reports table")
+                conn.execute(text("ALTER TABLE deep_research_reports ADD COLUMN error TEXT"))
+                conn.commit()
             
     logger.info("Database check completed.")
 

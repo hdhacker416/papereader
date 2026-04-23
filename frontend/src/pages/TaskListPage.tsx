@@ -6,7 +6,6 @@ import Layout from '../components/Layout';
 import TaskCard from '../components/TaskCard';
 import { tasksApi } from '../api/services';
 import { Task } from '../types';
-import clsx from 'clsx';
 
 const TaskListPage: React.FC = () => {
   const navigate = useNavigate();

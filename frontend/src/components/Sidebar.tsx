@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, Settings, FolderOpen, BookOpen, ChevronRight, ChevronDown, Folder, Plus, Trash2 } from 'lucide-react';
+import { LayoutDashboard, FileText, FolderOpen, BookOpen, ChevronRight, ChevronDown, Folder, FlaskConical } from 'lucide-react';
 import clsx from 'clsx';
 import { tasksApi, collectionsApi } from '../api/services';
 import { Task, Paper, Collection } from '../types';
 
-// Recursive Collection Node for Sidebar
+interface SidebarLocation {
+    pathname: string;
+}
+
 const SidebarCollectionNode: React.FC<{
     collection: Collection;
     allCollections: Collection[];
     level: number;
     navigate: (path: string) => void;
-    location: any;
+    location: SidebarLocation;
 }> = ({ collection, allCollections, level, navigate, location }) => {
     const [expanded, setExpanded] = useState(false);
     const [papers, setPapers] = useState<Paper[]>([]);
@@ -138,7 +141,7 @@ const Sidebar: React.FC = () => {
         loadCollections();
       }
     }
-  }, [isLibraryExpanded]);
+  }, [collections.length, isLibraryExpanded, tasks.length]);
 
   const toggleTaskExpand = async (taskId: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -164,9 +167,9 @@ const Sidebar: React.FC = () => {
 
   const navItems = [
     { path: '/tasks', label: 'Tasks', icon: LayoutDashboard },
+    { path: '/research', label: 'Research', icon: FlaskConical },
     { path: '/collections', label: 'Collections', icon: FolderOpen },
     { path: '/templates', label: 'Templates', icon: FileText },
-    // { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
   return (

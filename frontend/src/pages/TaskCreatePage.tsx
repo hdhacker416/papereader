@@ -2,14 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
+import PromptListEditor from '../components/PromptListEditor';
 import { tasksApi, templatesApi } from '../api/services';
 import { Template } from '../types';
+import { MODEL_OPTIONS } from '../constants/models';
 
 const TaskCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [templateId, setTemplateId] = useState('');
+  const [customReadingPrompts, setCustomReadingPrompts] = useState<string[]>(['']);
   const [modelName, setModelName] = useState('gemini-3-flash-preview');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,6 +38,14 @@ const TaskCreatePage: React.FC = () => {
     };
     fetchTemplates();
   }, []);
+
+  useEffect(() => {
+    const selectedTemplate = templates.find((item) => item.id === templateId);
+    if (!selectedTemplate) {
+      return;
+    }
+    setCustomReadingPrompts(selectedTemplate.content.length > 0 ? selectedTemplate.content : ['']);
+  }, [templateId, templates]);
 
   const handleAddRow = () => {
     setPaperList([...paperList, '']);
@@ -62,7 +73,8 @@ const TaskCreatePage: React.FC = () => {
         name,
         description,
         template_id: templateId,
-        model_name: modelName
+        model_name: modelName,
+        custom_reading_prompts: customReadingPrompts.map((item) => item.trim()).filter(Boolean),
       });
 
       // 2. Add Papers if any
@@ -107,8 +119,11 @@ const TaskCreatePage: React.FC = () => {
                   onChange={(e) => setModelName(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="gemini-3-flash-preview">Gemini 3 Flash (Faster/Cheaper)</option>
-                  <option value="gemini-3-pro-preview">Gemini 3 Pro (Higher Quality)</option>
+                  {MODEL_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -143,6 +158,13 @@ const TaskCreatePage: React.FC = () => {
               placeholder="Optional description..."
             />
           </div>
+
+          <PromptListEditor
+            title="Reading Prompts"
+            description="These prompts will be saved on the task and used when the papers are interpreted."
+            prompts={customReadingPrompts}
+            onChange={setCustomReadingPrompts}
+          />
 
           <div className="border-t pt-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">Initial Papers</label>

@@ -1,10 +1,11 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import TaskListPage from './pages/TaskListPage';
 import TaskCreatePage from './pages/TaskCreatePage';
 import TaskDetailPage from './pages/TaskDetailPage';
 import ReadingRoomPage from './pages/ReadingRoomPage';
 import TemplatesPage from './pages/TemplatesPage';
 import CollectionsPage from './pages/CollectionsPage';
+import ResearchCreatePage from './pages/ResearchCreatePage';
 
 function App() {
   return (
@@ -17,6 +18,9 @@ function App() {
         <Route path="/reader/:paperId" element={<ReadingRoomPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/collections" element={<CollectionsPage />} />
+        <Route path="/research" element={<ResearchCreatePage />} />
+        <Route path="/research/create" element={<Navigate to="/research" replace />} />
+        <Route path="/research/:id" element={<Navigate to="/research" replace />} />
       </Routes>
     </Router>
   );

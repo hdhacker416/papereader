@@ -1,18 +1,20 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Send, FileText, MessageSquare, BookOpen, ChevronLeft, ChevronRight, Save, FolderOpen, FolderPlus, Trash2, Check, ChevronDown, MessageSquarePlus, X } from 'lucide-react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Send, FileText, MessageSquare, Save, FolderOpen, FolderPlus, Trash2, Check, MessageSquarePlus, X, ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import Layout from '../components/Layout';
 import Sidebar from '../components/Sidebar';
-import { papersApi, collectionsApi, tasksApi } from '../api/services';
-import { Paper, ChatMessage, Note, Collection, Task } from '../types';
+import Layout from '../components/Layout';
+import { papersApi, collectionsApi } from '../api/services';
+import { buildApiUrl } from '../api';
+import { Paper, ChatMessage, Collection } from '../types';
 import clsx from 'clsx';
 
 const ReadingRoomPage: React.FC = () => {
-  const { paperId } = useParams<{ paperId: string }>();
   const navigate = useNavigate();
+  const { paperId } = useParams<{ paperId: string }>();
+  const [searchParams] = useSearchParams();
   const [paper, setPaper] = useState<Paper | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -31,14 +33,24 @@ const ReadingRoomPage: React.FC = () => {
   // Collections State
   const [allCollections, setAllCollections] = useState<Collection[]>([]);
   const [paperCollections, setPaperCollections] = useState<Collection[]>([]);
-  const [loadingCollections, setLoadingCollections] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [targetParentCollection, setTargetParentCollection] = useState<{id: string, name: string} | null>(null);
+  const fromTaskId = searchParams.get('fromTask');
+  const fromReport = searchParams.get('fromReport') === '1';
 
-  // Navigator State
-  // Moved to Sidebar
-  
-  // Fetch Paper Data
+  const fetchCollections = useCallback(async () => {
+      try {
+          const cols = await collectionsApi.list();
+          setAllCollections(cols);
+          if (paperId) {
+              const pCols = await collectionsApi.getPaperCollections(paperId);
+              setPaperCollections(pCols);
+          }
+      } catch (error) {
+          console.error("Failed to fetch collections", error);
+      }
+  }, [paperId]);
+
   useEffect(() => {
     if (!paperId) return;
 
@@ -50,7 +62,7 @@ const ReadingRoomPage: React.FC = () => {
           papersApi.getNotes(paperId)
         ]);
         setPaper(paperData);
-        setMessages(history || []); // Ensure array
+        setMessages(history || []);
         setNotes(notesData?.content || '');
       } catch (error) {
         console.error('Failed to load paper data:', error);
@@ -58,25 +70,7 @@ const ReadingRoomPage: React.FC = () => {
     };
     fetchData();
     fetchCollections();
-  }, [paperId]);
-
-  // Fetch Collections
-  const fetchCollections = async () => {
-      try {
-          const cols = await collectionsApi.list();
-          setAllCollections(cols);
-          if (paperId) {
-              const pCols = await collectionsApi.getPaperCollections(paperId);
-              setPaperCollections(pCols);
-          }
-      } catch (error) {
-          console.error("Failed to fetch collections", error);
-      }
-  };
-
-  const toggleTaskExpand = (taskId: string) => {
-      // Deprecated, logic moved to Sidebar
-  };
+  }, [fetchCollections, paperId]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -193,7 +187,7 @@ const ReadingRoomPage: React.FC = () => {
       setNewCollectionName('');
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = () => {
     isDraggingRef.current = true;
     setIsResizing(true);
     document.addEventListener('mousemove', handleMouseMove);
@@ -218,25 +212,23 @@ const ReadingRoomPage: React.FC = () => {
     document.body.style.cursor = 'default';
   };
 
-  const renderCollectionTree = (collections: Collection[], activeCollections: Collection[], parentId: string | null = null, level = 0) => {
-      // Filter for current level
+  const renderCollectionTree = (collections: Collection[], activeCollections: Collection[], parentId: string | null = null) => {
       const nodes = collections.filter(c => {
           if (parentId) return c.parent_id === parentId;
-          return !c.parent_id || c.parent_id === ''; // Root nodes have null or empty parent_id
+          return !c.parent_id || c.parent_id === '';
       });
       
       return nodes.map(node => (
           <div key={node.id}>
-              {renderCollectionItem(node, activeCollections, level)}
-              {/* Recursive call for children */}
+              {renderCollectionItem(node, activeCollections)}
               <div className="ml-4 border-l border-gray-100 pl-2">
-                  {renderCollectionTree(collections, activeCollections, node.id, level + 1)}
+                  {renderCollectionTree(collections, activeCollections, node.id)}
               </div>
           </div>
       ));
   };
 
-  const renderCollectionItem = (col: Collection, activeCollections: Collection[], level: number) => {
+  const renderCollectionItem = (col: Collection, activeCollections: Collection[]) => {
       const isAdded = activeCollections.some(c => c.id === col.id);
       return (
         <div key={col.id} className={clsx("flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 group")}>
@@ -282,7 +274,21 @@ const ReadingRoomPage: React.FC = () => {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
             <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (fromTaskId) {
+                                navigate(`/tasks/${fromTaskId}`);
+                                return;
+                            }
+                            navigate(-1);
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50 shrink-0"
+                    >
+                        <ArrowLeft size={16} />
+                        {fromTaskId ? (fromReport ? '返回任务报告' : '返回任务') : '返回'}
+                    </button>
                     <h1 className="font-semibold text-gray-900 truncate max-w-xl" title={paper.title}>
                         {paper.title}
                     </h1>
@@ -315,7 +321,7 @@ const ReadingRoomPage: React.FC = () => {
                     {paper.pdf_path ? (
                         <>
                             <iframe 
-                                src={`http://localhost:8000/api/pdfs/${paper.task_id}/${paper.id}.pdf`}
+                                src={buildApiUrl(`/pdfs/${paper.task_id}/${paper.id}.pdf`)}
                                 className={clsx("w-full h-full", isResizing && "pointer-events-none select-none")}
                                 title="PDF Viewer"
                             />
@@ -360,8 +366,8 @@ const ReadingRoomPage: React.FC = () => {
                                                     remarkPlugins={[remarkMath]} 
                                                     rehypePlugins={[rehypeKatex]}
                                                     components={{
-                                                        p: ({node, ...props}) => <p className="mb-4 last:mb-0" {...props} />,
-                                                        li: ({node, ...props}) => <li className="mb-2 last:mb-0" {...props} />
+                                                        p: (props) => <p className="mb-4 last:mb-0" {...props} />,
+                                                        li: (props) => <li className="mb-2 last:mb-0" {...props} />
                                                     }}
                                                 >
                                                     {msg.content}

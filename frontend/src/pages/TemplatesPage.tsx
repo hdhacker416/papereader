@@ -7,7 +7,6 @@ import clsx from 'clsx';
 
 const TemplatesPage: React.FC = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [newContent, setNewContent] = useState<string[]>(['']);
@@ -18,8 +17,6 @@ const TemplatesPage: React.FC = () => {
       setTemplates(data);
     } catch (error) {
       console.error('Failed to fetch templates:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

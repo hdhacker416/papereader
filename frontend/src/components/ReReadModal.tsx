@@ -1,30 +1,59 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import PromptListEditor from './PromptListEditor';
 import { templatesApi } from '../api/services';
 import { Template } from '../types';
+import { MODEL_OPTIONS } from '../constants/models';
 
 interface ReReadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (templateId: string, modelName: string) => Promise<void>;
+  onConfirm: (
+    templateId: string,
+    modelName: string,
+    customReadingPrompts: string[],
+    onlyFailed: boolean,
+  ) => Promise<void>;
   title: string;
+  initialTemplateId?: string;
+  initialModelName?: string;
+  initialPrompts?: string[];
 }
 
-const ReReadModal: React.FC<ReReadModalProps> = ({ isOpen, onClose, onConfirm, title }) => {
+const ReReadModal: React.FC<ReReadModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  initialTemplateId,
+  initialModelName,
+  initialPrompts,
+}) => {
   const [templateId, setTemplateId] = useState('');
   const [modelName, setModelName] = useState('gemini-3-flash-preview');
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [customReadingPrompts, setCustomReadingPrompts] = useState<string[]>(['']);
+  const [onlyFailed, setOnlyFailed] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      setOnlyFailed(false);
       const fetchTemplates = async () => {
         try {
           const data = await templatesApi.list();
           setTemplates(data);
           if (data.length > 0) {
-            const def = data.find(t => t.is_default);
-            setTemplateId(def ? def.id : data[0].id);
+            const selected = data.find((item) => item.id === initialTemplateId)
+              || data.find(t => t.is_default)
+              || data[0];
+            setTemplateId(selected.id);
+            setModelName(initialModelName || 'gemini-3-flash-preview');
+            setCustomReadingPrompts(
+              initialPrompts && initialPrompts.length > 0
+                ? initialPrompts
+                : (selected.content.length > 0 ? selected.content : [''])
+            );
           }
         } catch (error) {
           console.error('Failed to fetch templates:', error);
@@ -32,12 +61,31 @@ const ReReadModal: React.FC<ReReadModalProps> = ({ isOpen, onClose, onConfirm, t
       };
       fetchTemplates();
     }
-  }, [isOpen]);
+  }, [initialModelName, initialPrompts, initialTemplateId, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    if (initialPrompts && initialPrompts.length > 0) {
+      return;
+    }
+    const selectedTemplate = templates.find((item) => item.id === templateId);
+    if (!selectedTemplate) {
+      return;
+    }
+    setCustomReadingPrompts(selectedTemplate.content.length > 0 ? selectedTemplate.content : ['']);
+  }, [initialPrompts, isOpen, templateId, templates]);
 
   const handleConfirm = async () => {
     setLoading(true);
     try {
-      await onConfirm(templateId, modelName);
+      await onConfirm(
+        templateId,
+        modelName,
+        customReadingPrompts.map((item) => item.trim()).filter(Boolean),
+        onlyFailed,
+      );
       onClose();
     } catch (error) {
       console.error('Failed to reread:', error);
@@ -60,7 +108,7 @@ const ReReadModal: React.FC<ReReadModalProps> = ({ isOpen, onClose, onConfirm, t
 
         <h2 className="text-xl font-semibold mb-4">{title}</h2>
         <p className="text-sm text-gray-500 mb-6">
-          This will re-process all papers in this task/collection using the selected configuration.
+          This will re-process papers in this task/collection using the selected configuration.
           Existing interpretations will be overwritten.
         </p>
 
@@ -72,8 +120,11 @@ const ReReadModal: React.FC<ReReadModalProps> = ({ isOpen, onClose, onConfirm, t
               onChange={(e) => setModelName(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="gemini-3-flash-preview">Gemini 3 Flash (Faster/Cheaper)</option>
-              <option value="gemini-3-pro-preview">Gemini 3 Pro (Higher Quality)</option>
+              {MODEL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -91,6 +142,28 @@ const ReReadModal: React.FC<ReReadModalProps> = ({ isOpen, onClose, onConfirm, t
               ))}
             </select>
           </div>
+
+          <PromptListEditor
+            title="Reading Prompts"
+            description="These prompts will override the selected template for this re-read run."
+            prompts={customReadingPrompts}
+            onChange={setCustomReadingPrompts}
+          />
+
+          <label className="flex items-start gap-3 rounded-lg border border-gray-200 px-3 py-2">
+            <input
+              type="checkbox"
+              checked={onlyFailed}
+              onChange={(e) => setOnlyFailed(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <div>
+              <div className="text-sm font-medium text-gray-900">Only re-read failed papers</div>
+              <div className="text-xs text-gray-500">
+                Leave unchecked to queue all papers again.
+              </div>
+            </div>
+          </label>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
