@@ -4,6 +4,9 @@ sqlalchemy
 aiosqlite
 pydantic
 google-genai
+openai
+dashscope
+numpy
 requests
 pypdf2
 arxiv

@@ -1,187 +1,188 @@
 # Paper Reader / 论文阅读助手
 
-Paper Reader is a local AI-powered academic paper reading assistant. It helps you manage reading lists, automatically download papers from Arxiv/OpenReview, and uses Gemini 3 to interpret and summarize papers.
-Paper Reader 是一个本地 AI 驱动的学术论文阅读助手。它帮助你管理阅读清单，自动从 Arxiv/OpenReview 下载论文，并使用 Gemini 3 来解读和总结论文。
+Paper Reader is a local AI-powered paper reading and research workspace. It can create reading tasks from paper titles, search and download PDFs from arXiv/OpenReview, chat with papers, manage notes and collections, and run a conference-pack-based deep research workflow.
+Paper Reader 是一个本地 AI 驱动的论文阅读与研究工作台。它可以从论文标题创建阅读任务，自动从 arXiv/OpenReview 搜索并下载 PDF，与论文对话，管理笔记和收藏夹，并提供基于 conference packs 的 Deep Research 工作流。
 
 <p align="center">
   <img src="assets/main.png" width="36%" alt="Main Interface" />
   <img src="assets/library.png" width="61%" alt="Library Interface" />
 </p>
 
-
 ### Video Showcase / 视频展示
 [Watch the demo video / 观看演示视频](https://www.bilibili.com/video/BV1gNNuzzEWJ/?spm_id_from=333.1387.homepage.video_card.click&vd_source=910a83c9601312e34c7ebcf4051f6ad2)
 
 ## Features / 功能特性
 
-- **Task Management**: Create reading tasks and organize papers.
-  **任务管理**：创建阅读任务并组织论文。
-- **Auto Download**: Automatically search and download PDFs from Arxiv and OpenReview.
-  **自动下载**：自动从 Arxiv 和 OpenReview 搜索并下载 PDF。
-- **AI Interpretation**: Use Google Gemini models to summarize and chat with papers.
-  **AI 解读**：使用 Google Gemini 模型总结论文并进行对话。
-- **Local Storage**: All PDFs and data are stored locally on your machine.
-  **本地存储**：所有 PDF 和数据都存储在你的本地机器上。
-- **Reading Room**: Dedicated interface for reading and chatting with papers.
-  **阅读室**：专用于阅读和与论文对话的界面。
+- **Task-based reading pipeline / 任务式阅读流程**: Create tasks, batch add paper titles, process papers in the background, and retry or reread papers with updated prompts and models.
+- **Automatic paper discovery / 自动检索论文**: Resolve paper sources from existing links or search arXiv and OpenReview, then download PDFs into local storage.
+- **Multi-model reading / 多模型阅读**: Use Gemini models and Qwen-family models for paper interpretation, chat, reread, and report generation.
+- **Reading Room / 阅读室**: Read PDFs, continue paper-grounded chat, save notes, and add papers into collections from one place.
+- **Prompt templates / 提示词模板**: Maintain reusable reading templates, select a default template, and override prompts per task.
+- **Collections / 收藏夹**: Organize papers into nested collections and rerun reading over a whole collection.
+- **Deep Research / 深度研究**: Search conference packs, select papers into a task, auto-create research tasks, and generate task-level synthesis reports.
+- **Research pack workflow / Research Pack 工作流**: Install prebuilt packs from GitHub Releases, inspect local packs, build new packs, and optionally upload them back to GitHub Releases.
+- **Local-first storage / 本地优先存储**: Database, PDFs, notes, chat history, and packs stay on your machine under the project directory.
 
-## Installation & Setup / 安装与配置
+## Current Architecture / 当前项目结构
+
+- `backend/`: FastAPI application, SQLite models, background paper processor, report generation, and Deep Research APIs.
+- `frontend/`: React + TypeScript + Vite UI for tasks, reader, templates, collections, and research workflows.
+- `research/`: Standalone retrieval, rerank, pack-building, and deep research pipeline modules used by the backend.
+- `data/`: Auto-created runtime data directory. Stores `app.db`, downloaded PDFs, and local research assets.
+- `start.py`: Launcher script that starts both backend and frontend and prints the final URLs.
+
+## Requirements / 环境要求
+
+- Python 3.10+ recommended
+- Node.js and npm available in `PATH`
+- A local environment that can run both Python and Node processes
+
+The codebase supports several workflows, and the required API keys depend on which features you use.
+当前仓库支持多条工作流，不同功能需要的 API Key 不完全相同。
+
+## Environment Variables / 环境变量
+
+Create `backend/.env` or export the variables in your shell.
+推荐直接创建 `backend/.env` 文件，也可以在 shell 环境中导出这些变量。
+
+| Variable | Required | Used for |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | Required for Gemini-based reading and reports | Gemini paper interpretation, paper chat, task report generation, parts of Deep Research |
+| `DASHSCOPE_API_KEY` | Required for Qwen and Deep Research | Qwen models, DashScope embeddings, rerank, pack build, research self-check |
+| `DASHSCOPE_BASE_URL` | Optional | Override the DashScope OpenAI-compatible endpoint |
+| `GITHUB_TOKEN` | Optional | Upload research packs to GitHub Releases |
+
+Example `backend/.env`:
+
+```dotenv
+GEMINI_API_KEY=your_gemini_api_key_here
+DASHSCOPE_API_KEY=your_dashscope_api_key_here
+# DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+# GITHUB_TOKEN=ghp_xxx
+```
+
+You can also copy the example file first:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+## Installation / 安装
 
 [Watch the installation tutorial / 观看安装教程](https://www.bilibili.com/video/BV1gNNuzzEpZ/?spm_id_from=333.1387.homepage.video_card.click)
 
-### 1. Clone the Repository / 克隆仓库
+### 1. Clone the repository / 克隆仓库
 
 ```bash
 git clone https://github.com/hdhacker416/papereader.git
 cd papereader
 ```
 
-### 2. Configure Environment Variables / 配置环境变量
+### 2. Create a Python environment / 创建 Python 环境
 
-You need a Google Gemini API Key to use the AI features.
-你需要一个 Google Gemini API Key 来使用 AI 功能。
+You can use `venv`, Conda, or your preferred environment manager.
+可以使用 `venv`、Conda，或你习惯的 Python 环境管理方式。
 
-1.  Get your API Key from [Google AI Studio](https://aistudio.google.com/).
-    从 [Google AI Studio](https://aistudio.google.com/) 获取你的 API Key。
-2.  Set the `GEMINI_API_KEY` environment variable:
-    设置 `GEMINI_API_KEY` 环境变量：
-
-    **Windows (PowerShell):**
-    ```powershell
-    $env:GEMINI_API_KEY="your_api_key_here"
-    ```
-
-    **Mac/Linux:**
-    ```bash
-    export GEMINI_API_KEY="your_api_key_here"
-    ```
-
-    *(Replace `your_api_key_here` with your actual API key)*
-    *（将 `your_api_key_here` 替换为你实际的 API key）*
-
-    **Verify configuration / 验证配置:**
-
-    You can run these commands to check if the key is set correctly:
-    你可以运行以下命令来检查 Key 是否配置正确：
-
-    ```bash
-    # Windows (PowerShell)
-    echo $env:GEMINI_API_KEY
-
-    # Mac/Linux
-    echo $GEMINI_API_KEY
-    ```
-
-### 3. Install Dependencies / 安装依赖
-
-**Backend (Python) / 后端 (Python):**
-
-It is recommended to use a virtual environment.
-推荐使用虚拟环境。
+Example with `venv`:
 
 ```bash
-# Create virtual environment with Conda / 使用 Conda 创建虚拟环境
-conda create -n paperreader python=3.10
-
-# Activate virtual environment / 激活虚拟环境
-conda activate paperreader
-
-# Install requirements / 安装依赖包
-pip install -r backend/requirements.txt
-
-# Install node.js by conda / 使用 Conda 安装 node.js
-conda install -n paperreader -c conda-forge nodejs
+python -m venv .venv
+source .venv/bin/activate
 ```
-Note: after installing node.js, you need to add the node address to the environment variables, otherwise the startup script will report an error.
-注意,在安装 node.js 后,你需要将 node 的地址添加到环境变量中,否则启动脚本会报错。
 
-Directly run `node -v` in the terminal to check if node.js is installed successfully.
-在终端直接运行 `node -v` 来检查 node 是否安装成功。 
+Windows PowerShell:
 
-**Frontend (Node components) / 前端 (Node.js 组件):**
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+### 3. Install backend dependencies / 安装后端依赖
+
+```bash
+pip install -r backend/requirements.txt
+```
+
+### 4. Install frontend dependencies / 安装前端依赖
 
 ```bash
 cd frontend
 npm install
+cd ..
 ```
-### 4. (Optional) Add Alias / 添加别名
-Running `python start.py` in the corresponding folder every time might be a bit cumbersome. Therefore, consider packaging these steps into a single command that can be executed directly from the command line. Alternatively, you could package it into a batch file.
-如果每一次都要到对应的文件夹去执行python start.py，可能有一点麻烦。所以可以考虑将这些步骤打包成一个在命令行可以直接执行的命令。或者也可以将它直接打包为一个批处理文件.
 
-In Windows, you can do as the follow:
-在 Windows 系统中，您可以按以下步骤操作：
-1. open powershell
-打开 PowerShell
-2. run notepad $PROFILE
-运行 notepad $PROFILE
-3. add the following lines to the files:
-将以下几行添加到文件中：
-```bash
-  function paperreader {
-      cd ../../paperreader(your paperreader project folder)
-      conda activate paperreader
-      python .\start.py
-  }
-```
-4. open a new powershell window and run `paperreader` to start the application.
-打开一个新的 PowerShell 窗口，运行 `paperreader` 来启动应用程序。
+### 5. Configure API keys / 配置 API Key
 
-在 Linux 或 macOS 系统中，您可以按以下步骤操作：
-1. Open a terminal.
-打开终端
-2. Run `nano ~/.bashrc` or `nano ~/.zshrc` (depending on your shell).
-运行 `nano ~/.bashrc` 或 `nano ~/.zshrc` （根据您的 shell 类型）
-3. Add the following lines to your file:
-将以下几行添加到文件中：
-
-```bash
-  function paperreader {
-      cd ../../paperreader(your paperreader project folder)
-      conda activate paperreader
-      python .\start.py
-  }
-```
-4. Save the file and exit the editor.
-保存文件并退出编辑器
-
-5. Run `source ~/.bashrc` or `source ~/.zshrc` (depending on your shell) to activate the alias.
-运行 `source ~/.bashrc` 或 `source ~/.zshrc` （根据您的 shell 类型）来使别名生效。
-
+Create `backend/.env` and fill in the variables you need for your workflow.
+创建 `backend/.env`，按你要使用的功能填写对应变量。
 
 ## Running the Application / 运行应用
 
-We provide a convenient startup script that launches both the backend and frontend services.
-我们提供了一个便捷的启动脚本，可以同时启动后端和前端服务。
-
-**Make sure you are in the root `papereader` directory.**
-**请确保你位于根目录 `papereader` 下。**
+Run the launcher from the repository root:
+请在仓库根目录执行启动脚本：
 
 ```bash
-# Ensure your virtual environment is activated if you used one
-# 如果你使用了虚拟环境，请确保已激活
-cd ..
 python start.py
 ```
 
-- **Frontend / 前端**: http://localhost:5173 (Open this in your browser / 在浏览器中打开)
-- **Backend API / 后端 API**: http://localhost:8000/docs
+What `start.py` does:
 
-## Troubleshooting / 故障排除
+- Starts the FastAPI backend and the Vite frontend together
+- Uses `backend/requirements.txt` as the backend dependency reference
+- Runs `npm install` automatically if `frontend/node_modules` is missing
+- Loads environment variables from `backend/.env` during startup
+- Automatically picks the next available ports if `8000` or `5173` is already occupied
 
--   **"GEMINI_API_KEY not found"**: Please configure your `GEMINI_API_KEY` in the environment variables.
-    **"GEMINI_API_KEY not found"**：请在环境变量中配置你的 `GEMINI_API_KEY`。
--   **Node modules missing**: If `start.py` fails to install frontend dependencies, try running `npm install` manually inside the `frontend` folder.
-    **Node modules missing**：如果 `start.py` 安装前端依赖失败，请尝试在 `frontend` 文件夹内手动运行 `npm install`。
--   **Port already in use**: Ensure ports 8000 (Backend) and 5173 (Frontend) are free.
-    **Port already in use**：确保端口 8000 (后端) 和 5173 (前端) 未被占用。
+By default, the URLs are:
+
+- Frontend: `http://localhost:5173`
+- Backend docs: `http://localhost:8000/docs`
+
+If one of those ports is already in use, `start.py` will print the actual ports it selected. Use the printed URLs rather than assuming `5173` and `8000`.
+如果默认端口被占用，`start.py` 会自动切到其他可用端口。请以终端里打印出的实际地址为准。
+
+## Typical Workflows / 常见工作流
+
+### Basic paper reading / 基础论文阅读
+
+1. Start the app with `python start.py`.
+2. Open the frontend URL printed in the terminal.
+3. Create a task in `Tasks`.
+4. Add paper titles and let the backend resolve sources and download PDFs.
+5. Open a paper in the Reading Room to chat, read notes, and manage collections.
+
+### Deep Research / 深度研究
+
+1. Open the `Research` page.
+2. Run the self-check to confirm API keys and local assets are ready.
+3. Install existing research packs from Releases, or build packs locally.
+4. Search the conference packs, select papers, and create a reading task.
+5. Generate a task-level report after enough papers have been interpreted.
 
 ## Project Structure / 项目结构
 
--   `backend/`: Python FastAPI application, database, and services.
-    `backend/`：Python FastAPI 应用程序、数据库和服务。
--   `frontend/`: React + TypeScript + Vite application.
-    `frontend/`：React + TypeScript + Vite 应用程序。
--   `data/`: Created automatically. Stores your database (`app.db`) and downloaded PDFs.
-    `data/`：自动创建。存储你的数据库 (`app.db`) 和下载的 PDF 文件。
--   `start.py`: Launcher script.
-    `start.py`：启动脚本。
+```text
+papereader/
+  backend/            FastAPI backend and background services
+  frontend/           React + TypeScript + Vite frontend
+  research/           Retrieval, rerank, pack, and Deep Research modules
+  data/               Local runtime data (database, PDFs, packs, caches)
+  assets/             README images and other static assets
+  start.py            One-command launcher for backend + frontend
+```
+
+## Troubleshooting / 故障排除
+
+- **`GEMINI_API_KEY` missing**: Gemini-based reading, reports, and some research flows will fail until the key is configured.
+- **`DASHSCOPE_API_KEY` missing**: Qwen models and Deep Research retrieval/rerank workflows will fail until the key is configured.
+- **Frontend does not start**: Confirm `node` and `npm` are available in `PATH`, then rerun `npm install` inside `frontend/`.
+- **Ports already in use**: This is usually fine. `start.py` will choose a free backend/frontend port and print the actual URLs.
+- **Research page says there are no searchable assets**: Install a pack from Releases or build packs locally before running conference search.
+- **Pack upload fails**: Configure `GITHUB_TOKEN` on the backend side before using the upload flow.
+
+## Notes / 备注
+
+- Paper PDFs are stored under `data/pdfs/`.
+- The SQLite database is stored at `data/app.db`.
+- The backend performs lightweight backward-compatible schema migration checks on startup.
+- `research/README.md` documents the internal Deep Research module design in more detail.
