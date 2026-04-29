@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Play, Pause, Square, Plus, RefreshCw, FileText, AlertCircle, Trash2, ScrollText, ChevronDown, ChevronRight } from 'lucide-react';
+import { Play, Pause, Square, Plus, RefreshCw, FileText, AlertCircle, Trash2, ScrollText, ChevronDown, ChevronRight, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -18,6 +18,15 @@ const TRACE_EXPANDED_KEY_PREFIX = 'task-trace-expanded:';
 const TRACE_ROUNDS_EXPANDED_KEY_PREFIX = 'task-trace-rounds-expanded:';
 const ALLOWED_REPORT_MODELS = new Set(REPORT_MODEL_OPTIONS.map((item) => item.value));
 const DEFAULT_REPORT_MODEL = 'gemini-3-flash-preview';
+
+const buildReportFilename = (taskName: string) => {
+  const safeName = taskName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `${safeName || 'deep-research-report'}-report.md`;
+};
 
 const TaskDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -226,6 +235,19 @@ const TaskDetailPage: React.FC = () => {
     } finally {
       setGeneratingReport(false);
     }
+  };
+
+  const handleExportReport = () => {
+    if (!report?.content) return;
+    const blob = new Blob([report.content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = buildReportFilename(task.name);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) return <Layout><div>Loading...</div></Layout>;
@@ -604,6 +626,14 @@ const TaskDetailPage: React.FC = () => {
                     </option>
                   ))}
                 </select>
+                <button
+                  onClick={handleExportReport}
+                  disabled={!report?.content || reportBusy}
+                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download size={18} />
+                  Export Markdown
+                </button>
                 <button
                   onClick={handleGenerateReport}
                   disabled={generatingReport || reportBusy || (task.statistics?.done || 0) < MIN_REPORT_PAPERS}
