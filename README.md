@@ -8,8 +8,8 @@ Paper Reader 是一个本地 AI 驱动的论文阅读与研究工作台。它可
   <img src="assets/library.png" width="61%" alt="Library Interface" />
 </p>
 
-### Video Showcase / 视频展示
-[Watch the demo video / 观看演示视频](https://www.bilibili.com/video/BV1gNNuzzEWJ/?spm_id_from=333.1387.homepage.video_card.click&vd_source=910a83c9601312e34c7ebcf4051f6ad2)
+<!-- ### Video Showcase / 视频展示
+[Watch the demo video / 观看演示视频](https://www.bilibili.com/video/BV1gNNuzzEWJ/?spm_id_from=333.1387.homepage.video_card.click&vd_source=910a83c9601312e34c7ebcf4051f6ad2) -->
 
 ## Features / 功能特性
 
@@ -78,23 +78,23 @@ git clone https://github.com/hdhacker416/papereader.git
 cd papereader
 ```
 
-### 2. Create a Python environment / 创建 Python 环境
+### 2. Create a Conda environment / 创建 Conda 环境
 
-You can use `venv`, Conda, or your preferred environment manager.
-可以使用 `venv`、Conda，或你习惯的 Python 环境管理方式。
-
-Example with `venv`:
+We recommend using Conda so Python and Node.js can be managed in the same environment.
+推荐使用 Conda，这样 Python 和 Node.js 可以放在同一个环境里管理。
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+conda create -n paperreader python=3.10
+conda activate paperreader
 ```
 
-Windows PowerShell:
+Install Node.js into the same Conda environment:
+在同一个 Conda 环境中安装 Node.js：
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+```bash
+conda install -n paperreader -c conda-forge nodejs
+node -v
+npm -v
 ```
 
 ### 3. Install backend dependencies / 安装后端依赖
