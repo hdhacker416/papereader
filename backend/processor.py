@@ -16,31 +16,6 @@ MAX_CONCURRENT_PAPERS = 3
 executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_PAPERS)
 
 
-def _refresh_task_status_if_terminal(db: Session, task_id: str) -> None:
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not task or task.status != "running":
-        return
-
-    total = db.query(models.Paper).filter(models.Paper.task_id == task_id).count()
-    if total <= 0:
-        return
-
-    active = db.query(models.Paper).filter(
-        models.Paper.task_id == task_id,
-        models.Paper.status.in_(["queued", "processing"]),
-    ).count()
-    if active > 0:
-        return
-
-    failed = db.query(models.Paper).filter(
-        models.Paper.task_id == task_id,
-        models.Paper.status == "failed",
-    ).count()
-
-    task.status = "failed" if failed == total else "completed"
-    db.commit()
-
-
 def _should_try_arxiv_fallback(search_result: dict | None, download_result) -> bool:
     if not search_result or search_result.get("source") != "openreview":
         return False
@@ -322,11 +297,6 @@ async def process_paper(paper_id: str):
         except:
             pass
     finally:
-        try:
-            if paper is not None and paper.task_id and paper.status in {"done", "failed", "skipped"}:
-                _refresh_task_status_if_terminal(db, paper.task_id)
-        except Exception as exc:
-            logger.error("Failed to refresh task status for paper %s: %s", paper_id, exc)
         db.close()
 
 async def processor_loop():

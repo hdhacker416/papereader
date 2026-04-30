@@ -212,6 +212,9 @@ def add_papers(task_id: str, papers: schemas.PaperCreate, db: Session = Depends(
     db_task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.user_id == DEFAULT_USER_ID).first()
     if db_task is None:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    if db_task.status in {"completed", "failed"}:
+        db_task.status = "running"
     
     created_papers = []
     for title in papers.titles:
