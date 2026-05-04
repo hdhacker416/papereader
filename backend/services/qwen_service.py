@@ -27,6 +27,37 @@ QWEN_RETRY_ATTEMPTS = 3
 QWEN_RETRY_SLEEP_SECONDS = 3.0
 
 logger = logging.getLogger(__name__)
+SUCCESS_FINISH_REASONS = {"stop"}
+
+
+def _format_incomplete_notice(finish_reason: str) -> str:
+    return (
+        "\n\n---\n\n"
+        f"**注意：模型输出在这里被截断。** 截断原因：`{finish_reason}`。"
+        "上面的内容是模型已经返回并被保存的部分。"
+    )
+
+
+def _append_incomplete_notice(choice: Any, response_text: str) -> str:
+    finish_reason = str(getattr(choice, "finish_reason", "") or "").strip().lower()
+    if not finish_reason or finish_reason in SUCCESS_FINISH_REASONS:
+        return response_text
+    return f"{response_text or ''}{_format_incomplete_notice(finish_reason)}"
+
+
+def _raise_if_incomplete_choice(choice: Any, response_text: str) -> None:
+    finish_reason = str(getattr(choice, "finish_reason", "") or "").strip().lower()
+    if not finish_reason or finish_reason in SUCCESS_FINISH_REASONS:
+        return
+
+    preview = (response_text or "").strip().replace("\n", " ")
+    if len(preview) > 240:
+        preview = f"{preview[:240]}..."
+    raise RuntimeError(
+        "Model response stopped before completion "
+        f"(finish_reason={finish_reason}). "
+        f"Partial response preview: {preview or '<empty>'}"
+    )
 
 
 def is_qwen_model(model_name: str | None) -> bool:
@@ -209,8 +240,10 @@ def _chat_with_uploaded_file(
         model=effective_model,
         messages=messages,
     )
-    content = response.choices[0].message.content
+    choice = response.choices[0]
+    content = choice.message.content
     response_text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+    response_text = _append_incomplete_notice(choice, response_text)
     updated_messages = _to_openai_messages(history)
     updated_messages.append({"role": "user", "content": message})
     updated_messages.append({"role": "assistant", "content": response_text})
@@ -234,8 +267,11 @@ def complete_text(
             {"role": "user", "content": user_content},
         ],
     )
-    content = response.choices[0].message.content
-    return content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+    choice = response.choices[0]
+    content = choice.message.content
+    response_text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+    _raise_if_incomplete_choice(choice, response_text)
+    return response_text
 
 
 def complete_json(
@@ -255,8 +291,11 @@ def complete_json(
         ],
         response_format={"type": "json_object"},
     )
-    content = response.choices[0].message.content
-    return content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+    choice = response.choices[0]
+    content = choice.message.content
+    response_text = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False)
+    _raise_if_incomplete_choice(choice, response_text)
+    return response_text
 
 
 def chat_with_paper(

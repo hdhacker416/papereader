@@ -111,9 +111,8 @@ def _maybe_pick_best(title: str, notes) -> Optional[Dict]:
 def _search_openreview_html(title: str) -> Optional[Dict]:
     variants = _title_variants(title)
     patterns = [
-        re.compile(r"https://openreview\.net/forum\?id=([A-Za-z0-9_-]+)"),
-        re.compile(r"https://openreview\.net/pdf\?id=([A-Za-z0-9_-]+)"),
-        re.compile(r"[?&]id=([A-Za-z0-9_-]{8,})"),
+        re.compile(r"(?:https://openreview\.net)?/forum\?id=([A-Za-z0-9_-]+)"),
+        re.compile(r"(?:https://openreview\.net)?/pdf\?id=([A-Za-z0-9_-]+)"),
     ]
     for variant in variants[:2]:
         try:
@@ -131,6 +130,7 @@ def _search_openreview_html(title: str) -> Optional[Dict]:
                 match = pattern.search(text)
                 if match:
                     note_id = match.group(1)
+                    logger.info("OpenReview HTML fallback matched '%s' to note id %s", title, note_id)
                     return {
                         "title": title,
                         "authors": [],

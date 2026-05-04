@@ -196,8 +196,12 @@ def retry_paper(paper_id: str, db: Session = Depends(get_db)):
     paper = db.query(models.Paper).filter(models.Paper.id == paper_id).first()
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
-    
+
     # Reset status to queued so processor picks it up
+    if paper.status == "failed":
+        paper.source = None
+        paper.source_url = None
+        paper.pdf_path = None
     paper.status = "queued"
     paper.failure_reason = None
     db.commit()

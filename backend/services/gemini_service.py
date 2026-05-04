@@ -16,6 +16,42 @@ import datetime
 
 logger = logging.getLogger(__name__)
 
+SUCCESS_FINISH_REASONS = {"STOP"}
+
+
+def _normalize_finish_reason(reason: Any) -> str:
+    if reason is None:
+        return ""
+    name = getattr(reason, "name", None)
+    if name:
+        return str(name).upper()
+    value = getattr(reason, "value", None)
+    if value:
+        return str(value).upper()
+    return str(reason).split(".")[-1].upper()
+
+
+def _get_finish_reason(response: Any) -> str:
+    candidates = getattr(response, "candidates", None) or []
+    if not candidates:
+        return ""
+    return _normalize_finish_reason(getattr(candidates[0], "finish_reason", None))
+
+
+def _format_incomplete_notice(finish_reason: str) -> str:
+    return (
+        "\n\n---\n\n"
+        f"**注意：模型输出在这里被截断。** 截断原因：`{finish_reason}`。"
+        "上面的内容是模型已经返回并被保存的部分。"
+    )
+
+
+def _append_incomplete_notice(response: Any, response_text: str) -> str:
+    finish_reason = _get_finish_reason(response)
+    if not finish_reason or finish_reason in SUCCESS_FINISH_REASONS:
+        return response_text
+    return f"{response_text or ''}{_format_incomplete_notice(finish_reason)}"
+
 
 class Gemini_interface:
     def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = "gemini-3-flash-preview"):
@@ -320,7 +356,7 @@ class Gemini_interface:
         )
         
         # 5. Process Response and Update History
-        response_text = response.text
+        response_text = _append_incomplete_notice(response, response.text)
         
         cost = self._calculate_cost(response.usage_metadata, self.model_name, is_cache_creation=cache_created_this_turn)
         time_cost = time.time() - t0

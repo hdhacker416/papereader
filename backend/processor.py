@@ -24,6 +24,31 @@ def _should_try_arxiv_fallback(search_result: dict | None, download_result) -> b
     return True
 
 
+def _format_pdf_download_failure(search_result: dict, download_result) -> str:
+    source = search_result.get("source")
+    if source == "openreview" and download_result.status_code == 404:
+        return (
+            "No downloadable PDF was found via arXiv or OpenReview. "
+            "OpenReview returned a matching record, but its PDF endpoint returned 404; "
+            "the arXiv fallback also did not provide a downloadable PDF. "
+            f"OpenReview PDF URL: {download_result.url}; "
+            f"Final URL: {download_result.final_url or '-'}"
+        )
+
+    return (
+        f"Failed to download PDF from {download_result.url}. "
+        f"Final URL: {download_result.final_url or '-'}; "
+        f"Status: {download_result.status_code or '-'}; "
+        f"Error: {download_result.error or 'Unknown error'}"
+    )
+
+
+def _clear_resolved_source(paper: models.Paper) -> None:
+    paper.source = None
+    paper.source_url = None
+    paper.pdf_path = None
+
+
 def resolve_existing_source(source_url: str | None):
     if not source_url:
         return None
@@ -119,7 +144,9 @@ async def process_paper(paper_id: str):
         logger.info(f"Processing paper: {paper.title} ({paper.id})")
 
         # 1. Resolve source
+        had_existing_source_url = bool(paper.source_url)
         search_result = resolve_existing_source(paper.source_url)
+        search_result_from_existing_source = search_result is not None
         if not search_result:
             # Try Arxiv first
             search_result = await asyncio.get_event_loop().run_in_executor(executor, arxiv_service.search_arxiv, paper.title)
@@ -131,6 +158,8 @@ async def process_paper(paper_id: str):
         if not search_result:
             paper.status = "failed"
             paper.failure_reason = "Paper not found via existing source_url, Arxiv, or OpenReview"
+            if not had_existing_source_url:
+                _clear_resolved_source(paper)
             log_error_to_chat(db, paper, paper.failure_reason)
             db.commit()
             return
@@ -146,6 +175,8 @@ async def process_paper(paper_id: str):
         if not pdf_url:
             paper.status = "failed"
             paper.failure_reason = "PDF URL not found"
+            if not search_result_from_existing_source:
+                _clear_resolved_source(paper)
             log_error_to_chat(db, paper, paper.failure_reason)
             db.commit()
             return
@@ -189,12 +220,9 @@ async def process_paper(paper_id: str):
 
         if not download_result.ok:
             paper.status = "failed"
-            paper.failure_reason = (
-                f"Failed to download PDF from {download_result.url}. "
-                f"Final URL: {download_result.final_url or '-'}; "
-                f"Status: {download_result.status_code or '-'}; "
-                f"Error: {download_result.error or 'Unknown error'}"
-            )
+            paper.failure_reason = _format_pdf_download_failure(search_result, download_result)
+            if not search_result_from_existing_source:
+                _clear_resolved_source(paper)
             log_error_to_chat(db, paper, paper.failure_reason)
             db.commit()
             return

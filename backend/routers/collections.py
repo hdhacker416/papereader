@@ -7,6 +7,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+def _clear_failed_paper_source_for_retry(paper: models.Paper) -> None:
+    if paper.status != "failed":
+        return
+    paper.source = None
+    paper.source_url = None
+    paper.pdf_path = None
+
+
 router = APIRouter(
     prefix="/api/collections",
     tags=["collections"],
@@ -128,8 +137,9 @@ def reread_collection(collection_id: str, request: schemas.ReReadRequest, db: Se
     if request.only_failed:
         papers_query = papers_query.filter(models.Paper.status == "failed")
     papers = papers_query.all()
-    
+
     for paper in papers:
+        _clear_failed_paper_source_for_retry(paper)
         # Reset status
         paper.status = "queued"
         paper.failure_reason = None

@@ -54,6 +54,14 @@ def _serialize_task_summary(task: models.Task) -> schemas.Task:
         updated_at=task.updated_at,
     )
 
+
+def _clear_failed_paper_source_for_retry(paper: models.Paper) -> None:
+    if paper.status != "failed":
+        return
+    paper.source = None
+    paper.source_url = None
+    paper.pdf_path = None
+
 @router.post("/", response_model=schemas.Task)
 def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
     # Check if template exists
@@ -102,6 +110,7 @@ def reread_task(task_id: str, request: schemas.ReReadRequest, db: Session = Depe
         papers_query = papers_query.filter(models.Paper.status == "failed")
     papers = papers_query.all()
     for paper in papers:
+        _clear_failed_paper_source_for_retry(paper)
         paper.status = "queued"
         paper.failure_reason = None
         # Also update paper-specific overrides to match the request explicitly
