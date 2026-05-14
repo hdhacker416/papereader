@@ -931,7 +931,7 @@ const ResearchCreatePage: React.FC = () => {
                     {loadingInstalledPacks ? (
                       <div className="text-sm text-gray-500">Loading installed packs...</div>
                     ) : installedPacks.length === 0 ? (
-                      <div className="text-sm text-gray-500">No installed packs yet. Download packs from GitHub Releases below.</div>
+                      <div className="text-sm text-gray-500">No installed packs yet. Ask the server administrator to install shared research packs.</div>
                     ) : (
                       <div className="space-y-3">
                         {installedPacks.map((pack) => (
@@ -1386,7 +1386,7 @@ const ResearchCreatePage: React.FC = () => {
 
                 {!loading && !hasLocalResearchData && (
                   <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    This machine has no installed research packs yet. Go to <span className="font-semibold">Settings</span> and download the conference packs you need from GitHub Releases first.
+                    This server has no installed research packs yet. Ask the server administrator to install the shared research packs.
                   </div>
                 )}
 

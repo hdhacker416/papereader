@@ -563,7 +563,7 @@ def _ensure_search_assets_available() -> None:
         return
     raise HTTPException(
         status_code=400,
-        detail="No searchable research data is installed on this machine. Download packs from GitHub Releases first.",
+        detail="No searchable research data is installed on this machine. Ask the server administrator to install shared research packs.",
     )
 
 
@@ -630,7 +630,7 @@ def run_self_check(user_id: str | None = None) -> schemas.SelfCheckResponse:
         status="ok" if installed_packs else "warning",
         severity="required",
         message=f"已安装 {len(installed_packs)} 个 pack" if installed_packs else "本机还没有安装任何 research pack",
-        hint=None if installed_packs else "先去 Packs 页面，从 GitHub Releases 下载需要的会议包。",
+        hint=None if installed_packs else "云端 research packs 是共享资产，需要由服务器管理员预先安装。",
         details={
             "count": len(installed_packs),
             "sample": [

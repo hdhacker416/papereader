@@ -1,24 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
-  CheckSquare,
   ChevronDown,
   ChevronRight,
-  Download,
-  ExternalLink,
   Eye,
   EyeOff,
-  FolderPlus,
   KeyRound,
   Loader2,
-  Package,
   RefreshCw,
   Save,
-  Square,
   Terminal,
   Trash2,
-  Upload,
   Wrench,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -28,19 +21,8 @@ import {
   ApiKeyCheckResponse,
   ApiKeyInfo,
   ApiKeyProvider,
-  InstalledResearchPackInfo,
-  PackBuildJob,
-  PackTargetOptionsResponse,
-  ReleaseInfo,
-  ResearchPackInfo,
   SelfCheckResponse,
 } from '../types';
-
-const PREFERRED_PACK_RELEASE_TAG = 'research-packs-ai-top-2024-2026';
-const LEGACY_PACK_RELEASE_TAGS = new Set(['research-packs-v1']);
-const PACK_NAME_ALIASES: Record<string, string> = {
-  nips: 'neurips',
-};
 
 const statusStyles = {
   ok: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -54,31 +36,7 @@ const keySourceLabels: Record<ApiKeyInfo['source'], string> = {
   missing: 'Missing',
 };
 
-type SectionKey = 'selfCheck' | 'packs' | 'api';
-
-const normalizePackConference = (conference: string) => PACK_NAME_ALIASES[conference] || conference;
-
-const assetKey = (releaseTag: string, assetName: string) => `${releaseTag}::${assetName}`;
-
-const parseReleaseAssetIdentity = (assetName: string): { conference: string; year: number } | null => {
-  const shortMatch = /^([a-z0-9_+-]+)-(\d{2})\.zip$/i.exec(assetName);
-  if (shortMatch) {
-    return {
-      conference: shortMatch[1].toLowerCase(),
-      year: 2000 + Number(shortMatch[2]),
-    };
-  }
-  const legacyMatch = /^([a-z0-9_+-]+)-(\d{4})-v\d+\.zip$/i.exec(assetName);
-  if (legacyMatch) {
-    return {
-      conference: legacyMatch[1].toLowerCase(),
-      year: Number(legacyMatch[2]),
-    };
-  }
-  return null;
-};
-
-const formatBytes = (value: number) => `${(value / (1024 * 1024)).toFixed(1)} MB`;
+type SectionKey = 'selfCheck' | 'api';
 
 interface SettingsSectionProps {
   id: SectionKey;
@@ -123,7 +81,6 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({
 const SettingsPage: React.FC = () => {
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     selfCheck: true,
-    packs: false,
     api: true,
   });
 
@@ -136,24 +93,6 @@ const SettingsPage: React.FC = () => {
 
   const [selfChecking, setSelfChecking] = useState(false);
   const [selfCheckResult, setSelfCheckResult] = useState<SelfCheckResponse | null>(null);
-
-  const [packTargets, setPackTargets] = useState<PackTargetOptionsResponse | null>(null);
-  const [selectedPackConferences, setSelectedPackConferences] = useState<string[]>([]);
-  const [selectedPackYears, setSelectedPackYears] = useState<number[]>([]);
-  const [releases, setReleases] = useState<ReleaseInfo[]>([]);
-  const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
-  const [installedPacks, setInstalledPacks] = useState<InstalledResearchPackInfo[]>([]);
-  const [packs, setPacks] = useState<ResearchPackInfo[]>([]);
-  const [packJobs, setPackJobs] = useState<PackBuildJob[]>([]);
-  const [loadingPacks, setLoadingPacks] = useState(false);
-  const [loadingReleases, setLoadingReleases] = useState(false);
-  const [installingAssets, setInstallingAssets] = useState(false);
-  const [buildingPacks, setBuildingPacks] = useState(false);
-  const [uploadingPackKey, setUploadingPackKey] = useState('');
-  const [packMessage, setPackMessage] = useState('');
-  const [releaseOwner, setReleaseOwner] = useState('hdhacker416');
-  const [releaseRepo, setReleaseRepo] = useState('papereader');
-  const [releaseTag, setReleaseTag] = useState(PREFERRED_PACK_RELEASE_TAG);
 
   const [error, setError] = useState('');
 
@@ -261,300 +200,6 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const fetchReleases = async () => {
-    setLoadingReleases(true);
-    try {
-      const response = await deepResearchApi.listReleases();
-      setReleases(response.releases);
-      setReleaseTag((current) => {
-        const trimmed = current.trim();
-        if (trimmed && !LEGACY_PACK_RELEASE_TAGS.has(trimmed)) {
-          return current;
-        }
-        if (response.releases.some((release) => release.tag_name === PREFERRED_PACK_RELEASE_TAG)) {
-          return PREFERRED_PACK_RELEASE_TAG;
-        }
-        return response.releases[0]?.tag_name || current;
-      });
-    } catch (err) {
-      console.error('Failed to fetch GitHub releases:', err);
-      setPackMessage('Failed to load GitHub releases.');
-    } finally {
-      setLoadingReleases(false);
-    }
-  };
-
-  const fetchPacks = async () => {
-    const [localResult, installedResult, jobsResult, targetsResult] = await Promise.allSettled([
-      deepResearchApi.listPacks(),
-      deepResearchApi.listInstalledPacks(),
-      deepResearchApi.listPackBuildJobs(),
-      deepResearchApi.listPackTargets(),
-    ]);
-    if (localResult.status === 'fulfilled') {
-      setPacks(localResult.value);
-    }
-    if (installedResult.status === 'fulfilled') {
-      setInstalledPacks(installedResult.value);
-    }
-    if (jobsResult.status === 'fulfilled') {
-      setPackJobs(jobsResult.value);
-    }
-    if (targetsResult.status === 'fulfilled') {
-      setPackTargets(targetsResult.value);
-      setSelectedPackConferences((current) => current.length > 0 ? current : targetsResult.value.conferences.map((item) => item.code));
-      setSelectedPackYears((current) => current.length > 0 ? current : targetsResult.value.default_years);
-    }
-  };
-
-  const refreshPacks = async () => {
-    setLoadingPacks(true);
-    setPackMessage('');
-    try {
-      await Promise.all([fetchPacks(), fetchReleases()]);
-    } finally {
-      setLoadingPacks(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!openSections.packs) {
-      return;
-    }
-    refreshPacks();
-  }, [openSections.packs]);
-
-  const hasActivePackJobs = packJobs.some((job) => job.status === 'queued' || job.status === 'running');
-
-  useEffect(() => {
-    if (!openSections.packs || !hasActivePackJobs) {
-      return;
-    }
-    const interval = window.setInterval(() => {
-      fetchPacks();
-    }, 3000);
-    return () => window.clearInterval(interval);
-  }, [openSections.packs, hasActivePackJobs]);
-
-  const requestPackYears = useMemo(
-    () => selectedPackYears.length > 0 ? [...selectedPackYears].sort((a, b) => b - a) : undefined,
-    [selectedPackYears],
-  );
-
-  const effectivePackYears = useMemo(
-    () => requestPackYears ?? (packTargets?.default_years ?? []),
-    [packTargets, requestPackYears],
-  );
-
-  const filteredPackConferences = useMemo(() => {
-    if (!packTargets) {
-      return [];
-    }
-    const yearSet = new Set(effectivePackYears);
-    return packTargets.conferences.filter((conference) =>
-      conference.years.some((year) => yearSet.has(year)),
-    );
-  }, [effectivePackYears, packTargets]);
-
-  const selectedPackTargets = useMemo(
-    () => selectedPackConferences.flatMap((conference) => effectivePackYears.map((year) => ({
-      conference,
-      year,
-      key: `${conference}-${year}`,
-      releaseConference: normalizePackConference(conference),
-    }))),
-    [effectivePackYears, selectedPackConferences],
-  );
-
-  const matchingReleaseAssets = useMemo(() => {
-    const wanted = new Map(selectedPackTargets.map((item) => [`${item.releaseConference}-${item.year}`, item]));
-    const seen = new Set<string>();
-    const matches: Array<{ releaseTag: string; assetName: string; downloadUrl: string; conference: string; year: number }> = [];
-    for (const release of releases) {
-      for (const asset of release.assets) {
-        const identity = parseReleaseAssetIdentity(asset.name);
-        if (!identity) {
-          continue;
-        }
-        const wantedItem = wanted.get(`${identity.conference}-${identity.year}`);
-        if (!wantedItem || seen.has(wantedItem.key)) {
-          continue;
-        }
-        seen.add(wantedItem.key);
-        matches.push({
-          releaseTag: release.tag_name,
-          assetName: asset.name,
-          downloadUrl: asset.browser_download_url,
-          conference: wantedItem.conference,
-          year: wantedItem.year,
-        });
-      }
-    }
-    return matches;
-  }, [releases, selectedPackTargets]);
-
-  const totalReleaseAssets = releases.reduce((sum, release) => sum + release.assets.length, 0);
-  const allPackYearsSelected = !!packTargets && packTargets.years.length > 0 && selectedPackYears.length === packTargets.years.length;
-  const allVisiblePackConferencesSelected = filteredPackConferences.length > 0
-    && filteredPackConferences.every((conference) => selectedPackConferences.includes(conference.code));
-
-  const toggleAsset = (releaseTagValue: string, assetName: string) => {
-    const key = assetKey(releaseTagValue, assetName);
-    setSelectedAssets((current) => {
-      const next = new Set(current);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
-
-  const toggleAllAssets = () => {
-    const allAssets = releases.flatMap((release) => release.assets.map((asset) => assetKey(release.tag_name, asset.name)));
-    setSelectedAssets((current) => current.size === allAssets.length ? new Set() : new Set(allAssets));
-  };
-
-  const togglePackYear = (year: number) => {
-    setSelectedPackYears((current) => current.includes(year) ? current.filter((item) => item !== year) : [...current, year].sort((a, b) => b - a));
-  };
-
-  const toggleAllPackYears = () => {
-    if (!packTargets) {
-      return;
-    }
-    setSelectedPackYears(allPackYearsSelected ? [] : [...packTargets.years].sort((a, b) => b - a));
-  };
-
-  const togglePackConference = (code: string) => {
-    setSelectedPackConferences((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code]);
-  };
-
-  const toggleAllVisiblePackConferences = () => {
-    if (filteredPackConferences.length === 0) {
-      return;
-    }
-    if (allVisiblePackConferencesSelected) {
-      setSelectedPackConferences((current) => current.filter((code) => !filteredPackConferences.some((conference) => conference.code === code)));
-      return;
-    }
-    setSelectedPackConferences((current) => Array.from(new Set([...current, ...filteredPackConferences.map((item) => item.code)])));
-  };
-
-  const installSelectedAssets = async () => {
-    if (installingAssets || selectedAssets.size === 0) {
-      return;
-    }
-    setInstallingAssets(true);
-    setPackMessage('');
-    try {
-      const assets = releases.flatMap((release) =>
-        release.assets
-          .filter((asset) => selectedAssets.has(assetKey(release.tag_name, asset.name)))
-          .map((asset) => ({
-            release_tag: release.tag_name,
-            asset_name: asset.name,
-            download_url: asset.browser_download_url,
-          })),
-      );
-      const result = await deepResearchApi.installReleaseAssets({ assets });
-      setPackMessage(`Installed ${result.installed_count} pack(s).`);
-      setSelectedAssets(new Set());
-      await fetchPacks();
-    } catch (err) {
-      console.error('Failed to install selected release assets:', err);
-      setPackMessage('Install failed.');
-    } finally {
-      setInstallingAssets(false);
-    }
-  };
-
-  const installMatchingAssets = async () => {
-    if (installingAssets || matchingReleaseAssets.length === 0) {
-      return;
-    }
-    setInstallingAssets(true);
-    setPackMessage('');
-    try {
-      const result = await deepResearchApi.installReleaseAssets({
-        assets: matchingReleaseAssets.map((asset) => ({
-          release_tag: asset.releaseTag,
-          asset_name: asset.assetName,
-          download_url: asset.downloadUrl,
-        })),
-      });
-      setPackMessage(`Installed ${result.installed_count} matching pack(s).`);
-      await fetchPacks();
-    } catch (err) {
-      console.error('Failed to install matching release assets:', err);
-      setPackMessage('Install failed.');
-    } finally {
-      setInstallingAssets(false);
-    }
-  };
-
-  const buildPacks = async () => {
-    if (buildingPacks || selectedPackConferences.length === 0) {
-      return;
-    }
-    setBuildingPacks(true);
-    setPackMessage('');
-    try {
-      const result = await deepResearchApi.createPackBuildJob({
-        conferences: selectedPackConferences,
-        years: requestPackYears,
-        version: 'v1',
-      });
-      setPackMessage(`Build job queued: ${result.total_targets} target(s).`);
-      await fetchPacks();
-    } catch (err) {
-      console.error('Failed to build packs:', err);
-      setPackMessage('Build failed.');
-    } finally {
-      setBuildingPacks(false);
-    }
-  };
-
-  const resumePackJob = async (jobId: string) => {
-    setPackMessage('');
-    try {
-      const job = await deepResearchApi.resumePackBuildJob(jobId);
-      setPackMessage(`Resumed build job ${job.id}.`);
-      await fetchPacks();
-    } catch (err) {
-      console.error('Failed to resume pack build job:', err);
-      setPackMessage('Resume failed.');
-    }
-  };
-
-  const uploadPack = async (pack: ResearchPackInfo) => {
-    const key = `${pack.conference}-${pack.year}-${pack.version}`;
-    if (uploadingPackKey) {
-      return;
-    }
-    setUploadingPackKey(key);
-    setPackMessage('');
-    try {
-      const result = await deepResearchApi.uploadPack({
-        conference: pack.conference,
-        year: pack.year,
-        version: pack.version,
-        owner: releaseOwner.trim(),
-        repo: releaseRepo.trim(),
-        tag: releaseTag.trim(),
-        release_name: releaseTag.trim(),
-      });
-      setPackMessage(`Uploaded ${pack.pack_name} to ${result.release_url}`);
-      await fetchReleases();
-    } catch (err) {
-      console.error('Failed to upload pack:', err);
-      setPackMessage(`Upload failed for ${pack.pack_name}. Pack uploads are not part of the cloud web workflow.`);
-    } finally {
-      setUploadingPackKey('');
-    }
-  };
-
   const renderStatusBadge = (status: 'ok' | 'warning' | 'error', label?: string) => (
     <span className={clsx('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium', statusStyles[status])}>
       {status === 'ok' ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
@@ -568,20 +213,17 @@ const SettingsPage: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-500 mt-1">Manage environment checks, research packs, and the Qwen API key.</p>
+            <p className="text-gray-500 mt-1">Manage environment checks and the Qwen API key.</p>
           </div>
           <button
             type="button"
             onClick={() => {
               loadKeys();
-              if (openSections.packs) {
-                refreshPacks();
-              }
             }}
-            disabled={loadingKeys || loadingPacks}
+            disabled={loadingKeys}
             className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
-            <RefreshCw size={18} className={clsx((loadingKeys || loadingPacks) && 'animate-spin')} />
+            <RefreshCw size={18} className={clsx(loadingKeys && 'animate-spin')} />
             Refresh
           </button>
         </div>
@@ -597,7 +239,7 @@ const SettingsPage: React.FC = () => {
           <SettingsSection
             id="selfCheck"
             title="Self-check"
-            description="Run the environment check for keys, search data, providers, and pack readiness."
+            description="Run the environment check for keys, shared search data, and provider readiness."
             icon={<Wrench size={18} />}
             open={openSections.selfCheck}
             onToggle={toggleSection}
@@ -639,259 +281,6 @@ const SettingsPage: React.FC = () => {
                 </div>
               </div>
             )}
-          </SettingsSection>
-
-          <SettingsSection
-            id="packs"
-            title="Packs Management"
-            description="Download installed research packs and build local packs when needed."
-            icon={<Package size={18} />}
-            open={openSections.packs}
-            onToggle={toggleSection}
-          >
-            <div className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-sm text-gray-600">
-                  Installed: <span className="font-medium text-gray-900">{installedPacks.length}</span>
-                  <span className="mx-2 text-gray-300">|</span>
-                  Local: <span className="font-medium text-gray-900">{packs.length}</span>
-                  <span className="mx-2 text-gray-300">|</span>
-                  Release assets: <span className="font-medium text-gray-900">{totalReleaseAssets}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={refreshPacks}
-                  disabled={loadingPacks || loadingReleases}
-                  className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {(loadingPacks || loadingReleases) ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                  Refresh Packs
-                </button>
-              </div>
-
-              {packMessage && (
-                <div className="border border-gray-200 bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-700">{packMessage}</div>
-              )}
-
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900">Installed Packs</h3>
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {installedPacks.length === 0 ? (
-                    <div className="text-sm text-gray-500">No installed packs yet.</div>
-                  ) : installedPacks.map((pack) => (
-                    <div key={`${pack.conference}-${pack.year}-${pack.version}`} className="border border-gray-200 rounded-lg px-3 py-2">
-                      <div className="font-medium text-gray-900">{pack.pack_name}</div>
-                      <div className="text-sm text-gray-500 mt-1">{pack.conference.toUpperCase()} {pack.year} · {pack.version}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Download From GitHub Releases</h3>
-                    <p className="text-sm text-gray-500 mt-1">{matchingReleaseAssets.length} matching assets for the selected pack targets.</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={installMatchingAssets}
-                      disabled={installingAssets || matchingReleaseAssets.length === 0}
-                      className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {installingAssets ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                      Download Matching
-                    </button>
-                    <button
-                      type="button"
-                      onClick={installSelectedAssets}
-                      disabled={installingAssets || selectedAssets.size === 0}
-                      className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      {installingAssets ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                      Download Selected
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-                  <button
-                    type="button"
-                    onClick={toggleAllAssets}
-                    disabled={totalReleaseAssets === 0}
-                    className="flex items-center gap-2 hover:text-blue-700 disabled:opacity-50"
-                  >
-                    {selectedAssets.size === totalReleaseAssets && totalReleaseAssets > 0 ? <CheckSquare size={18} /> : <Square size={18} />}
-                    Select all assets
-                  </button>
-                  <span>{selectedAssets.size} selected / {totalReleaseAssets} assets</span>
-                </div>
-                <div className="mt-4 space-y-3">
-                  {loadingReleases ? (
-                    <div className="text-sm text-gray-500">Loading releases...</div>
-                  ) : releases.length === 0 ? (
-                    <div className="text-sm text-gray-500">No releases found.</div>
-                  ) : releases.map((release) => (
-                    <div key={release.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="font-medium text-gray-900">{release.name || release.tag_name}</div>
-                          <div className="text-sm text-gray-500 mt-1">{release.tag_name}</div>
-                        </div>
-                        <a href={release.html_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700">
-                          View <ExternalLink size={14} />
-                        </a>
-                      </div>
-                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {release.assets.length === 0 ? (
-                          <div className="text-sm text-gray-500">No zip assets in this release.</div>
-                        ) : release.assets.map((asset) => {
-                          const selected = selectedAssets.has(assetKey(release.tag_name, asset.name));
-                          return (
-                            <button
-                              key={asset.id}
-                              type="button"
-                              onClick={() => toggleAsset(release.tag_name, asset.name)}
-                              className={clsx(
-                                'text-left border rounded-lg px-3 py-2 transition-colors',
-                                selected ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300',
-                              )}
-                            >
-                              <div className="flex items-start gap-2">
-                                <div className="mt-0.5 text-blue-600 shrink-0">{selected ? <CheckSquare size={16} /> : <Square size={16} />}</div>
-                                <div className="min-w-0">
-                                  <div className="font-medium text-gray-900 break-all">{asset.name}</div>
-                                  <div className="text-xs text-gray-500 mt-1">{formatBytes(asset.size)} · {asset.download_count} downloads</div>
-                                </div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Build Local Packs</h3>
-                    <p className="text-sm text-gray-500 mt-1">Developer workflow for generating packs locally. Cloud users normally only download prebuilt packs.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={buildPacks}
-                    disabled={buildingPacks || selectedPackConferences.length === 0}
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
-                  >
-                    {buildingPacks ? <Loader2 size={16} className="animate-spin" /> : <FolderPlus size={16} />}
-                    Build Selected
-                  </button>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
-                  <input value={releaseTag} onChange={(event) => setReleaseTag(event.target.value)} placeholder="Release tag" className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-semibold text-gray-900">Target Years</h4>
-                      <button type="button" onClick={toggleAllPackYears} className="text-xs text-blue-600 hover:text-blue-700">
-                        {allPackYearsSelected ? 'Clear all' : 'Select all'}
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {(packTargets?.years || []).map((year) => (
-                        <button
-                          key={year}
-                          type="button"
-                          onClick={() => togglePackYear(year)}
-                          className={clsx(
-                            'px-3 py-1.5 rounded-lg border text-sm',
-                            selectedPackYears.includes(year) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600',
-                          )}
-                        >
-                          {year}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-semibold text-gray-900">Target Conferences</h4>
-                      <button type="button" onClick={toggleAllVisiblePackConferences} className="text-xs text-blue-600 hover:text-blue-700">
-                        {allVisiblePackConferencesSelected ? 'Clear all' : 'Select visible'}
-                      </button>
-                    </div>
-                    <div className="max-h-36 overflow-y-auto flex flex-wrap gap-2 pr-1">
-                      {filteredPackConferences.map((conference) => (
-                        <button
-                          key={conference.code}
-                          type="button"
-                          onClick={() => togglePackConference(conference.code)}
-                          className={clsx(
-                            'px-3 py-1.5 rounded-lg border text-sm',
-                            selectedPackConferences.includes(conference.code) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600',
-                          )}
-                        >
-                          {conference.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Build Jobs</h4>
-                    <div className="space-y-2">
-                      {packJobs.length === 0 ? (
-                        <div className="text-sm text-gray-500">No pack build jobs yet.</div>
-                      ) : packJobs.map((job) => (
-                        <div key={job.id} className="border border-gray-200 rounded-lg p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="font-medium text-gray-900">{job.total_targets} target(s) · {job.version}</div>
-                              <div className="text-xs text-gray-500 mt-1">{job.completed_targets}/{job.total_targets} completed · {job.status}</div>
-                            </div>
-                            {job.can_resume && (
-                              <button type="button" onClick={() => resumePackJob(job.id)} className="px-2 py-1 rounded-md bg-slate-900 text-white text-xs">
-                                Resume
-                              </button>
-                            )}
-                          </div>
-                          <div className="mt-3 h-2 rounded-full bg-gray-100 overflow-hidden">
-                            <div className={clsx('h-full', job.status === 'failed' ? 'bg-red-500' : 'bg-blue-600')} style={{ width: `${job.progress_percent}%` }} />
-                          </div>
-                          {job.progress_message && <div className="mt-2 text-xs text-gray-600">{job.progress_message}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Local Packs</h4>
-                    <div className="space-y-2">
-                      {packs.length === 0 ? (
-                        <div className="text-sm text-gray-500">No local packs yet.</div>
-                      ) : packs.map((pack) => {
-                        const key = `${pack.conference}-${pack.year}-${pack.version}`;
-                        return (
-                          <div key={key} className="border border-gray-200 rounded-lg px-3 py-2 flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="font-medium text-gray-900 break-all">{pack.pack_name}</div>
-                              <div className="text-xs text-gray-500 mt-1">{pack.conference.toUpperCase()} {pack.year} · {formatBytes(pack.pack_size_bytes)}</div>
-                            </div>
-                            <span className="shrink-0 text-xs text-gray-500">Local only</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </SettingsSection>
 
           <SettingsSection
