@@ -48,6 +48,18 @@ def _format_pdf_download_failure(search_result: dict, download_result) -> str:
     )
 
 
+def _format_source_resolution_failure(*, had_existing_source_url: bool, arxiv_error: Exception | None) -> str:
+    if arxiv_error is not None:
+        return (
+            "arXiv is temporarily rate limited or unavailable, so PaperReader could not verify this paper right now. "
+            "Please retry this paper later. "
+            f"arXiv error: {arxiv_error}"
+        )
+    if had_existing_source_url:
+        return "Paper not found via existing source_url, Arxiv, or OpenReview"
+    return "Paper not found via Arxiv or OpenReview"
+
+
 def _clear_resolved_source(paper: models.Paper) -> None:
     if paper.source == "local":
         return
@@ -190,7 +202,15 @@ async def process_paper(paper_id: str, user_id: str):
             search_result_from_existing_source = search_result is not None
             if not search_result:
                 # Try Arxiv first
-                search_result = await asyncio.get_event_loop().run_in_executor(executor, arxiv_service.search_arxiv, paper.title)
+                try:
+                    search_result = await asyncio.get_event_loop().run_in_executor(executor, arxiv_service.search_arxiv, paper.title)
+                    arxiv_error = None
+                except arxiv_service.ArxivTemporaryError as exc:
+                    logger.warning("Temporary arXiv failure for '%s' (%s): %s", paper.title, paper.id, exc)
+                    search_result = None
+                    arxiv_error = exc
+            else:
+                arxiv_error = None
 
             if not search_result:
                 # Try OpenReview
@@ -198,7 +218,10 @@ async def process_paper(paper_id: str, user_id: str):
 
             if not search_result:
                 paper.status = "failed"
-                paper.failure_reason = "Paper not found via existing source_url, Arxiv, or OpenReview"
+                paper.failure_reason = _format_source_resolution_failure(
+                    had_existing_source_url=had_existing_source_url,
+                    arxiv_error=arxiv_error,
+                )
                 if not had_existing_source_url:
                     _clear_resolved_source(paper)
                 log_error_to_chat(db, paper, paper.failure_reason)
