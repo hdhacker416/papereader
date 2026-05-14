@@ -13,7 +13,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 TITLE_TOKEN_RE = re.compile(r"[a-z0-9]+")
-MIN_ACCEPTABLE_TITLE_SCORE = 0.72
+MIN_ACCEPTABLE_TITLE_SCORE = 0.94
 ARXIV_MIN_REQUEST_INTERVAL_SECONDS = 3.2
 ARXIV_USER_AGENT = "PaperReader/1.0"
 ARXIV_SEARCH_TIMEOUT_SECONDS = 25
@@ -40,10 +40,14 @@ def _title_score(query_title: str, candidate_title: str) -> float:
 
     query_tokens = set(query.split())
     candidate_tokens = set(candidate.split())
-    overlap = len(query_tokens & candidate_tokens) / max(len(query_tokens), 1)
+    intersection = len(query_tokens & candidate_tokens)
+    union = len(query_tokens | candidate_tokens) or 1
+    jaccard = intersection / union
+    coverage = intersection / max(len(query_tokens), 1)
+    length_penalty = min(len(query_tokens), len(candidate_tokens)) / max(len(query_tokens), len(candidate_tokens), 1)
     ratio = difflib.SequenceMatcher(None, query, candidate).ratio()
-    contains = 1.0 if query in candidate or candidate in query else 0.0
-    return max(ratio, 0.65 * ratio + 0.25 * overlap + 0.10 * contains)
+    contains_score = coverage * length_penalty if query in candidate or candidate in query else 0.0
+    return max(0.78 * ratio + 0.22 * jaccard, contains_score)
 
 
 def _wait_for_arxiv_slot() -> None:
@@ -108,7 +112,7 @@ def _search_arxiv_html(clean_title: str) -> Optional[Dict]:
         "query": clean_title,
         "searchtype": "title",
         "abstracts": "show",
-        "order": "-announced_date_first",
+        "order": "relevance",
         "size": "25",
     }
     url = f"https://arxiv.org/search/?{urlencode(params)}"
