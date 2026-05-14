@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app_constants import DEFAULT_USER_ID
-from database import SessionLocal
+from database import SessionLocal, iter_user_ids, user_context
 import models
 import schemas
 from services import deep_research_service
@@ -100,19 +100,21 @@ def enqueue_task_report_generation(
 
 
 def recover_stale_report_jobs() -> None:
-    db = SessionLocal()
-    try:
-        reports = db.query(models.DeepResearchReport).filter(
-            models.DeepResearchReport.status == "running"
-        ).all()
-        for report in reports:
-            report.status = "queued"
-            report.progress_stage = "queued"
-            report.progress_message = "后端重启后已恢复到队列中"
-            report.error = None
-        db.commit()
-    finally:
-        db.close()
+    for user_id in iter_user_ids():
+        with user_context(user_id):
+            db = SessionLocal()
+            try:
+                reports = db.query(models.DeepResearchReport).filter(
+                    models.DeepResearchReport.status == "running"
+                ).all()
+                for report in reports:
+                    report.status = "queued"
+                    report.progress_stage = "queued"
+                    report.progress_message = "后端重启后已恢复到队列中"
+                    report.error = None
+                db.commit()
+            finally:
+                db.close()
 
 
 def _update_report_progress(
@@ -144,7 +146,9 @@ def _update_report_progress(
     db.commit()
 
 
-def _process_single_report(report_id: str) -> None:
+def _process_single_report(user_id: str, report_id: str) -> None:
+    context = user_context(user_id)
+    context.__enter__()
     db = SessionLocal()
     try:
         report = db.query(models.DeepResearchReport).filter(
@@ -240,24 +244,31 @@ def _process_single_report(report_id: str) -> None:
             db.rollback()
     finally:
         db.close()
+        context.__exit__(None, None, None)
 
 
 async def report_generation_loop() -> None:
     logger.info("Starting report generation loop")
     while True:
-        db = SessionLocal()
+        selected: tuple[str, str] | None = None
         try:
-            report = db.query(models.DeepResearchReport).filter(
-                models.DeepResearchReport.status == "queued"
-            ).order_by(models.DeepResearchReport.updated_at.asc()).first()
-            report_id = report.id if report else None
+            for user_id in iter_user_ids():
+                with user_context(user_id):
+                    db = SessionLocal()
+                    try:
+                        report = db.query(models.DeepResearchReport).filter(
+                            models.DeepResearchReport.status == "queued"
+                        ).order_by(models.DeepResearchReport.updated_at.asc()).first()
+                        if report:
+                            selected = (user_id, report.id)
+                            break
+                    finally:
+                        db.close()
         except Exception as exc:
             logger.error("Failed to query queued report jobs: %s", exc)
-            report_id = None
-        finally:
-            db.close()
+            selected = None
 
-        if report_id:
-            await asyncio.to_thread(_process_single_report, report_id)
+        if selected:
+            await asyncio.to_thread(_process_single_report, selected[0], selected[1])
         else:
             await asyncio.sleep(REPORT_POLL_SECONDS)

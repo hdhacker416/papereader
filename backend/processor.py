@@ -2,7 +2,7 @@ import json
 import asyncio
 import logging
 from sqlalchemy.orm import Session
-from database import SessionLocal, DATA_DIR
+from database import SessionLocal, get_data_dir, iter_user_ids, user_context
 import models
 from services import arxiv_service, openreview_service, pdf_service, llm_service
 from services.template_service import parse_template_prompts
@@ -59,7 +59,7 @@ def _resolve_local_pdf_path(paper: models.Paper) -> str | None:
     if os.path.isabs(paper.pdf_path):
         candidates.append(paper.pdf_path)
     else:
-        candidates.append(os.path.join(DATA_DIR, paper.pdf_path))
+        candidates.append(os.path.join(get_data_dir(), paper.pdf_path))
 
     for path in candidates:
         if not os.path.exists(path):
@@ -139,7 +139,9 @@ def log_error_to_chat(db: Session, paper: models.Paper, error_msg: str):
     except Exception as e:
         logger.error(f"Failed to log error to chat: {e}")
 
-async def process_paper(paper_id: str):
+async def process_paper(paper_id: str, user_id: str):
+    context = user_context(user_id)
+    context.__enter__()
     db: Session = SessionLocal()
     paper = None
     try:
@@ -218,7 +220,7 @@ async def process_paper(paper_id: str):
             # Define save path: data/pdfs/{task_id}/{paper_id}.pdf
             # Use relative path for database storage (portability), absolute path for file operations
             rel_path = os.path.join("pdfs", paper.task_id, f"{paper.id}.pdf")
-            save_path = os.path.join(DATA_DIR, rel_path)
+            save_path = os.path.join(get_data_dir(), rel_path)
 
             download_result = await asyncio.get_event_loop().run_in_executor(
                 executor,
@@ -360,31 +362,30 @@ async def process_paper(paper_id: str):
             pass
     finally:
         db.close()
+        context.__exit__(None, None, None)
 
 async def processor_loop():
     logger.info("Starting background processor loop")
     while True:
-        db: Session = SessionLocal()
+        did_work = False
         try:
-            # Find papers that are queued and belong to tasks that are running
-            papers = db.query(models.Paper).join(models.Task).filter(
-                models.Paper.status == "queued",
-                models.Task.status == "running"
-            ).limit(MAX_CONCURRENT_PAPERS).all()
-            
-            if not papers:
+            for user_id in iter_user_ids():
+                with user_context(user_id):
+                    db: Session = SessionLocal()
+                    try:
+                        papers = db.query(models.Paper).join(models.Task).filter(
+                            models.Paper.status == "queued",
+                            models.Task.status == "running"
+                        ).limit(MAX_CONCURRENT_PAPERS).all()
+                        if not papers:
+                            continue
+                        did_work = True
+                        await asyncio.gather(*(process_paper(paper.id, user_id) for paper in papers))
+                    finally:
+                        db.close()
+            if not did_work:
                 await asyncio.sleep(2)
-                continue
-                
-            tasks = []
-            for paper in papers:
-                tasks.append(process_paper(paper.id))
-            
-            if tasks:
-                await asyncio.gather(*tasks)
                 
         except Exception as e:
             logger.error(f"Error in processor loop: {e}")
             await asyncio.sleep(5)
-        finally:
-            db.close()

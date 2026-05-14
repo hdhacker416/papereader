@@ -7,7 +7,7 @@ import os
 import shutil
 from app_constants import DEFAULT_USER_ID
 import models, schemas
-from database import DATA_DIR, get_db
+from database import get_data_dir, get_db
 from services.template_service import parse_template_prompts, serialize_prompt_list
 
 router = APIRouter(
@@ -320,7 +320,7 @@ async def upload_local_papers(
             db.flush()
 
             rel_path = os.path.join("pdfs", task_id, f"{db_paper.id}.pdf")
-            save_path = os.path.join(DATA_DIR, rel_path)
+            save_path = os.path.join(get_data_dir(), rel_path)
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
             await file.seek(0)

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, FolderOpen, BookOpen, ChevronRight, ChevronDown, Folder, FlaskConical, Settings } from 'lucide-react';
+import { LayoutDashboard, FileText, FolderOpen, BookOpen, ChevronRight, ChevronDown, Folder, FlaskConical, Settings, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 import { tasksApi, collectionsApi } from '../api/services';
 import { Task, Paper, Collection } from '../types';
+import { useAuth } from '../auth/AuthContext';
 
 interface SidebarLocation {
     pathname: string;
@@ -107,6 +108,7 @@ const SidebarCollectionNode: React.FC<{
 const Sidebar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   
   // Library State
   const [isLibraryExpanded, setIsLibraryExpanded] = useState(false);
@@ -172,6 +174,11 @@ const Sidebar: React.FC = () => {
     { path: '/templates', label: 'Templates', icon: FileText },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0 h-full">
@@ -293,6 +300,20 @@ const Sidebar: React.FC = () => {
             )}
         </div>
       </nav>
+      <div className="p-4 border-t border-gray-100 shrink-0">
+        <div className="mb-3 min-w-0">
+          <div className="text-sm font-medium text-gray-900 truncate">{user?.name || 'PaperReader User'}</div>
+          <div className="text-xs text-gray-500 truncate">{user?.email}</div>
+        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+        >
+          <LogOut size={16} />
+          Logout
+        </button>
+      </div>
     </div>
   );
 };

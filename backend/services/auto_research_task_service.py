@@ -15,7 +15,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from app_constants import DEFAULT_USER_ID
-from database import SessionLocal
+from database import SessionLocal, iter_user_ids, user_context
 import models
 from research.agent.bounded import BoundedResearchRunner, ResearchBrief, SearchRoundResult, SelectedPaper
 from research.targeting import conference_display_name
@@ -191,7 +191,9 @@ def _build_final_selected_trace(selected_records: list[dict[str, Any]], detail_r
     return final_selected
 
 
-def _apply_trace_event(task_id: str, event: dict[str, Any]) -> None:
+def _apply_trace_event(user_id: str, task_id: str, event: dict[str, Any]) -> None:
+    context = user_context(user_id)
+    context.__enter__()
     db = SessionLocal()
     try:
         task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.user_id == DEFAULT_USER_ID).first()
@@ -231,8 +233,11 @@ def _apply_trace_event(task_id: str, event: dict[str, Any]) -> None:
         db.rollback()
     finally:
         db.close()
+        context.__exit__(None, None, None)
 
-def _process_preparing_task(task_id: str) -> None:
+def _process_preparing_task(user_id: str, task_id: str) -> None:
+    context = user_context(user_id)
+    context.__enter__()
     db = SessionLocal()
     try:
         task = db.query(models.Task).filter(
@@ -263,7 +268,7 @@ def _process_preparing_task(task_id: str) -> None:
             max_full_reads=int(config.get("max_full_reads") or 8),
             min_full_reads=1,
             reading_prompts_override=config.get("custom_reading_prompts") or None,
-            trace_callback=lambda event: _apply_trace_event(task_id, event),
+            trace_callback=lambda event: _apply_trace_event(user_id, task_id, event),
         )
 
         selected = selection.selected_papers
@@ -328,47 +333,56 @@ def _process_preparing_task(task_id: str) -> None:
             db.commit()
     finally:
         db.close()
+        context.__exit__(None, None, None)
 
 
 def recover_stale_auto_research_tasks() -> None:
-    db = SessionLocal()
-    try:
-        tasks = db.query(models.Task).filter(models.Task.status == "preparing").all()
-        changed = False
-        for task in tasks:
-            trace = _parse_trace(task.agent_trace_json)
-            runtime = _runtime(trace)
-            if runtime.get("state") == "running":
-                runtime["state"] = "queued"
-                runtime["current_stage"] = "等待恢复"
-                task.agent_trace_json = json.dumps(trace, ensure_ascii=False)
-                changed = True
-        if changed:
-            db.commit()
-    except Exception as exc:
-        logger.error("Failed to recover stale auto research tasks: %s", exc)
-        db.rollback()
-    finally:
-        db.close()
+    for user_id in iter_user_ids():
+        with user_context(user_id):
+            db = SessionLocal()
+            try:
+                tasks = db.query(models.Task).filter(models.Task.status == "preparing").all()
+                changed = False
+                for task in tasks:
+                    trace = _parse_trace(task.agent_trace_json)
+                    runtime = _runtime(trace)
+                    if runtime.get("state") == "running":
+                        runtime["state"] = "queued"
+                        runtime["current_stage"] = "等待恢复"
+                        task.agent_trace_json = json.dumps(trace, ensure_ascii=False)
+                        changed = True
+                if changed:
+                    db.commit()
+            except Exception as exc:
+                logger.error("Failed to recover stale auto research tasks for user %s: %s", user_id, exc)
+                db.rollback()
+            finally:
+                db.close()
 
 
 async def auto_research_task_loop() -> None:
     logger.info("Starting auto research task loop")
     while True:
-        db = SessionLocal()
+        did_work = False
         try:
-            queued = (
-                db.query(models.Task)
-                .filter(models.Task.status == "preparing")
-                .order_by(models.Task.created_at.asc())
-                .first()
-            )
-            if queued is None:
+            for user_id in iter_user_ids():
+                with user_context(user_id):
+                    db = SessionLocal()
+                    try:
+                        queued = (
+                            db.query(models.Task)
+                            .filter(models.Task.status == "preparing")
+                            .order_by(models.Task.created_at.asc())
+                            .first()
+                        )
+                        if queued is None:
+                            continue
+                        did_work = True
+                        await asyncio.to_thread(_process_preparing_task, user_id, queued.id)
+                    finally:
+                        db.close()
+            if not did_work:
                 await asyncio.sleep(2)
-                continue
-            await asyncio.to_thread(_process_preparing_task, queued.id)
         except Exception as exc:
             logger.error("Error in auto research task loop: %s", exc)
             await asyncio.sleep(5)
-        finally:
-            db.close()

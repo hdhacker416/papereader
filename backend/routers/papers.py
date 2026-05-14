@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import models, schemas
-from database import get_db, DATA_DIR
+from database import get_data_dir, get_db
 from services import llm_service
 import logging
 import os
@@ -19,7 +19,8 @@ def get_paper_pdf_path(paper):
         
     # 1. Standard Path (Best for migration/portability)
     # data/pdfs/{task_id}/{paper_id}.pdf
-    standard_path = os.path.join(DATA_DIR, "pdfs", paper.task_id, f"{paper.id}.pdf")
+    data_dir = get_data_dir()
+    standard_path = os.path.join(data_dir, "pdfs", paper.task_id, f"{paper.id}.pdf")
     if os.path.exists(standard_path):
         return standard_path
         
@@ -30,7 +31,7 @@ def get_paper_pdf_path(paper):
             return paper.pdf_path
             
         # Check if relative to DATA_DIR
-        rel_path = os.path.join(DATA_DIR, paper.pdf_path)
+        rel_path = os.path.join(data_dir, paper.pdf_path)
         if os.path.exists(rel_path):
             return rel_path
             
@@ -215,9 +216,11 @@ def delete_paper(paper_id: str, db: Session = Depends(get_db)):
     
     # Delete PDF file if exists
     try:
+        data_dir = get_data_dir()
+        standard_path = None
         # Try to delete from standard path first
         if paper.task_id:
-            standard_path = os.path.join(DATA_DIR, "pdfs", paper.task_id, f"{paper.id}.pdf")
+            standard_path = os.path.join(data_dir, "pdfs", paper.task_id, f"{paper.id}.pdf")
             if os.path.exists(standard_path):
                 os.remove(standard_path)
                 
@@ -231,7 +234,7 @@ def delete_paper(paper_id: str, db: Session = Depends(get_db)):
                     pass
                     
              # If stored path is relative
-             rel_path = os.path.join(DATA_DIR, paper.pdf_path)
+             rel_path = os.path.join(data_dir, paper.pdf_path)
              if os.path.exists(rel_path) and (not paper.task_id or rel_path != standard_path):
                  try:
                     os.remove(rel_path)

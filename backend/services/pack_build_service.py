@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 import models
 import schemas
-from database import SessionLocal
+from database import SessionLocal, iter_user_ids, user_context
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
@@ -188,27 +188,29 @@ def resume_pack_build_job(db: Session, job_id: str) -> schemas.PackBuildJob:
 
 
 def recover_stale_pack_build_jobs() -> None:
-    db = SessionLocal()
-    try:
-        jobs = db.query(models.PackBuildJob).filter(models.PackBuildJob.status == "running").all()
-        for job in jobs:
-            states = _load_target_states(job)
-            for item in states:
-                if item.get("status") == "processing":
-                    item["status"] = "queued"
-                    item["current_stage"] = "queued"
-            _save_target_states(job, states)
-            job.status = "queued"
-            job.current_conference = None
-            job.current_year = None
-            job.current_stage = "queued"
-            job.current_step_completed = 0
-            job.current_step_total = 0
-            job.progress_message = "Recovered after backend restart."
-            job.error = None
-        db.commit()
-    finally:
-        db.close()
+    for user_id in iter_user_ids():
+        with user_context(user_id):
+            db = SessionLocal()
+            try:
+                jobs = db.query(models.PackBuildJob).filter(models.PackBuildJob.status == "running").all()
+                for job in jobs:
+                    states = _load_target_states(job)
+                    for item in states:
+                        if item.get("status") == "processing":
+                            item["status"] = "queued"
+                            item["current_stage"] = "queued"
+                    _save_target_states(job, states)
+                    job.status = "queued"
+                    job.current_conference = None
+                    job.current_year = None
+                    job.current_stage = "queued"
+                    job.current_step_completed = 0
+                    job.current_step_total = 0
+                    job.progress_message = "Recovered after backend restart."
+                    job.error = None
+                db.commit()
+            finally:
+                db.close()
 
 
 def _update_job(
@@ -238,7 +240,9 @@ def _update_job(
     db.commit()
 
 
-def _process_single_job(job_id: str) -> None:
+def _process_single_job(user_id: str, job_id: str) -> None:
+    context = user_context(user_id)
+    context.__enter__()
     db = SessionLocal()
     try:
         job = db.query(models.PackBuildJob).filter(models.PackBuildJob.id == job_id).first()
@@ -424,25 +428,33 @@ def _process_single_job(job_id: str) -> None:
             logger.exception("Failed to persist pack build job failure state")
     finally:
         db.close()
+        context.__exit__(None, None, None)
 
 
 async def pack_build_loop() -> None:
     logger.info("Starting pack build loop")
     while True:
-        db = SessionLocal()
+        selected: tuple[str, str] | None = None
         try:
-            queued = (
-                db.query(models.PackBuildJob)
-                .filter(models.PackBuildJob.status == "queued")
-                .order_by(models.PackBuildJob.created_at.asc())
-                .first()
-            )
-            if queued is None:
+            for user_id in iter_user_ids():
+                with user_context(user_id):
+                    db = SessionLocal()
+                    try:
+                        queued = (
+                            db.query(models.PackBuildJob)
+                            .filter(models.PackBuildJob.status == "queued")
+                            .order_by(models.PackBuildJob.created_at.asc())
+                            .first()
+                        )
+                        if queued:
+                            selected = (user_id, queued.id)
+                            break
+                    finally:
+                        db.close()
+            if selected is None:
                 await asyncio.sleep(PACK_BUILD_POLL_SECONDS)
                 continue
-            await asyncio.to_thread(_process_single_job, queued.id)
+            await asyncio.to_thread(_process_single_job, selected[0], selected[1])
         except Exception:
             logger.exception("Error in pack build loop")
             await asyncio.sleep(PACK_BUILD_POLL_SECONDS)
-        finally:
-            db.close()

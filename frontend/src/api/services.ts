@@ -25,7 +25,8 @@ import {
   ApiKeyCheckResponse,
   ApiKeyListResponse,
   ApiKeyProvider,
-  ApiKeyUpdateResponse
+  ApiKeyUpdateResponse,
+  AuthResponse
 } from '../types';
 
 export const templatesApi = {
@@ -103,6 +104,17 @@ export const settingsApi = {
     api.delete<ApiKeyUpdateResponse>(`/settings/api-keys/${provider}`).then(res => res.data),
   checkApiKey: (provider: ApiKeyProvider) =>
     api.post<ApiKeyCheckResponse>(`/settings/api-keys/${provider}/check`).then(res => res.data),
+};
+
+export const authApi = {
+  me: () =>
+    api.get<AuthResponse>('/auth/me').then(res => res.data),
+  login: (data: { email: string; password: string }) =>
+    api.post<AuthResponse>('/auth/login', data).then(res => res.data),
+  register: (data: { email: string; password: string; name?: string }) =>
+    api.post<AuthResponse>('/auth/register', data).then(res => res.data),
+  logout: () =>
+    api.post<{ ok: boolean }>('/auth/logout').then(res => res.data),
 };
 
 export const deepResearchApi = {

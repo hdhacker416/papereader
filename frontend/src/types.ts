@@ -174,6 +174,16 @@ export interface ApiKeyCheckResponse {
   message: string;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+}
+
 export interface DeepResearchTaskCreateResponse {
   ok: boolean;
   task_id: string;
