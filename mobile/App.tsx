@@ -360,6 +360,15 @@ export default function App() {
     return false;
   }, [pdfUrl, selectedCollection, selectedPaper, selectedTask, tab]);
 
+  const navigateToTab = (nextTab: TabKey) => {
+    setPdfUrl('');
+    setPdfTitle('');
+    setSelectedPaper(null);
+    setSelectedTask(null);
+    setSelectedCollection(null);
+    setTab(nextTab);
+  };
+
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
     const subscription = BackHandler.addEventListener('hardwareBackPress', navigateBack);
@@ -866,10 +875,10 @@ export default function App() {
         </Pressable>
       )}
       {content}
-      {!pdfUrl && !selectedTask && !selectedPaper && !selectedCollection && (
+      {!pdfUrl && (
         <View style={styles.tabBar}>
           {(['tasks', 'research', 'collections', 'settings', 'account'] as TabKey[]).map((item) => (
-            <Pressable key={item} style={[styles.tabItem, tab === item && styles.tabItemActive]} onPress={() => setTab(item)}>
+            <Pressable key={item} style={[styles.tabItem, tab === item && styles.tabItemActive]} onPress={() => navigateToTab(item)}>
               <Text style={[styles.tabText, tab === item && styles.tabTextActive]}>
                 {item === 'tasks' ? 'Tasks' : item === 'research' ? 'Research' : item === 'collections' ? 'Collections' : item === 'settings' ? 'Settings' : 'Account'}
               </Text>
