@@ -902,106 +902,6 @@ const ResearchCreatePage: React.FC = () => {
           <p className="text-gray-500 mt-2">Research now uses one unified task flow. Search papers manually or let the system auto-select papers, then continue reading and reporting inside the task.</p>
         </div>
 
-        <div className="flex rounded-xl bg-gray-100 p-1 mb-6 w-full max-w-sm">
-          <button
-            type="button"
-            onClick={() => setWorkflow('research')}
-            className={clsx('flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors', workflow === 'research' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600')}
-          >
-            Research
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setWorkflow('packs');
-              fetchPacks();
-              fetchInstalledPacks();
-              fetchPackJobs();
-              if (releases.length === 0) {
-                fetchReleases();
-              }
-            }}
-            className={clsx('flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors', workflow === 'packs' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600')}
-          >
-            Packs
-          </button>
-        </div>
-
-        <div className="mb-6 border border-gray-200 rounded-2xl p-5 bg-white">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">环境自检</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                检查关键环境变量、已安装搜索数据，以及 Gemini / DashScope / DeepSeek / GitHub 的可用性。
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleRunSelfCheck}
-              disabled={selfChecking}
-              className="shrink-0 flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              {selfChecking ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-              {selfChecking ? 'Checking...' : 'Run Self-check'}
-            </button>
-          </div>
-
-          {selfCheckResult && (
-            <div className="mt-4 space-y-3">
-              <div
-                className={clsx(
-                  'rounded-xl px-4 py-3 text-sm border',
-                  selfCheckResult.overall_status === 'ok' && 'bg-emerald-50 border-emerald-200 text-emerald-800',
-                  selfCheckResult.overall_status === 'warning' && 'bg-amber-50 border-amber-200 text-amber-800',
-                  selfCheckResult.overall_status === 'error' && 'bg-red-50 border-red-200 text-red-800',
-                )}
-              >
-                <div className="font-medium">{selfCheckResult.summary}</div>
-                <div className="mt-1 text-xs opacity-80">
-                  Checked at {new Date(selfCheckResult.checked_at).toLocaleString()}
-                </div>
-              </div>
-              {selfCheckResult.items.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {selfCheckResult.items.map((item) => (
-                    <div key={item.key} className="border border-gray-200 rounded-xl px-4 py-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-medium text-gray-900">{item.label}</div>
-                          <div className="text-sm text-gray-700 mt-1">{item.message}</div>
-                        </div>
-                        <span
-                          className={clsx(
-                            'shrink-0 px-2 py-1 rounded-full text-xs font-medium',
-                            item.status === 'ok' && 'bg-emerald-50 text-emerald-700',
-                            item.status === 'warning' && 'bg-amber-50 text-amber-700',
-                            item.status === 'error' && 'bg-red-50 text-red-700',
-                          )}
-                        >
-                          {item.status}
-                        </span>
-                      </div>
-                      {item.hint && (
-                        <div className="mt-2 text-xs text-gray-500">{item.hint}</div>
-                      )}
-                      {item.details && Object.keys(item.details).length > 0 && (
-                        <div className="mt-2 text-xs text-gray-500 break-all">
-                          {Object.entries(item.details).map(([key, value]) => (
-                            <div key={key}>
-                              <span className="font-medium text-gray-600">{key}:</span>{' '}
-                              {Array.isArray(value) ? value.join(', ') : String(value)}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
         {workflow === 'packs' ? (
           <div className="bg-white border border-gray-200 rounded-2xl p-6">
             <div className="space-y-6">
@@ -1494,7 +1394,7 @@ const ResearchCreatePage: React.FC = () => {
 
                 {!loading && !hasLocalResearchData && (
                   <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    This machine has no installed research packs yet. Go to <span className="font-semibold">Packs</span> and download the conference packs you need from GitHub Releases first.
+                    This machine has no installed research packs yet. Go to <span className="font-semibold">Settings</span> and download the conference packs you need from GitHub Releases first.
                   </div>
                 )}
 
