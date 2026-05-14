@@ -11,6 +11,7 @@ from openai import OpenAI
 from PyPDF2 import PdfReader
 
 try:
+    from backend.services import secret_service
     from backend.services.qwen_service import (
         _append_incomplete_notice,
         _raise_if_incomplete_choice,
@@ -18,6 +19,7 @@ try:
         _to_turn_history,
     )
 except ModuleNotFoundError:
+    from services import secret_service
     from services.qwen_service import (
         _append_incomplete_notice,
         _raise_if_incomplete_choice,
@@ -65,7 +67,7 @@ def is_deepseek_model(model_name: str | None) -> bool:
 
 
 def _get_client(api_key: str | None = None, base_url: str | None = None) -> OpenAI:
-    resolved_key = api_key or os.getenv("DEEPSEEK_API_KEY")
+    resolved_key = api_key or secret_service.get_secret("DEEPSEEK_API_KEY")
     if not resolved_key:
         raise ValueError("DEEPSEEK_API_KEY is not configured")
     return OpenAI(

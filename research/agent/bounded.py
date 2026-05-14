@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from dataclasses import dataclass, replace
 from typing import Any, Callable
@@ -10,9 +9,9 @@ from google import genai
 from google.genai import types
 
 try:
-    from backend.services import deepseek_service, qwen_service
+    from backend.services import deepseek_service, qwen_service, secret_service
 except ModuleNotFoundError:
-    from services import deepseek_service, qwen_service
+    from services import deepseek_service, qwen_service, secret_service
 from research.reader.paper_reader import PaperReader
 from research.targeting import CONFERENCE_DISPLAY_NAMES, normalize_target_years
 from research.tools.search_tools import SearchTools
@@ -486,15 +485,15 @@ class BoundedResearchRunner:
         self.model = model
         self.client = None
         if qwen_service.is_gemini_model(model):
-            api_key = api_key or os.getenv("GEMINI_API_KEY")
+            api_key = api_key or secret_service.get_secret("GEMINI_API_KEY")
             if not api_key:
                 raise RuntimeError("GEMINI_API_KEY is not configured")
             self.client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
         elif qwen_service.is_qwen_model(model):
-            if not (api_key or os.getenv("DASHSCOPE_API_KEY")):
+            if not (api_key or secret_service.get_secret("DASHSCOPE_API_KEY")):
                 raise RuntimeError("DASHSCOPE_API_KEY is not configured")
         elif deepseek_service.is_deepseek_model(model):
-            if not (api_key or os.getenv("DEEPSEEK_API_KEY")):
+            if not (api_key or secret_service.get_secret("DEEPSEEK_API_KEY")):
                 raise RuntimeError("DEEPSEEK_API_KEY is not configured")
         else:
             raise RuntimeError(f"Unsupported model: {model}")

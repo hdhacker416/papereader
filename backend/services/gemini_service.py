@@ -9,6 +9,11 @@ from pathlib import Path
 import time
 import datetime
 
+try:
+    from backend.services import secret_service
+except ModuleNotFoundError:
+    from services import secret_service
+
 # Add project root to path to import tool.gemini_interface
 # sys.path.append(r"E:\Project\paperreader\code2")
 
@@ -55,7 +60,7 @@ def _append_incomplete_notice(response: Any, response_text: str) -> str:
 
 class Gemini_interface:
     def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = "gemini-3-flash-preview"):
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        self.api_key = api_key or secret_service.get_secret("GEMINI_API_KEY")
         if not self.api_key:
             raise ValueError("API key must be provided or set in GEMINI_API_KEY environment variable.")
         self.client = genai.Client(api_key=self.api_key, http_options={"api_version": "v1beta"})

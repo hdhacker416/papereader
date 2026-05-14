@@ -48,6 +48,12 @@ const statusStyles = {
   error: 'bg-red-50 text-red-700 border-red-200',
 };
 
+const keySourceLabels: Record<ApiKeyInfo['source'], string> = {
+  user: 'User key',
+  server: 'Server default',
+  missing: 'Missing',
+};
+
 type SectionKey = 'selfCheck' | 'packs' | 'api';
 
 const normalizePackConference = (conference: string) => PACK_NAME_ALIASES[conference] || conference;
@@ -901,7 +907,7 @@ const SettingsPage: React.FC = () => {
           <SettingsSection
             id="api"
             title="API Management"
-            description="Configure Gemini, DeepSeek, DashScope, and GitHub credentials for this instance."
+            description="Configure Gemini, DeepSeek, DashScope, and GitHub credentials for your account."
             icon={<KeyRound size={18} />}
             open={openSections.api}
             onToggle={toggleSection}
@@ -913,6 +919,7 @@ const SettingsPage: React.FC = () => {
                 const check = checks[item.provider];
                 const isBusy = busyProvider === item.provider;
                 const inputType = visible[item.provider] ? 'text' : 'password';
+                const canClearUserKey = item.source === 'user';
                 return (
                   <div key={item.provider} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
@@ -930,6 +937,9 @@ const SettingsPage: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {renderStatusBadge(item.configured ? 'ok' : 'warning', item.configured ? 'Configured' : 'Missing')}
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 text-xs font-medium text-gray-600">
+                          {keySourceLabels[item.source]}
+                        </span>
                         {item.masked_value && <span className="text-xs text-gray-500 font-mono">{item.masked_value}</span>}
                       </div>
                     </div>
@@ -975,11 +985,12 @@ const SettingsPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleDelete(item.provider)}
-                          disabled={isBusy || !item.configured}
+                          disabled={isBusy || !canClearUserKey}
                           className="h-11 flex items-center gap-2 px-4 rounded-lg border border-red-200 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          title={canClearUserKey ? 'Clear your saved key' : 'No user key is saved for your account'}
                         >
                           <Trash2 size={16} />
-                          Clear
+                          Clear user key
                         </button>
                       </div>
                     </div>

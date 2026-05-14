@@ -156,6 +156,7 @@ export interface ApiKeyInfo {
   env_var: string;
   configured: boolean;
   masked_value?: string;
+  source: 'user' | 'server' | 'missing';
   hint?: string;
 }
 

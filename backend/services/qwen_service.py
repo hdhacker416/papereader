@@ -9,6 +9,11 @@ from typing import Any, Dict, List, Union
 
 from openai import OpenAI
 
+try:
+    from backend.services import secret_service
+except ModuleNotFoundError:
+    from services import secret_service
+
 
 DEFAULT_DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 DEFAULT_QWEN_MODEL = "qwen-plus"
@@ -71,7 +76,7 @@ def is_gemini_model(model_name: str | None) -> bool:
 
 
 def _get_client(api_key: str | None = None, base_url: str | None = None) -> OpenAI:
-    resolved_key = api_key or os.getenv("DASHSCOPE_API_KEY")
+    resolved_key = api_key or secret_service.get_secret("DASHSCOPE_API_KEY")
     if not resolved_key:
         raise ValueError("DASHSCOPE_API_KEY is not configured")
     return OpenAI(

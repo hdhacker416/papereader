@@ -1,27 +1,26 @@
 from __future__ import annotations
 
-import os
-from pathlib import Path
 from typing import Literal
 
 import requests
-from dotenv import dotenv_values, set_key, unset_key
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from google import genai
 from google.genai import types
 from pydantic import BaseModel
 
 try:
     from backend.services import deepseek_service
+    from backend.services import secret_service
     from research.providers.dashscope_embedding import DashScopeEmbeddingClient
 except ModuleNotFoundError:
     from services import deepseek_service
+    from services import secret_service
     from research.providers.dashscope_embedding import DashScopeEmbeddingClient
 
 
 ProviderName = Literal["gemini", "deepseek", "dashscope", "github"]
+SecretSource = Literal["user", "server", "missing"]
 
-ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 PROVIDERS: dict[str, dict[str, str]] = {
     "gemini": {
         "label": "Gemini",
@@ -52,6 +51,7 @@ class ApiKeyInfo(BaseModel):
     env_var: str
     configured: bool
     masked_value: str | None = None
+    source: SecretSource = "missing"
     hint: str | None = None
 
 
@@ -80,15 +80,6 @@ router = APIRouter(
 )
 
 
-def _load_env_values() -> dict[str, str]:
-    values = dotenv_values(ENV_PATH) if ENV_PATH.exists() else {}
-    result: dict[str, str] = {}
-    for key, value in values.items():
-        if value is not None:
-            result[key] = value
-    return result
-
-
 def _provider_config(provider: str) -> dict[str, str]:
     config = PROVIDERS.get(provider)
     if not config:
@@ -105,11 +96,16 @@ def _mask_secret(value: str | None) -> str | None:
     return f"{clean[:4]}...{clean[-4:]}"
 
 
-def _key_info(provider: str, env_values: dict[str, str] | None = None) -> ApiKeyInfo:
+def _request_user_id(request: Request) -> str | None:
+    current_user = getattr(request.state, "current_user", None)
+    return getattr(current_user, "id", None)
+
+
+def _key_info(provider: str, *, user_id: str | None = None) -> ApiKeyInfo:
     config = _provider_config(provider)
     env_var = config["env_var"]
-    values = env_values if env_values is not None else _load_env_values()
-    value = values.get(env_var) or os.getenv(env_var)
+    value = secret_service.get_secret(env_var, user_id=user_id)
+    source = secret_service.get_secret_source(env_var, user_id=user_id)
     configured = bool(value and value.strip())
     return ApiKeyInfo(
         provider=provider,
@@ -117,34 +113,32 @@ def _key_info(provider: str, env_values: dict[str, str] | None = None) -> ApiKey
         env_var=env_var,
         configured=configured,
         masked_value=_mask_secret(value) if configured else None,
+        source=source,
         hint=config.get("hint"),
     )
 
 
-def _write_key(provider: str, value: str) -> ApiKeyInfo:
+def _write_key(provider: str, value: str, *, user_id: str | None = None) -> ApiKeyInfo:
     clean_value = value.strip()
     if not clean_value:
         raise HTTPException(status_code=400, detail="API key value cannot be empty")
 
     config = _provider_config(provider)
-    ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if not ENV_PATH.exists():
-        ENV_PATH.write_text("", encoding="utf-8")
-    set_key(str(ENV_PATH), config["env_var"], clean_value)
-    os.environ[config["env_var"]] = clean_value
-    return _key_info(provider)
+    try:
+        secret_service.set_user_secret(config["env_var"], clean_value, user_id=user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _key_info(provider, user_id=user_id)
 
 
-def _delete_key(provider: str) -> ApiKeyInfo:
+def _delete_key(provider: str, *, user_id: str | None = None) -> ApiKeyInfo:
     config = _provider_config(provider)
-    if ENV_PATH.exists():
-        unset_key(str(ENV_PATH), config["env_var"])
-    os.environ.pop(config["env_var"], None)
-    return _key_info(provider)
+    secret_service.delete_user_secret(config["env_var"], user_id=user_id)
+    return _key_info(provider, user_id=user_id)
 
 
-def _check_gemini() -> ApiKeyCheckResponse:
-    api_key = os.getenv("GEMINI_API_KEY")
+def _check_gemini(user_id: str | None = None) -> ApiKeyCheckResponse:
+    api_key = secret_service.get_secret("GEMINI_API_KEY", user_id=user_id)
     if not api_key:
         return ApiKeyCheckResponse(provider="gemini", status="warning", message="GEMINI_API_KEY is not configured")
     try:
@@ -159,14 +153,16 @@ def _check_gemini() -> ApiKeyCheckResponse:
         return ApiKeyCheckResponse(provider="gemini", status="error", message=f"Gemini API check failed: {exc}")
 
 
-def _check_deepseek() -> ApiKeyCheckResponse:
-    if not os.getenv("DEEPSEEK_API_KEY"):
+def _check_deepseek(user_id: str | None = None) -> ApiKeyCheckResponse:
+    api_key = secret_service.get_secret("DEEPSEEK_API_KEY", user_id=user_id)
+    if not api_key:
         return ApiKeyCheckResponse(provider="deepseek", status="warning", message="DEEPSEEK_API_KEY is not configured")
     try:
         deepseek_service.complete_text(
             model_name="deepseek-v4-flash",
             system_instruction="Return a short pong.",
             user_content="ping",
+            api_key=api_key,
             max_tokens=4,
         )
         return ApiKeyCheckResponse(provider="deepseek", status="ok", message="DeepSeek API is available")
@@ -174,8 +170,8 @@ def _check_deepseek() -> ApiKeyCheckResponse:
         return ApiKeyCheckResponse(provider="deepseek", status="error", message=f"DeepSeek API check failed: {exc}")
 
 
-def _check_dashscope() -> ApiKeyCheckResponse:
-    api_key = os.getenv("DASHSCOPE_API_KEY")
+def _check_dashscope(user_id: str | None = None) -> ApiKeyCheckResponse:
+    api_key = secret_service.get_secret("DASHSCOPE_API_KEY", user_id=user_id)
     if not api_key:
         return ApiKeyCheckResponse(provider="dashscope", status="warning", message="DASHSCOPE_API_KEY is not configured")
     try:
@@ -186,8 +182,8 @@ def _check_dashscope() -> ApiKeyCheckResponse:
         return ApiKeyCheckResponse(provider="dashscope", status="error", message=f"DashScope API check failed: {exc}")
 
 
-def _check_github() -> ApiKeyCheckResponse:
-    token = os.getenv("GITHUB_TOKEN")
+def _check_github(user_id: str | None = None) -> ApiKeyCheckResponse:
+    token = secret_service.get_secret("GITHUB_TOKEN", user_id=user_id)
     if not token:
         return ApiKeyCheckResponse(provider="github", status="warning", message="GITHUB_TOKEN is not configured")
     try:
@@ -216,26 +212,26 @@ CHECKERS = {
 
 
 @router.get("/api-keys", response_model=ApiKeyListResponse)
-def list_api_keys() -> ApiKeyListResponse:
-    env_values = _load_env_values()
-    return ApiKeyListResponse(keys=[_key_info(provider, env_values) for provider in PROVIDERS])
+def list_api_keys(request: Request) -> ApiKeyListResponse:
+    user_id = _request_user_id(request)
+    return ApiKeyListResponse(keys=[_key_info(provider, user_id=user_id) for provider in PROVIDERS])
 
 
 @router.put("/api-keys/{provider}", response_model=ApiKeyUpdateResponse)
-def update_api_key(provider: ProviderName, payload: ApiKeyUpdateRequest) -> ApiKeyUpdateResponse:
-    key = _write_key(provider, payload.value)
+def update_api_key(provider: ProviderName, payload: ApiKeyUpdateRequest, request: Request) -> ApiKeyUpdateResponse:
+    key = _write_key(provider, payload.value, user_id=_request_user_id(request))
     return ApiKeyUpdateResponse(ok=True, key=key)
 
 
 @router.delete("/api-keys/{provider}", response_model=ApiKeyUpdateResponse)
-def delete_api_key(provider: ProviderName) -> ApiKeyUpdateResponse:
-    key = _delete_key(provider)
+def delete_api_key(provider: ProviderName, request: Request) -> ApiKeyUpdateResponse:
+    key = _delete_key(provider, user_id=_request_user_id(request))
     return ApiKeyUpdateResponse(ok=True, key=key)
 
 
 @router.post("/api-keys/{provider}/check", response_model=ApiKeyCheckResponse)
-def check_api_key(provider: ProviderName) -> ApiKeyCheckResponse:
+def check_api_key(provider: ProviderName, request: Request) -> ApiKeyCheckResponse:
     checker = CHECKERS.get(provider)
     if checker is None:
         raise HTTPException(status_code=404, detail="Unknown API key provider")
-    return checker()
+    return checker(_request_user_id(request))

@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict
 import datetime
 import json
-import os
 import re
 import sys
 import urllib.request
@@ -27,7 +26,7 @@ import schemas
 from services.template_service import ensure_default_template
 from services.template_service import parse_template_prompts
 from services.template_service import serialize_prompt_list
-from services import deepseek_service, pack_build_service
+from services import deepseek_service, pack_build_service, secret_service
 
 from research.agent.bounded import BoundedResearchRunner, ResearchBrief
 from research.build.build_online_assets import build_online_assets, write_summary
@@ -84,7 +83,7 @@ DISPLAY_TO_CONFERENCE["neurips"] = "nips"
 
 
 def _get_gemini_client() -> genai.Client:
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = secret_service.get_secret("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not configured")
     return genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
@@ -655,7 +654,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
         },
     )
 
-    gemini_key = os.getenv("GEMINI_API_KEY")
+    gemini_key = secret_service.get_secret("GEMINI_API_KEY")
     if not gemini_key:
         add_item(
             key="gemini_api",
@@ -663,7 +662,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
             status="error",
             severity="required",
             message="GEMINI_API_KEY 未配置",
-            hint="在后端环境或 backend/.env 中配置 GEMINI_API_KEY。",
+            hint="在 Settings 里为当前用户配置 GEMINI_API_KEY，或由服务器管理员配置全局默认 key。",
         )
     else:
         try:
@@ -681,6 +680,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 message="Gemini API 可用",
                 details={
                     "model": "gemini-3-flash-preview",
+                    "source": secret_service.get_secret_source("GEMINI_API_KEY"),
                     "response_preview": (getattr(response, "text", "") or "").strip()[:40],
                 },
             )
@@ -694,7 +694,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 hint="确认 API key 正确、账户可用，并且目标模型有权限访问。",
             )
 
-    dashscope_key = os.getenv("DASHSCOPE_API_KEY")
+    dashscope_key = secret_service.get_secret("DASHSCOPE_API_KEY")
     if not dashscope_key:
         add_item(
             key="dashscope_api",
@@ -702,7 +702,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
             status="error",
             severity="required",
             message="DASHSCOPE_API_KEY 未配置",
-            hint="在后端环境或 shell 环境中配置 DASHSCOPE_API_KEY。",
+            hint="在 Settings 里为当前用户配置 DASHSCOPE_API_KEY，或由服务器管理员配置全局默认 key。",
         )
     else:
         try:
@@ -714,7 +714,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 status="ok",
                 severity="required",
                 message="DashScope embedding API 可用",
-                details={"embedding_dim": len(result.embedding)},
+                details={"embedding_dim": len(result.embedding), "source": secret_service.get_secret_source("DASHSCOPE_API_KEY")},
             )
         except Exception as exc:
             add_item(
@@ -726,7 +726,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 hint="确认百炼 API key 正确，且 embedding 服务已开通。",
             )
 
-    deepseek_key = os.getenv("DEEPSEEK_API_KEY")
+    deepseek_key = secret_service.get_secret("DEEPSEEK_API_KEY")
     if not deepseek_key:
         add_item(
             key="deepseek_api",
@@ -734,7 +734,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
             status="warning",
             severity="optional",
             message="DEEPSEEK_API_KEY 未配置",
-            hint="如果要使用 DeepSeek 模型，请在后端环境或 backend/.env 中配置 DEEPSEEK_API_KEY。",
+            hint="如果要使用 DeepSeek 模型，请在 Settings 里为当前用户配置 DEEPSEEK_API_KEY，或由服务器管理员配置全局默认 key。",
         )
     else:
         try:
@@ -753,6 +753,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 message="DeepSeek API 可用",
                 details={
                     "model": "deepseek-v4-flash",
+                    "source": secret_service.get_secret_source("DEEPSEEK_API_KEY"),
                     "response_preview": (response_text or "").strip()[:40],
                 },
             )
@@ -766,7 +767,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 hint="确认 API key 正确、账户可用，并且目标模型有权限访问。",
             )
 
-    github_token = os.getenv("GITHUB_TOKEN")
+    github_token = secret_service.get_secret("GITHUB_TOKEN")
     if not github_token:
         add_item(
             key="github_api",
@@ -774,7 +775,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
             status="warning",
             severity="optional",
             message="GITHUB_TOKEN 未配置",
-            hint="如果这台机器只负责搜索和阅读，可以忽略；如果要上传 packs，请配置 GITHUB_TOKEN。",
+            hint="如果这台机器只负责搜索和阅读，可以忽略；如果要上传 packs，请在 Settings 里为当前用户配置 GITHUB_TOKEN。",
         )
     else:
         try:
@@ -795,7 +796,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                     status="ok",
                     severity="optional",
                     message="GitHub token 可用",
-                    details={"login": payload.get("login")},
+                    details={"login": payload.get("login"), "source": secret_service.get_secret_source("GITHUB_TOKEN")},
                 )
             else:
                 add_item(
@@ -1182,7 +1183,7 @@ def build_packs(payload: schemas.ResearchPackBuildRequest) -> schemas.ResearchPa
 
 
 def upload_pack_to_github_release(payload: schemas.ResearchPackUploadRequest) -> schemas.ResearchPackUploadResponse:
-    token = os.getenv("GITHUB_TOKEN")
+    token = secret_service.get_secret("GITHUB_TOKEN")
     if not token:
         raise HTTPException(status_code=500, detail="GITHUB_TOKEN is not configured")
 

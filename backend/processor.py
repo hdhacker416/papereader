@@ -16,6 +16,11 @@ MAX_CONCURRENT_PAPERS = 3
 executor = ThreadPoolExecutor(max_workers=MAX_CONCURRENT_PAPERS)
 
 
+def _interpret_paper_for_user(user_id: str, save_path: str, prompts: list[str], model_name: str):
+    with user_context(user_id):
+        return llm_service.interpret_paper(save_path, prompts, model_name)
+
+
 def _should_try_arxiv_fallback(search_result: dict | None, download_result) -> bool:
     if not search_result or search_result.get("source") != "openreview":
         return False
@@ -292,7 +297,8 @@ async def process_paper(paper_id: str, user_id: str):
             
             interpretation_text, chat_history = await asyncio.get_event_loop().run_in_executor(
                 executor,
-                llm_service.interpret_paper,
+                _interpret_paper_for_user,
+                user_id,
                 save_path,
                 prompts,
                 model_name,

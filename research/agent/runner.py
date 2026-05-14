@@ -7,6 +7,11 @@ from typing import Any
 from google import genai
 from google.genai import types
 
+try:
+    from backend.services import secret_service
+except ModuleNotFoundError:
+    secret_service = None
+
 from research.agent.tool_runner import ToolRunner
 from research.agent.toolspec import get_gemini_tools
 
@@ -27,7 +32,9 @@ class ResearchAgentRunner:
         model: str = DEFAULT_AGENT_MODEL,
         tool_runner: ToolRunner | None = None,
     ) -> None:
-        api_key = api_key or os.getenv("GEMINI_API_KEY")
+        api_key = api_key or (
+            secret_service.get_secret("GEMINI_API_KEY") if secret_service else os.getenv("GEMINI_API_KEY")
+        )
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY is not configured")
 

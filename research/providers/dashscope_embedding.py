@@ -6,6 +6,11 @@ from typing import Callable, Iterable
 
 from openai import OpenAI
 
+try:
+    from backend.services import secret_service
+except ModuleNotFoundError:
+    secret_service = None
+
 
 DEFAULT_DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 DEFAULT_EMBEDDING_MODEL = "text-embedding-v4"
@@ -27,7 +32,9 @@ class DashScopeEmbeddingClient:
         dimensions: int = 1024,
         batch_size: int = DEFAULT_EMBEDDING_BATCH_SIZE,
     ) -> None:
-        self.api_key = api_key or os.getenv("DASHSCOPE_API_KEY")
+        self.api_key = api_key or (
+            secret_service.get_secret("DASHSCOPE_API_KEY") if secret_service else os.getenv("DASHSCOPE_API_KEY")
+        )
         self.base_url = base_url
         self.model = model
         self.dimensions = dimensions

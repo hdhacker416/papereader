@@ -8,6 +8,11 @@ from typing import Any
 from google import genai
 from google.genai import types
 
+try:
+    from backend.services import secret_service
+except ModuleNotFoundError:
+    secret_service = None
+
 from research.reader.paper_reader import PaperReader
 from research.targeting import normalize_target_years
 from research.tools.search_tools import SearchTools
@@ -93,7 +98,9 @@ class SemiFixedResearchRunner:
         search_tools: SearchTools | None = None,
         paper_reader: PaperReader | None = None,
     ) -> None:
-        api_key = api_key or os.getenv("GEMINI_API_KEY")
+        api_key = api_key or (
+            secret_service.get_secret("GEMINI_API_KEY") if secret_service else os.getenv("GEMINI_API_KEY")
+        )
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY is not configured")
         self.client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})

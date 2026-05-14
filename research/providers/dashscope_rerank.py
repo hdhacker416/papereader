@@ -5,6 +5,11 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any, Iterable
 
+try:
+    from backend.services import secret_service
+except ModuleNotFoundError:
+    secret_service = None
+
 
 DEFAULT_RERANK_MODEL = "qwen3-rerank"
 
@@ -22,7 +27,9 @@ class DashScopeRerankClient:
         api_key: str | None = None,
         model: str = DEFAULT_RERANK_MODEL,
     ) -> None:
-        self.api_key = api_key or os.getenv("DASHSCOPE_API_KEY")
+        self.api_key = api_key or (
+            secret_service.get_secret("DASHSCOPE_API_KEY") if secret_service else os.getenv("DASHSCOPE_API_KEY")
+        )
         self.model = model
 
     def is_configured(self) -> bool:
@@ -46,7 +53,6 @@ class DashScopeRerankClient:
                 "dashscope package is required for rerank calls"
             ) from exc
 
-        dashscope.api_key = self.api_key
         response = dashscope.TextReRank.call(
             model=self.model,
             query=query,
@@ -54,6 +60,7 @@ class DashScopeRerankClient:
             top_n=top_n,
             return_documents=return_documents,
             instruct=instruct,
+            api_key=self.api_key,
         )
 
         if response.status_code != HTTPStatus.OK:
