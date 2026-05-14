@@ -188,6 +188,10 @@ def get_user_by_session_token(token: str | None) -> AuthUser | None:
 
 
 def get_user_from_request(request: Request) -> AuthUser | None:
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() == "bearer" and token.strip():
+        return get_user_by_session_token(token.strip())
     return get_user_by_session_token(request.cookies.get(SESSION_COOKIE_NAME))
 
 
@@ -208,6 +212,14 @@ def delete_session(token: str | None) -> None:
     with _connect() as conn:
         conn.execute("DELETE FROM sessions WHERE token_hash = ?", (_hash_token(token),))
         conn.commit()
+
+
+def get_request_session_token(request: Request) -> str | None:
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() == "bearer" and token.strip():
+        return token.strip()
+    return request.cookies.get(SESSION_COOKIE_NAME)
 
 
 def list_user_ids() -> list[str]:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
 
@@ -20,6 +22,8 @@ class AuthRequest(BaseModel):
 
 class AuthResponse(BaseModel):
     user: AuthUserResponse
+    token: str | None = None
+    expires_at: datetime | None = None
 
 
 router = APIRouter(
@@ -43,7 +47,7 @@ def register(payload: AuthRequest, request: Request, response: Response) -> Auth
     user = auth_service.register_user(payload.email, payload.password, payload.name)
     token, expires_at = auth_service.create_session(user.id)
     auth_service.set_session_cookie(response, request, token, expires_at)
-    return AuthResponse(user=_serialize_user(user))
+    return AuthResponse(user=_serialize_user(user), token=token, expires_at=expires_at)
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -51,11 +55,11 @@ def login(payload: AuthRequest, request: Request, response: Response) -> AuthRes
     user = auth_service.authenticate_user(payload.email, payload.password)
     token, expires_at = auth_service.create_session(user.id)
     auth_service.set_session_cookie(response, request, token, expires_at)
-    return AuthResponse(user=_serialize_user(user))
+    return AuthResponse(user=_serialize_user(user), token=token, expires_at=expires_at)
 
 
 @router.post("/logout")
 def logout(request: Request, response: Response):
-    auth_service.delete_session(request.cookies.get(auth_service.SESSION_COOKIE_NAME))
+    auth_service.delete_session(auth_service.get_request_session_token(request))
     auth_service.clear_session_cookie(response)
     return {"ok": True}
