@@ -32,7 +32,7 @@ Implemented:
 - Open available PDFs through a short-lived mobile PDF link.
 - Deep Research auto-task creation.
 - Collections list, create/delete, re-read, and paper membership management.
-- Per-user API key management.
+- Per-user Qwen / Alibaba Cloud Model Studio API key management.
 - Deep Research self-check.
 
 Not yet implemented:

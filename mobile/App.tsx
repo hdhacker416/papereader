@@ -23,7 +23,7 @@ const API_BASE_URL = 'http://120.26.173.133/api';
 const TOKEN_KEY = 'paperreader_mobile_token';
 
 type TabKey = 'tasks' | 'research' | 'collections' | 'settings' | 'account';
-type Provider = 'gemini' | 'deepseek' | 'dashscope' | 'github';
+type Provider = 'dashscope';
 
 interface AuthUser {
   id: string;
@@ -152,15 +152,14 @@ interface SelfCheckResponse {
 }
 
 const models = [
-  'gemini-3-flash-preview',
-  'gemini-3-pro-preview',
-  'deepseek-v4-flash',
-  'deepseek-v4-pro',
+  'qwen-flash',
   'qwen-plus',
+  'qwen-max',
   'qwen-long',
+  'qwen-doc-turbo',
 ];
 
-const providerOrder: Provider[] = ['gemini', 'deepseek', 'dashscope', 'github'];
+const providerOrder: Provider[] = ['dashscope'];
 
 function statusColor(status: string) {
   if (status === 'done' || status === 'ok') return '#047857';
