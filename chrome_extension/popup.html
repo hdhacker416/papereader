@@ -1,38 +1,235 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <style>
     body {
-      width: 250px;
-      padding: 10px;
-      font-family: system-ui, -apple-system, sans-serif;
+      width: 320px;
+      margin: 0;
+      padding: 14px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #111827;
+      background: #ffffff;
     }
+
     h1 {
       font-size: 16px;
-      margin: 0 0 10px 0;
-      color: #2563eb;
+      margin: 0;
+      color: #1d4ed8;
     }
+
     p {
       font-size: 12px;
       color: #4b5563;
+      line-height: 1.45;
+      margin: 6px 0 0;
     }
-    .status {
+
+    label {
+      display: block;
       margin-top: 10px;
-      padding: 8px;
-      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 5px;
+      padding: 8px 9px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16);
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: 0.6;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .server-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      margin-top: 10px;
+    }
+
+    .server-row label {
+      flex: 1;
+      margin-top: 0;
+    }
+
+    .primary {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    .secondary {
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+    }
+
+    .danger {
+      color: #b91c1c;
+      background: #fee2e2;
+    }
+
+    .status {
+      margin-top: 12px;
+      padding: 9px 10px;
+      border-radius: 6px;
       background-color: #f3f4f6;
       font-size: 12px;
+      line-height: 1.4;
     }
-    .online { color: green; }
-    .offline { color: red; }
+
+    .online {
+      color: #047857;
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+    }
+
+    .offline {
+      color: #b91c1c;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 12px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-top: 12px;
+      padding: 3px;
+      background: #f3f4f6;
+      border-radius: 7px;
+    }
+
+    .tabs button {
+      flex: 1;
+      padding: 7px 8px;
+      background: transparent;
+      color: #4b5563;
+    }
+
+    .tabs button.active {
+      background: #ffffff;
+      color: #1d4ed8;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+    }
+
+    .auth-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .auth-actions button {
+      flex: 1;
+    }
+
+    .user-card {
+      margin-top: 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px;
+      background: #f9fafb;
+    }
+
+    .user-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <h1>PaperReader Collector</h1>
-  <p>Select any text on a webpage to add it as a paper to your tasks.</p>
-  
+  <div class="header">
+    <div>
+      <h1>PaperReader Collector</h1>
+      <p>Select text on a webpage and send it to one of your PaperReader tasks.</p>
+    </div>
+  </div>
+
+  <div class="server-row">
+    <label>
+      Server
+      <input id="serverInput" type="url" placeholder="http://120.26.173.133/api">
+    </label>
+    <button id="saveServerButton" class="secondary" type="button">Save</button>
+  </div>
+
   <div id="status" class="status">Checking connection...</div>
-  
+
+  <div id="signedInView" class="hidden">
+    <div class="user-card">
+      <div class="muted">Signed in as</div>
+      <div id="userName" class="user-name"></div>
+      <div id="userEmail" class="muted"></div>
+    </div>
+    <div class="auth-actions">
+      <button id="refreshButton" class="secondary" type="button">Refresh</button>
+      <button id="logoutButton" class="danger" type="button">Logout</button>
+    </div>
+  </div>
+
+  <div id="signedOutView">
+    <div class="tabs">
+      <button id="loginTab" class="active" type="button">Login</button>
+      <button id="registerTab" type="button">Register</button>
+    </div>
+
+    <form id="authForm">
+      <label id="nameLabel" class="hidden">
+        Name
+        <input id="nameInput" type="text" autocomplete="name">
+      </label>
+      <label>
+        Email
+        <input id="emailInput" type="email" autocomplete="email" required>
+      </label>
+      <label>
+        Password
+        <input id="passwordInput" type="password" autocomplete="current-password" required>
+      </label>
+      <div class="auth-actions">
+        <button id="submitButton" class="primary" type="submit">Login</button>
+      </div>
+    </form>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

@@ -123,7 +123,7 @@ async function showTaskList() {
       taskList.innerHTML = `<div class="paperreader-loading" style="color:red">Error: ${response.error}</div>`;
     }
   } catch (e) {
-    taskList.innerHTML = `<div class="paperreader-loading" style="color:red">Connection failed. Is PaperReader running?</div>`;
+    taskList.innerHTML = '<div class="paperreader-loading" style="color:red">Connection failed. Login from the PaperReader extension popup first.</div>';
   }
 }
 
