@@ -109,6 +109,7 @@ def _create_chat_completion_with_retry(
     messages: list[dict[str, str]],
     response_format: dict[str, str] | None = None,
     max_tokens: int | None = None,
+    timeout_seconds: float = DEEPSEEK_CHAT_TIMEOUT_SECONDS,
 ):
     last_exc: Exception | None = None
     for attempt in range(1, DEEPSEEK_RETRY_ATTEMPTS + 1):
@@ -116,7 +117,7 @@ def _create_chat_completion_with_retry(
             kwargs: dict[str, Any] = {
                 "model": model or DEFAULT_DEEPSEEK_MODEL,
                 "messages": messages,
-                "timeout": DEEPSEEK_CHAT_TIMEOUT_SECONDS,
+                "timeout": timeout_seconds,
                 "extra_body": _thinking_config(model or DEFAULT_DEEPSEEK_MODEL),
             }
             if response_format is not None:
@@ -300,6 +301,7 @@ def complete_text(
     user_content: str,
     api_key: str | None = None,
     max_tokens: int | None = None,
+    timeout_seconds: float = DEEPSEEK_CHAT_TIMEOUT_SECONDS,
 ) -> str:
     client = _get_client(api_key=api_key)
     response = _create_chat_completion_with_retry(
@@ -310,6 +312,7 @@ def complete_text(
             {"role": "user", "content": user_content},
         ],
         max_tokens=max_tokens,
+        timeout_seconds=timeout_seconds,
     )
     choice = response.choices[0]
     content = choice.message.content

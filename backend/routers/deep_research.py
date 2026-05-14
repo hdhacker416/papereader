@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 import schemas
@@ -27,8 +27,9 @@ def list_target_options():
 
 
 @router.get("/self-check", response_model=schemas.SelfCheckResponse)
-def run_self_check():
-    return deep_research_service.run_self_check()
+def run_self_check(request: Request):
+    current_user = getattr(request.state, "current_user", None)
+    return deep_research_service.run_self_check(user_id=getattr(current_user, "id", None))
 
 
 @router.get("/releases", response_model=schemas.ReleaseListResponse)

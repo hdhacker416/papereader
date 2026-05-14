@@ -31,6 +31,7 @@ class DashScopeEmbeddingClient:
         model: str = DEFAULT_EMBEDDING_MODEL,
         dimensions: int = 1024,
         batch_size: int = DEFAULT_EMBEDDING_BATCH_SIZE,
+        timeout: float | None = None,
     ) -> None:
         self.api_key = api_key or (
             secret_service.get_secret("DASHSCOPE_API_KEY") if secret_service else os.getenv("DASHSCOPE_API_KEY")
@@ -39,6 +40,7 @@ class DashScopeEmbeddingClient:
         self.model = model
         self.dimensions = dimensions
         self.batch_size = batch_size
+        self.timeout = timeout
         self._client: OpenAI | None = None
 
     def is_configured(self) -> bool:
@@ -48,7 +50,7 @@ class DashScopeEmbeddingClient:
         if not self.api_key:
             raise RuntimeError("DASHSCOPE_API_KEY is not configured")
         if self._client is None:
-            self._client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+            self._client = OpenAI(api_key=self.api_key, base_url=self.base_url, timeout=self.timeout)
         return self._client
 
     def embed_text(self, text: str) -> EmbeddingResult:

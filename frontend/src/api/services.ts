@@ -119,7 +119,7 @@ export const authApi = {
 
 export const deepResearchApi = {
   runSelfCheck: () =>
-    api.get<SelfCheckResponse>('/deep-research/self-check').then(res => res.data),
+    api.get<SelfCheckResponse>('/deep-research/self-check', { timeout: 30000 }).then(res => res.data),
   listTargets: () =>
     api.get<DeepResearchTargetOptionsResponse>('/deep-research/targets').then(res => res.data),
   search: (data: {

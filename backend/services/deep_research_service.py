@@ -58,6 +58,7 @@ MIN_REPORT_PAPERS = 2
 DEFAULT_RELEASE_OWNER = "hdhacker416"
 DEFAULT_RELEASE_REPO = "papereader"
 TITLE_KEY_RE = re.compile(r"[a-z0-9]+")
+SELF_CHECK_PROVIDER_TIMEOUT_SECONDS = 8
 EVIDENCE_CLAUSE_RE = re.compile(r"\(evidence:\s*(.*?)\)", re.IGNORECASE | re.DOTALL)
 UUID_RE = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.IGNORECASE)
 ENGLISH_REPORT_HEADINGS = [
@@ -567,7 +568,7 @@ def _ensure_search_assets_available() -> None:
     )
 
 
-def run_self_check() -> schemas.SelfCheckResponse:
+def run_self_check(user_id: str | None = None) -> schemas.SelfCheckResponse:
     items: list[schemas.SelfCheckItem] = []
 
     def add_item(
@@ -654,7 +655,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
         },
     )
 
-    gemini_key = secret_service.get_secret("GEMINI_API_KEY")
+    gemini_key = secret_service.get_secret("GEMINI_API_KEY", user_id=user_id)
     if not gemini_key:
         add_item(
             key="gemini_api",
@@ -666,7 +667,13 @@ def run_self_check() -> schemas.SelfCheckResponse:
         )
     else:
         try:
-            client = genai.Client(api_key=gemini_key, http_options={"api_version": "v1beta"})
+            client = genai.Client(
+                api_key=gemini_key,
+                http_options=types.HttpOptions(
+                    api_version="v1beta",
+                    timeout=SELF_CHECK_PROVIDER_TIMEOUT_SECONDS * 1000,
+                ),
+            )
             response = client.models.generate_content(
                 model="gemini-3-flash-preview",
                 contents="ping",
@@ -680,7 +687,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 message="Gemini API 可用",
                 details={
                     "model": "gemini-3-flash-preview",
-                    "source": secret_service.get_secret_source("GEMINI_API_KEY"),
+                    "source": secret_service.get_secret_source("GEMINI_API_KEY", user_id=user_id),
                     "response_preview": (getattr(response, "text", "") or "").strip()[:40],
                 },
             )
@@ -694,7 +701,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 hint="确认 API key 正确、账户可用，并且目标模型有权限访问。",
             )
 
-    dashscope_key = secret_service.get_secret("DASHSCOPE_API_KEY")
+    dashscope_key = secret_service.get_secret("DASHSCOPE_API_KEY", user_id=user_id)
     if not dashscope_key:
         add_item(
             key="dashscope_api",
@@ -706,7 +713,11 @@ def run_self_check() -> schemas.SelfCheckResponse:
         )
     else:
         try:
-            embedding_client = DashScopeEmbeddingClient(api_key=dashscope_key, batch_size=1)
+            embedding_client = DashScopeEmbeddingClient(
+                api_key=dashscope_key,
+                batch_size=1,
+                timeout=SELF_CHECK_PROVIDER_TIMEOUT_SECONDS,
+            )
             result = embedding_client.embed_text("ping")
             add_item(
                 key="dashscope_api",
@@ -714,7 +725,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 status="ok",
                 severity="required",
                 message="DashScope embedding API 可用",
-                details={"embedding_dim": len(result.embedding), "source": secret_service.get_secret_source("DASHSCOPE_API_KEY")},
+                details={"embedding_dim": len(result.embedding), "source": secret_service.get_secret_source("DASHSCOPE_API_KEY", user_id=user_id)},
             )
         except Exception as exc:
             add_item(
@@ -726,7 +737,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 hint="确认百炼 API key 正确，且 embedding 服务已开通。",
             )
 
-    deepseek_key = secret_service.get_secret("DEEPSEEK_API_KEY")
+    deepseek_key = secret_service.get_secret("DEEPSEEK_API_KEY", user_id=user_id)
     if not deepseek_key:
         add_item(
             key="deepseek_api",
@@ -744,6 +755,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 user_content="ping",
                 api_key=deepseek_key,
                 max_tokens=4,
+                timeout_seconds=SELF_CHECK_PROVIDER_TIMEOUT_SECONDS,
             )
             add_item(
                 key="deepseek_api",
@@ -753,7 +765,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 message="DeepSeek API 可用",
                 details={
                     "model": "deepseek-v4-flash",
-                    "source": secret_service.get_secret_source("DEEPSEEK_API_KEY"),
+                    "source": secret_service.get_secret_source("DEEPSEEK_API_KEY", user_id=user_id),
                     "response_preview": (response_text or "").strip()[:40],
                 },
             )
@@ -767,7 +779,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 hint="确认 API key 正确、账户可用，并且目标模型有权限访问。",
             )
 
-    github_token = secret_service.get_secret("GITHUB_TOKEN")
+    github_token = secret_service.get_secret("GITHUB_TOKEN", user_id=user_id)
     if not github_token:
         add_item(
             key="github_api",
@@ -796,7 +808,7 @@ def run_self_check() -> schemas.SelfCheckResponse:
                     status="ok",
                     severity="optional",
                     message="GitHub token 可用",
-                    details={"login": payload.get("login"), "source": secret_service.get_secret_source("GITHUB_TOKEN")},
+                    details={"login": payload.get("login"), "source": secret_service.get_secret_source("GITHUB_TOKEN", user_id=user_id)},
                 )
             else:
                 add_item(
