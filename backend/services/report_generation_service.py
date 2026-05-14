@@ -59,7 +59,7 @@ def enqueue_task_report_generation(
     if str(report_model).strip().lower() in UNSUPPORTED_REPORT_MODELS:
         raise HTTPException(
             status_code=400,
-            detail="Selected model is only supported for direct PDF reading, not report generation. Use Gemini or Qwen Flash/Plus/Max.",
+            detail="Selected model is only supported for direct PDF reading, not report generation. Use Gemini, DeepSeek, or Qwen Flash/Plus/Max.",
         )
 
     report = db.query(models.DeepResearchReport).filter(

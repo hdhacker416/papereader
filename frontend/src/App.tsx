@@ -6,6 +6,7 @@ import ReadingRoomPage from './pages/ReadingRoomPage';
 import TemplatesPage from './pages/TemplatesPage';
 import CollectionsPage from './pages/CollectionsPage';
 import ResearchCreatePage from './pages/ResearchCreatePage';
+import SettingsPage from './pages/SettingsPage';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/collections" element={<CollectionsPage />} />
         <Route path="/research" element={<ResearchCreatePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/research/create" element={<Navigate to="/research" replace />} />
         <Route path="/research/:id" element={<Navigate to="/research" replace />} />
       </Routes>

@@ -10,9 +10,9 @@ from google import genai
 from google.genai import types
 
 try:
-    from backend.services import qwen_service
+    from backend.services import deepseek_service, qwen_service
 except ModuleNotFoundError:
-    from services import qwen_service
+    from services import deepseek_service, qwen_service
 from research.reader.paper_reader import PaperReader
 from research.targeting import CONFERENCE_DISPLAY_NAMES, normalize_target_years
 from research.tools.search_tools import SearchTools
@@ -493,6 +493,9 @@ class BoundedResearchRunner:
         elif qwen_service.is_qwen_model(model):
             if not (api_key or os.getenv("DASHSCOPE_API_KEY")):
                 raise RuntimeError("DASHSCOPE_API_KEY is not configured")
+        elif deepseek_service.is_deepseek_model(model):
+            if not (api_key or os.getenv("DEEPSEEK_API_KEY")):
+                raise RuntimeError("DEEPSEEK_API_KEY is not configured")
         else:
             raise RuntimeError(f"Unsupported model: {model}")
         self.search_tools = search_tools or SearchTools()
@@ -574,6 +577,18 @@ class BoundedResearchRunner:
                     ),
                     user_content=current_contents,
                 )
+            elif deepseek_service.is_deepseek_model(self.model):
+                response_text = deepseek_service.complete_json(
+                    model_name=self.model,
+                    system_instruction=(
+                        f"{current_instruction} "
+                        "Return exactly one JSON object and nothing else. "
+                        "Do not add markdown fences, prefaces, explanations, or trailing commentary. "
+                        f"The required JSON schema is: {schema_text}"
+                    ),
+                    user_content=current_contents,
+                    max_tokens=current_max_output_tokens,
+                )
             else:
                 response = self.client.models.generate_content(
                     model=self.model,
@@ -636,6 +651,13 @@ class BoundedResearchRunner:
                 model_name=self.model,
                 system_instruction=system_instruction,
                 user_content=contents,
+            )
+        if deepseek_service.is_deepseek_model(self.model):
+            return deepseek_service.complete_text(
+                model_name=self.model,
+                system_instruction=system_instruction,
+                user_content=contents,
+                max_tokens=max_output_tokens,
             )
         response = self.client.models.generate_content(
             model=self.model,

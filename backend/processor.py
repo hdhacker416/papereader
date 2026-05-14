@@ -44,9 +44,33 @@ def _format_pdf_download_failure(search_result: dict, download_result) -> str:
 
 
 def _clear_resolved_source(paper: models.Paper) -> None:
+    if paper.source == "local":
+        return
     paper.source = None
     paper.source_url = None
     paper.pdf_path = None
+
+
+def _resolve_local_pdf_path(paper: models.Paper) -> str | None:
+    if paper.source != "local" or not paper.pdf_path:
+        return None
+
+    candidates = []
+    if os.path.isabs(paper.pdf_path):
+        candidates.append(paper.pdf_path)
+    else:
+        candidates.append(os.path.join(DATA_DIR, paper.pdf_path))
+
+    for path in candidates:
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, "rb") as file:
+                if file.read(4) == b"%PDF":
+                    return path
+        except OSError:
+            continue
+    return None
 
 
 def resolve_existing_source(source_url: str | None):
@@ -143,92 +167,102 @@ async def process_paper(paper_id: str):
             
         logger.info(f"Processing paper: {paper.title} ({paper.id})")
 
-        # 1. Resolve source
-        had_existing_source_url = bool(paper.source_url)
-        search_result = resolve_existing_source(paper.source_url)
-        search_result_from_existing_source = search_result is not None
-        if not search_result:
-            # Try Arxiv first
-            search_result = await asyncio.get_event_loop().run_in_executor(executor, arxiv_service.search_arxiv, paper.title)
-        
-        if not search_result:
-            # Try OpenReview
-            search_result = await asyncio.get_event_loop().run_in_executor(executor, openreview_service.search_openreview, paper.title)
-        
-        if not search_result:
-            paper.status = "failed"
-            paper.failure_reason = "Paper not found via existing source_url, Arxiv, or OpenReview"
-            if not had_existing_source_url:
-                _clear_resolved_source(paper)
-            log_error_to_chat(db, paper, paper.failure_reason)
+        local_pdf_path = _resolve_local_pdf_path(paper)
+        if paper.source == "local":
+            if not local_pdf_path:
+                paper.status = "failed"
+                paper.failure_reason = "Local PDF file is missing or invalid"
+                log_error_to_chat(db, paper, paper.failure_reason)
+                db.commit()
+                return
+            save_path = local_pdf_path
+        else:
+            # 1. Resolve source
+            had_existing_source_url = bool(paper.source_url)
+            search_result = resolve_existing_source(paper.source_url)
+            search_result_from_existing_source = search_result is not None
+            if not search_result:
+                # Try Arxiv first
+                search_result = await asyncio.get_event_loop().run_in_executor(executor, arxiv_service.search_arxiv, paper.title)
+
+            if not search_result:
+                # Try OpenReview
+                search_result = await asyncio.get_event_loop().run_in_executor(executor, openreview_service.search_openreview, paper.title)
+
+            if not search_result:
+                paper.status = "failed"
+                paper.failure_reason = "Paper not found via existing source_url, Arxiv, or OpenReview"
+                if not had_existing_source_url:
+                    _clear_resolved_source(paper)
+                log_error_to_chat(db, paper, paper.failure_reason)
+                db.commit()
+                return
+
+            # Update metadata
+            paper.source = search_result["source"]
+            paper.source_url = search_result["source_url"]
+            # paper.title = search_result["title"] # Update title to official one? Maybe optional.
             db.commit()
-            return
 
-        # Update metadata
-        paper.source = search_result["source"]
-        paper.source_url = search_result["source_url"]
-        # paper.title = search_result["title"] # Update title to official one? Maybe optional.
-        db.commit()
+            # 2. Download PDF
+            pdf_url = search_result["pdf_url"]
+            if not pdf_url:
+                paper.status = "failed"
+                paper.failure_reason = "PDF URL not found"
+                if not search_result_from_existing_source:
+                    _clear_resolved_source(paper)
+                log_error_to_chat(db, paper, paper.failure_reason)
+                db.commit()
+                return
 
-        # 2. Download PDF
-        pdf_url = search_result["pdf_url"]
-        if not pdf_url:
-            paper.status = "failed"
-            paper.failure_reason = "PDF URL not found"
-            if not search_result_from_existing_source:
-                _clear_resolved_source(paper)
-            log_error_to_chat(db, paper, paper.failure_reason)
-            db.commit()
-            return
-            
-        # Define save path: data/pdfs/{task_id}/{paper_id}.pdf
-        # Use relative path for database storage (portability), absolute path for file operations
-        rel_path = os.path.join("pdfs", paper.task_id, f"{paper.id}.pdf")
-        save_path = os.path.join(DATA_DIR, rel_path)
-        
-        download_result = await asyncio.get_event_loop().run_in_executor(
-            executor,
-            pdf_service.download_pdf_with_details,
-            pdf_url,
-            save_path,
-        )
+            # Define save path: data/pdfs/{task_id}/{paper_id}.pdf
+            # Use relative path for database storage (portability), absolute path for file operations
+            rel_path = os.path.join("pdfs", paper.task_id, f"{paper.id}.pdf")
+            save_path = os.path.join(DATA_DIR, rel_path)
 
-        if _should_try_arxiv_fallback(search_result, download_result):
-            logger.warning(
-                "OpenReview download failed for '%s' (%s). Trying arXiv fallback.",
-                paper.title,
-                paper.id,
-            )
-            fallback_result = await asyncio.get_event_loop().run_in_executor(
+            download_result = await asyncio.get_event_loop().run_in_executor(
                 executor,
-                arxiv_service.search_arxiv,
-                paper.title,
+                pdf_service.download_pdf_with_details,
+                pdf_url,
+                save_path,
             )
-            if fallback_result and fallback_result.get("pdf_url"):
-                fallback_download_result = await asyncio.get_event_loop().run_in_executor(
-                    executor,
-                    pdf_service.download_pdf_with_details,
-                    fallback_result["pdf_url"],
-                    save_path,
-                )
-                if fallback_download_result.ok:
-                    search_result = fallback_result
-                    download_result = fallback_download_result
-                    paper.source = fallback_result["source"]
-                    paper.source_url = fallback_result["source_url"]
-                    db.commit()
 
-        if not download_result.ok:
-            paper.status = "failed"
-            paper.failure_reason = _format_pdf_download_failure(search_result, download_result)
-            if not search_result_from_existing_source:
-                _clear_resolved_source(paper)
-            log_error_to_chat(db, paper, paper.failure_reason)
+            if _should_try_arxiv_fallback(search_result, download_result):
+                logger.warning(
+                    "OpenReview download failed for '%s' (%s). Trying arXiv fallback.",
+                    paper.title,
+                    paper.id,
+                )
+                fallback_result = await asyncio.get_event_loop().run_in_executor(
+                    executor,
+                    arxiv_service.search_arxiv,
+                    paper.title,
+                )
+                if fallback_result and fallback_result.get("pdf_url"):
+                    fallback_download_result = await asyncio.get_event_loop().run_in_executor(
+                        executor,
+                        pdf_service.download_pdf_with_details,
+                        fallback_result["pdf_url"],
+                        save_path,
+                    )
+                    if fallback_download_result.ok:
+                        search_result = fallback_result
+                        download_result = fallback_download_result
+                        paper.source = fallback_result["source"]
+                        paper.source_url = fallback_result["source_url"]
+                        db.commit()
+
+            if not download_result.ok:
+                paper.status = "failed"
+                paper.failure_reason = _format_pdf_download_failure(search_result, download_result)
+                if not search_result_from_existing_source:
+                    _clear_resolved_source(paper)
+                log_error_to_chat(db, paper, paper.failure_reason)
+                db.commit()
+                return
+
+            paper.pdf_path = rel_path # Store relative path
             db.commit()
-            return
-            
-        paper.pdf_path = rel_path # Store relative path
-        db.commit()
 
         # 3. Interpret with configured model
         # Get template

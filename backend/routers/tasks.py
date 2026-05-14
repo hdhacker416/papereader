@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import json
+import os
+import shutil
 from app_constants import DEFAULT_USER_ID
 import models, schemas
-from database import get_db
+from database import DATA_DIR, get_db
 from services.template_service import parse_template_prompts, serialize_prompt_list
 
 router = APIRouter(
@@ -58,9 +60,32 @@ def _serialize_task_summary(task: models.Task) -> schemas.Task:
 def _clear_failed_paper_source_for_retry(paper: models.Paper) -> None:
     if paper.status != "failed":
         return
+    if paper.source == "local":
+        return
     paper.source = None
     paper.source_url = None
     paper.pdf_path = None
+
+
+def _uploaded_pdf_title(file: UploadFile, title: str | None) -> str:
+    clean_title = (title or "").strip()
+    if clean_title:
+        return clean_title
+    filename = os.path.basename(file.filename or "").strip()
+    stem, _ = os.path.splitext(filename)
+    return stem.strip() or "Uploaded Paper"
+
+
+async def _validate_pdf_upload(file: UploadFile) -> None:
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Uploaded file is missing a filename")
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail=f"{file.filename} is not a PDF file")
+    header = await file.read(4)
+    await file.seek(0)
+    if header != b"%PDF":
+        raise HTTPException(status_code=400, detail=f"{file.filename} is not a valid PDF")
+
 
 @router.post("/", response_model=schemas.Task)
 def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
@@ -224,7 +249,7 @@ def add_papers(task_id: str, papers: schemas.PaperCreate, db: Session = Depends(
 
     if db_task.status in {"completed", "failed"}:
         db_task.status = "running"
-    
+
     created_papers = []
     for title in papers.titles:
         title = title.strip()
@@ -255,6 +280,70 @@ def add_papers(task_id: str, papers: schemas.PaperCreate, db: Session = Depends(
     for p in created_papers:
         db.refresh(p)
     
+    return created_papers
+
+
+@router.post("/{task_id}/papers/upload", response_model=List[schemas.Paper])
+async def upload_local_papers(
+    task_id: str,
+    files: List[UploadFile] = File(...),
+    titles: Optional[List[str]] = Form(None),
+    db: Session = Depends(get_db),
+):
+    db_task = db.query(models.Task).filter(models.Task.id == task_id, models.Task.user_id == DEFAULT_USER_ID).first()
+    if db_task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if not files:
+        raise HTTPException(status_code=400, detail="No PDF files uploaded")
+
+    for file in files:
+        await _validate_pdf_upload(file)
+
+    if db_task.status in {"completed", "failed"}:
+        db_task.status = "running"
+
+    created_papers: list[models.Paper] = []
+    saved_paths: list[str] = []
+    title_values = titles or []
+
+    try:
+        for index, file in enumerate(files):
+            title = _uploaded_pdf_title(file, title_values[index] if index < len(title_values) else None)
+            db_paper = models.Paper(
+                task_id=task_id,
+                title=title,
+                source="local",
+                source_url=None,
+                status="queued",
+            )
+            db.add(db_paper)
+            db.flush()
+
+            rel_path = os.path.join("pdfs", task_id, f"{db_paper.id}.pdf")
+            save_path = os.path.join(DATA_DIR, rel_path)
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+            await file.seek(0)
+            with open(save_path, "wb") as output:
+                shutil.copyfileobj(file.file, output)
+
+            db_paper.pdf_path = rel_path
+            created_papers.append(db_paper)
+            saved_paths.append(save_path)
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        for path in saved_paths:
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+            except OSError:
+                pass
+        raise
+
+    for paper in created_papers:
+        db.refresh(paper)
     return created_papers
 
 @router.get("/{task_id}/papers", response_model=List[schemas.Paper])

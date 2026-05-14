@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Play, Pause, Square, Plus, RefreshCw, FileText, AlertCircle, Trash2, ScrollText, ChevronDown, ChevronRight, Download } from 'lucide-react';
+import { Play, Pause, Square, Plus, RefreshCw, FileText, AlertCircle, Trash2, ScrollText, ChevronDown, ChevronRight, Download, Upload } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
@@ -36,6 +36,8 @@ const TaskDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [paperList, setPaperList] = useState<string[]>(['']);
   const [addingPapers, setAddingPapers] = useState(false);
+  const [localFiles, setLocalFiles] = useState<File[]>([]);
+  const [uploadingLocalFiles, setUploadingLocalFiles] = useState(false);
   const [isReReadModalOpen, setIsReReadModalOpen] = useState(false);
   const [report, setReport] = useState<DeepResearchReport | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
@@ -214,6 +216,21 @@ const TaskDetailPage: React.FC = () => {
     }
   };
 
+  const handleUploadLocalPapers = async () => {
+    if (!id || localFiles.length === 0) return;
+
+    setUploadingLocalFiles(true);
+    try {
+      await tasksApi.uploadLocalPapers(id, localFiles);
+      setLocalFiles([]);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to upload local papers:', error);
+    } finally {
+      setUploadingLocalFiles(false);
+    }
+  };
+
   const handleGenerateReport = async () => {
     if (!id || generatingReport || report?.status === 'queued' || report?.status === 'running' || (task.statistics?.done || 0) < MIN_REPORT_PAPERS) return;
     setGeneratingReport(true);
@@ -275,7 +292,7 @@ const TaskDetailPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-2xl font-bold text-gray-900">{task.name}</h1>
-              <span className={clsx("px-2.5 py-0.5 rounded-full text-xs font-medium capitalize", 
+              <span className={clsx("px-2.5 py-0.5 rounded-full text-xs font-medium capitalize",
                 task.status === 'preparing' ? 'bg-purple-100 text-purple-800' :
                 task.status === 'running' ? 'bg-green-100 text-green-800' :
                 task.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
@@ -859,6 +876,40 @@ const TaskDetailPage: React.FC = () => {
             <p className="text-xs text-gray-500 mt-3">
               The system will automatically process these papers if the task is running.
             </p>
+
+            <div className="mt-6 border-t pt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Local PDFs</label>
+              <label className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-3 py-5 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                <Upload size={20} className="text-gray-500" />
+                <span className="text-sm font-medium text-gray-700">Upload PDFs to this task</span>
+                <span className="text-xs text-gray-500">Local files skip arXiv/OpenReview download.</span>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  multiple
+                  className="hidden"
+                  onChange={(event) => setLocalFiles(Array.from(event.target.files || []))}
+                />
+              </label>
+              {localFiles.length > 0 && (
+                <div className="mt-3 space-y-1 rounded-lg border border-gray-200 bg-white p-3">
+                  {localFiles.map((file) => (
+                    <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-2 text-xs text-gray-700">
+                      <span className="truncate">{file.name}</span>
+                      <span className="shrink-0 text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={handleUploadLocalPapers}
+                disabled={uploadingLocalFiles || localFiles.length === 0}
+                className="mt-3 w-full bg-slate-800 text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+              >
+                {uploadingLocalFiles ? <RefreshCw className="animate-spin" size={18} /> : <Upload size={18} />}
+                Upload Local PDFs
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -198,7 +198,7 @@ def retry_paper(paper_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Paper not found")
 
     # Reset status to queued so processor picks it up
-    if paper.status == "failed":
+    if paper.status == "failed" and paper.source != "local":
         paper.source = None
         paper.source_url = None
         paper.pdf_path = None

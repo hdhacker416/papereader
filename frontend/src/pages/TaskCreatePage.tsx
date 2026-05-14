@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Upload } from 'lucide-react';
 import Layout from '../components/Layout';
 import PromptListEditor from '../components/PromptListEditor';
 import { tasksApi, templatesApi } from '../api/services';
@@ -17,6 +17,7 @@ const TaskCreatePage: React.FC = () => {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
   const [paperList, setPaperList] = useState<string[]>(['']);
+  const [localFiles, setLocalFiles] = useState<File[]>([]);
 
   useEffect(() => {
     const fetchTemplates = async () => {
@@ -82,7 +83,10 @@ const TaskCreatePage: React.FC = () => {
       if (validPapers.length > 0) {
         await tasksApi.addPapers(task.id, { titles: validPapers });
       }
-      
+      if (localFiles.length > 0) {
+        await tasksApi.uploadLocalPapers(task.id, localFiles);
+      }
+
       navigate(`/tasks/${task.id}`);
     } catch (error) {
       console.error('Failed to create task:', error);
@@ -196,6 +200,32 @@ const TaskCreatePage: React.FC = () => {
             >
                 <Plus size={16} /> Add Another Paper
             </button>
+          </div>
+
+          <div className="border-t pt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Local PDFs</label>
+            <label className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+              <Upload size={22} className="text-gray-500" />
+              <span className="text-sm font-medium text-gray-700">Upload one or more PDF files</span>
+              <span className="text-xs text-gray-500">Each PDF will be added as a local paper in this task.</span>
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                multiple
+                className="hidden"
+                onChange={(event) => setLocalFiles(Array.from(event.target.files || []))}
+              />
+            </label>
+            {localFiles.length > 0 && (
+              <div className="mt-3 space-y-1 rounded-lg border border-gray-200 bg-white p-3">
+                {localFiles.map((file) => (
+                  <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 text-sm text-gray-700">
+                    <span className="truncate">{file.name}</span>
+                    <span className="shrink-0 text-xs text-gray-400">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="pt-4 flex justify-end">

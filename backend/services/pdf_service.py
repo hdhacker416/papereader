@@ -38,10 +38,21 @@ def _normalize_pdf_url(url: str) -> str:
         if "/pdf" not in parts.path and note_id:
             return urlunsplit((parts.scheme, parts.netloc, "/pdf", urlencode({"id": note_id}), ""))
 
-    if "arxiv.org" in lower:
-        normalized = normalized.replace("arxiv.org", "export.arxiv.org")
-
     return normalized
+
+
+def _candidate_pdf_urls(url: str) -> list[str]:
+    normalized = _normalize_pdf_url(url)
+    candidates = [normalized]
+    lower = normalized.lower()
+
+    if "arxiv.org" in lower:
+        if "export.arxiv.org" in lower:
+            candidates.append(normalized.replace("export.arxiv.org", "arxiv.org"))
+        elif "arxiv.org" in lower:
+            candidates.append(normalized.replace("arxiv.org", "export.arxiv.org"))
+
+    return list(dict.fromkeys(candidates))
 
 
 def _retry_policy_for_url(url: str) -> tuple[set[int], int, int]:
@@ -66,7 +77,7 @@ def download_pdf_with_details(url: str, save_path: str) -> PdfDownloadResult:
     """
     local_path = save_path
     original_url = url
-    pdf_url = _normalize_pdf_url(url)
+    pdf_urls = _candidate_pdf_urls(url)
 
     if os.path.exists(local_path):
         try:
@@ -74,7 +85,7 @@ def download_pdf_with_details(url: str, save_path: str) -> PdfDownloadResult:
                 header = f.read(4)
                 if header == b'%PDF':
                     logger.info(f"PDF already exists at {local_path}")
-                    return PdfDownloadResult(ok=True, url=original_url, final_url=pdf_url)
+                    return PdfDownloadResult(ok=True, url=original_url, final_url=pdf_urls[0])
                 else:
                     logger.warning(f"Existing file {local_path} is not a valid PDF. Redownloading...")
         except Exception:
@@ -84,77 +95,77 @@ def download_pdf_with_details(url: str, save_path: str) -> PdfDownloadResult:
     if directory and not os.path.exists(directory):
         os.makedirs(directory)
 
-    logger.info("Downloading PDF from %s to %s...", pdf_url, local_path)
+    logger.info("Downloading PDF from %s to %s...", pdf_urls[0], local_path)
 
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
 
-    retry_status_codes, retry_sleep_seconds, max_attempts = _retry_policy_for_url(pdf_url)
-
     last_error: str | None = None
     last_status_code: int | None = None
     last_response_url: str | None = None
 
-    for attempt in range(1, max_attempts + 1):
-        try:
-            response = requests.get(pdf_url, headers=headers, stream=True, timeout=60, allow_redirects=True)
-            last_status_code = response.status_code
-            last_response_url = response.url
+    for pdf_url in pdf_urls:
+        retry_status_codes, retry_sleep_seconds, max_attempts = _retry_policy_for_url(pdf_url)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = requests.get(pdf_url, headers=headers, stream=True, timeout=60, allow_redirects=True)
+                last_status_code = response.status_code
+                last_response_url = response.url
 
-            if response.status_code in retry_status_codes and attempt < max_attempts:
-                logger.warning(
-                    "PDF download hit status %s for %s on attempt %s/%s. Sleeping %ss before retry.",
-                    response.status_code,
-                    pdf_url,
-                    attempt,
-                    max_attempts,
-                    retry_sleep_seconds,
-                )
-                time.sleep(retry_sleep_seconds)
-                continue
+                if response.status_code in retry_status_codes and attempt < max_attempts:
+                    logger.warning(
+                        "PDF download hit status %s for %s on attempt %s/%s. Sleeping %ss before retry.",
+                        response.status_code,
+                        pdf_url,
+                        attempt,
+                        max_attempts,
+                        retry_sleep_seconds,
+                    )
+                    time.sleep(retry_sleep_seconds)
+                    continue
 
-            response.raise_for_status()
+                response.raise_for_status()
 
-            content_type = response.headers.get('Content-Type', '').lower()
-            if 'text/html' in content_type:
-                raise ValueError(
-                    f"URL returned HTML instead of PDF. Content-Type: {content_type}. "
-                    f"Requested={pdf_url}, Final={response.url}"
-                )
-
-            with open(local_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-
-            with open(local_path, 'rb') as f:
-                if f.read(4) != b'%PDF':
+                content_type = response.headers.get('Content-Type', '').lower()
+                if 'text/html' in content_type:
                     raise ValueError(
-                        f"Downloaded file is not a PDF (header check failed). Requested={pdf_url}, Final={response.url}"
+                        f"URL returned HTML instead of PDF. Content-Type: {content_type}. "
+                        f"Requested={pdf_url}, Final={response.url}"
                     )
 
-            logger.info("Download completed.")
-            return PdfDownloadResult(
-                ok=True,
-                url=original_url,
-                final_url=response.url,
-                status_code=response.status_code,
-            )
-        except Exception as e:
-            last_error = str(e)
-            logger.error("Failed to download PDF on attempt %s/%s: %s", attempt, max_attempts, e)
-            if os.path.exists(local_path):
-                try:
-                    os.remove(local_path)
-                except OSError:
-                    pass
-            if attempt >= max_attempts:
-                break
+                with open(local_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+                with open(local_path, 'rb') as f:
+                    if f.read(4) != b'%PDF':
+                        raise ValueError(
+                            f"Downloaded file is not a PDF (header check failed). Requested={pdf_url}, Final={response.url}"
+                        )
+
+                logger.info("Download completed.")
+                return PdfDownloadResult(
+                    ok=True,
+                    url=original_url,
+                    final_url=response.url,
+                    status_code=response.status_code,
+                )
+            except Exception as e:
+                last_error = str(e)
+                logger.error("Failed to download PDF from %s on attempt %s/%s: %s", pdf_url, attempt, max_attempts, e)
+                if os.path.exists(local_path):
+                    try:
+                        os.remove(local_path)
+                    except OSError:
+                        pass
+                if attempt >= max_attempts:
+                    break
 
     return PdfDownloadResult(
         ok=False,
         url=original_url,
-        final_url=last_response_url or pdf_url,
+        final_url=last_response_url or pdf_urls[-1],
         status_code=last_status_code,
         error=last_error or "Unknown PDF download error",
     )

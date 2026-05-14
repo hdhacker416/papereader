@@ -50,6 +50,10 @@ Create `backend/.env` or export the variables in your shell.
 | `GEMINI_API_KEY` | Required for Gemini-based reading and reports | Gemini paper interpretation, paper chat, task report generation, parts of Deep Research |
 | `DASHSCOPE_API_KEY` | Required for Qwen and Deep Research | Qwen models, DashScope embeddings, rerank, pack build, research self-check |
 | `DASHSCOPE_BASE_URL` | Optional | Override the DashScope OpenAI-compatible endpoint |
+| `DEEPSEEK_API_KEY` | Optional | DeepSeek V4 reading, paper chat, task report generation, and Deep Research |
+| `DEEPSEEK_BASE_URL` | Optional | Override the DeepSeek OpenAI-compatible endpoint |
+| `DEEPSEEK_MAX_PAPER_CHARS` | Optional | Maximum extracted PDF text sent to DeepSeek per request |
+| `DEEPSEEK_THINKING` | Optional | Set to `enabled` to enable DeepSeek thinking mode |
 | `GITHUB_TOKEN` | Optional | Upload research packs to GitHub Releases |
 
 Example `backend/.env`:
@@ -57,7 +61,11 @@ Example `backend/.env`:
 ```dotenv
 GEMINI_API_KEY=your_gemini_api_key_here
 DASHSCOPE_API_KEY=your_dashscope_api_key_here
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
 # DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+# DEEPSEEK_BASE_URL=https://api.deepseek.com
+# DEEPSEEK_MAX_PAPER_CHARS=800000
+# DEEPSEEK_THINKING=disabled
 # GITHUB_TOKEN=ghp_xxx
 ```
 

@@ -13,7 +13,7 @@ from app_constants import DEFAULT_USER_ID
 from fastapi.staticfiles import StaticFiles
 from database import engine, Base, SessionLocal, DATA_DIR, check_and_migrate_database
 import models
-from routers import templates, tasks, papers, collections, deep_research
+from routers import templates, tasks, papers, collections, deep_research, settings
 from processor import processor_loop
 from services import conference_service
 from services.auto_research_task_service import auto_research_task_loop, recover_stale_auto_research_tasks
@@ -64,6 +64,7 @@ app.include_router(tasks.router)
 app.include_router(papers.router)
 app.include_router(collections.router)
 app.include_router(deep_research.router)
+app.include_router(settings.router)
 
 @app.on_event("startup")
 async def startup_event():

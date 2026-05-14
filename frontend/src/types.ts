@@ -148,6 +148,32 @@ export interface SelfCheckResponse {
   items: SelfCheckItem[];
 }
 
+export type ApiKeyProvider = 'gemini' | 'deepseek' | 'dashscope' | 'github';
+
+export interface ApiKeyInfo {
+  provider: ApiKeyProvider;
+  label: string;
+  env_var: string;
+  configured: boolean;
+  masked_value?: string;
+  hint?: string;
+}
+
+export interface ApiKeyListResponse {
+  keys: ApiKeyInfo[];
+}
+
+export interface ApiKeyUpdateResponse {
+  ok: boolean;
+  key: ApiKeyInfo;
+}
+
+export interface ApiKeyCheckResponse {
+  provider: ApiKeyProvider;
+  status: 'ok' | 'warning' | 'error';
+  message: string;
+}
+
 export interface DeepResearchTaskCreateResponse {
   ok: boolean;
   task_id: string;

@@ -1,8 +1,8 @@
 import api from './index';
-import { 
-  Task, 
-  CreateTaskPayload, 
-  Template, 
+import {
+  Task,
+  CreateTaskPayload,
+  Template,
   CreateTemplatePayload, 
   Paper, 
   AddPapersPayload,
@@ -21,7 +21,11 @@ import {
   PackTargetOptionsResponse,
   ResearchPackInfo,
   ResearchPackBuildResponse,
-  ResearchPackUploadResponse
+  ResearchPackUploadResponse,
+  ApiKeyCheckResponse,
+  ApiKeyListResponse,
+  ApiKeyProvider,
+  ApiKeyUpdateResponse
 } from '../types';
 
 export const templatesApi = {
@@ -39,6 +43,14 @@ export const tasksApi = {
   delete: (id: string) => api.delete<{ok: boolean}>(`/tasks/${id}`).then(res => res.data),
   batchDelete: (ids: string[]) => api.post<{deleted: number}>('/tasks/batch-delete', { ids }).then(res => res.data),
   addPapers: (id: string, data: AddPapersPayload) => api.post<Paper[]>(`/tasks/${id}/papers`, data).then(res => res.data),
+  uploadLocalPapers: (id: string, files: File[], titles?: string[]) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('files', file));
+    (titles || []).forEach((title) => formData.append('titles', title));
+    return api.post<Paper[]>(`/tasks/${id}/papers/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(res => res.data);
+  },
   getPapers: (id: string) => api.get<Paper[]>(`/tasks/${id}/papers`).then(res => res.data),
   reRead: (
     id: string,
@@ -80,6 +92,17 @@ export const collectionsApi = {
       model_name,
       only_failed,
     }).then(res => res.data),
+};
+
+export const settingsApi = {
+  listApiKeys: () =>
+    api.get<ApiKeyListResponse>('/settings/api-keys').then(res => res.data),
+  updateApiKey: (provider: ApiKeyProvider, value: string) =>
+    api.put<ApiKeyUpdateResponse>(`/settings/api-keys/${provider}`, { value }).then(res => res.data),
+  deleteApiKey: (provider: ApiKeyProvider) =>
+    api.delete<ApiKeyUpdateResponse>(`/settings/api-keys/${provider}`).then(res => res.data),
+  checkApiKey: (provider: ApiKeyProvider) =>
+    api.post<ApiKeyCheckResponse>(`/settings/api-keys/${provider}/check`).then(res => res.data),
 };
 
 export const deepResearchApi = {

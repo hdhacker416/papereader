@@ -27,7 +27,7 @@ import schemas
 from services.template_service import ensure_default_template
 from services.template_service import parse_template_prompts
 from services.template_service import serialize_prompt_list
-from services import pack_build_service
+from services import deepseek_service, pack_build_service
 
 from research.agent.bounded import BoundedResearchRunner, ResearchBrief
 from research.build.build_online_assets import build_online_assets, write_summary
@@ -724,6 +724,46 @@ def run_self_check() -> schemas.SelfCheckResponse:
                 severity="required",
                 message=f"DashScope API 检查失败: {exc}",
                 hint="确认百炼 API key 正确，且 embedding 服务已开通。",
+            )
+
+    deepseek_key = os.getenv("DEEPSEEK_API_KEY")
+    if not deepseek_key:
+        add_item(
+            key="deepseek_api",
+            label="DeepSeek API",
+            status="warning",
+            severity="optional",
+            message="DEEPSEEK_API_KEY 未配置",
+            hint="如果要使用 DeepSeek 模型，请在后端环境或 backend/.env 中配置 DEEPSEEK_API_KEY。",
+        )
+    else:
+        try:
+            response_text = deepseek_service.complete_text(
+                model_name="deepseek-v4-flash",
+                system_instruction="Return a short pong.",
+                user_content="ping",
+                api_key=deepseek_key,
+                max_tokens=4,
+            )
+            add_item(
+                key="deepseek_api",
+                label="DeepSeek API",
+                status="ok",
+                severity="optional",
+                message="DeepSeek API 可用",
+                details={
+                    "model": "deepseek-v4-flash",
+                    "response_preview": (response_text or "").strip()[:40],
+                },
+            )
+        except Exception as exc:
+            add_item(
+                key="deepseek_api",
+                label="DeepSeek API",
+                status="error",
+                severity="optional",
+                message=f"DeepSeek API 检查失败: {exc}",
+                hint="确认 API key 正确、账户可用，并且目标模型有权限访问。",
             )
 
     github_token = os.getenv("GITHUB_TOKEN")

@@ -6,6 +6,8 @@ export type ModelOption = {
 export const TEXT_MODEL_OPTIONS: ModelOption[] = [
   { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Faster/Cheaper)' },
   { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (Higher Quality)' },
+  { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
+  { value: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
   { value: 'qwen-flash', label: 'Qwen Flash' },
   { value: 'qwen-plus', label: 'Qwen Plus' },
   { value: 'qwen-max', label: 'Qwen Max' },

@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 def _clear_failed_paper_source_for_retry(paper: models.Paper) -> None:
     if paper.status != "failed":
         return
+    if paper.source == "local":
+        return
     paper.source = None
     paper.source_url = None
     paper.pdf_path = None

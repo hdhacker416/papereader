@@ -932,7 +932,7 @@ const ResearchCreatePage: React.FC = () => {
             <div>
               <h2 className="text-lg font-semibold text-gray-900">环境自检</h2>
               <p className="text-sm text-gray-500 mt-1">
-                检查关键环境变量、已安装搜索数据，以及 Gemini / DashScope / GitHub 的可用性。
+                检查关键环境变量、已安装搜索数据，以及 Gemini / DashScope / DeepSeek / GitHub 的可用性。
               </p>
             </div>
             <button
