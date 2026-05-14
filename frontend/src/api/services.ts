@@ -70,6 +70,8 @@ export const tasksApi = {
 
 export const papersApi = {
   get: (id: string) => api.get<Paper>(`/papers/${id}`).then(res => res.data),
+  createPdfLink: (id: string) =>
+    api.post<{ url: string; expires_in: number }>(`/papers/${id}/mobile-pdf-link`).then(res => res.data),
   chat: (id: string, message: string) => api.post<ChatMessage>(`/papers/${id}/chat`, { message }).then(res => res.data),
   getChatHistory: (id: string) => api.get<ChatMessage[]>(`/papers/${id}/chat`).then(res => res.data),
   clearChat: (id: string) => api.delete<{ok: boolean}>(`/papers/${id}/chat`).then(res => res.data),

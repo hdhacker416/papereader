@@ -7,7 +7,6 @@ import rehypeKatex from 'rehype-katex';
 import Sidebar from '../components/Sidebar';
 import Layout from '../components/Layout';
 import { papersApi, collectionsApi } from '../api/services';
-import { buildApiUrl } from '../api';
 import { Paper, ChatMessage, Collection } from '../types';
 import clsx from 'clsx';
 
@@ -17,6 +16,8 @@ const ReadingRoomPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [paper, setPaper] = useState<Paper | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [pdfViewerUrl, setPdfViewerUrl] = useState('');
+  const [pdfLoadError, setPdfLoadError] = useState('');
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [notes, setNotes] = useState('');
@@ -71,6 +72,35 @@ const ReadingRoomPage: React.FC = () => {
     fetchData();
     fetchCollections();
   }, [fetchCollections, paperId]);
+
+  useEffect(() => {
+    if (!paperId || !paper?.pdf_path) {
+      setPdfViewerUrl('');
+      setPdfLoadError('');
+      return;
+    }
+
+    let cancelled = false;
+    setPdfViewerUrl('');
+    setPdfLoadError('');
+
+    papersApi.createPdfLink(paperId)
+      .then((data) => {
+        if (!cancelled) {
+          setPdfViewerUrl(data.url);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to create PDF link:', error);
+        if (!cancelled) {
+          setPdfLoadError('PDF failed to load. Please refresh this page and try again.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [paperId, paper?.pdf_path]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -319,15 +349,21 @@ const ReadingRoomPage: React.FC = () => {
                 {/* PDF Viewer */}
                 <div className="flex-1 border-r border-gray-200 bg-gray-200 flex flex-col relative">
                     {paper.pdf_path ? (
-                        <>
-                            <iframe 
-                                src={buildApiUrl(`/pdfs/${paper.task_id}/${paper.id}.pdf`)}
-                                className={clsx("w-full h-full", isResizing && "pointer-events-none select-none")}
-                                title="PDF Viewer"
-                            />
-                            {/* Overlay to catch events during resize */}
-                            {isResizing && <div className="absolute inset-0 z-50 bg-transparent" />}
-                        </>
+                        pdfViewerUrl ? (
+                            <>
+                                <iframe
+                                    src={pdfViewerUrl}
+                                    className={clsx("w-full h-full", isResizing && "pointer-events-none select-none")}
+                                    title="PDF Viewer"
+                                />
+                                {/* Overlay to catch events during resize */}
+                                {isResizing && <div className="absolute inset-0 z-50 bg-transparent" />}
+                            </>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-500">
+                                {pdfLoadError || 'Loading PDF...'}
+                            </div>
+                        )
                     ) : (
                         <div className="flex items-center justify-center h-full text-gray-500">
                             PDF not available
