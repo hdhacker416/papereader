@@ -53,6 +53,11 @@ def _runtime(trace: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
+def _qwen_text_model_or_default(model_name: Any) -> str:
+    value = str(model_name or "").strip().lower()
+    return value if value in {"qwen-flash", "qwen-plus", "qwen-max"} else "qwen-plus"
+
+
 def _build_brief_trace(brief: ResearchBrief) -> dict[str, Any]:
     return {
         "研究目标": brief.research_goal,
@@ -258,7 +263,7 @@ def _process_preparing_task(user_id: str, task_id: str) -> None:
         runtime["current_stage"] = "等待生成研究简报"
         _save_trace(db, task, trace)
 
-        runner = BoundedResearchRunner(model=str(config.get("model_name") or "gemini-3-flash-preview"))
+        runner = BoundedResearchRunner(model=_qwen_text_model_or_default(config.get("model_name")))
         selection = runner.run_selection(
             user_query=str(config.get("query") or ""),
             conferences=config.get("conferences") or None,

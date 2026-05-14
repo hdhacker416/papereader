@@ -16,7 +16,7 @@ import {
   Template,
 } from '../types';
 import clsx from 'clsx';
-import { ALLOWED_MODEL_NAMES, MODEL_OPTIONS } from '../constants/models';
+import { ALLOWED_MODEL_NAMES, DEFAULT_TEXT_MODEL, MODEL_OPTIONS } from '../constants/models';
 
 const PACK_NAME_ALIASES: Record<string, string> = {
   nips: 'neurips',
@@ -95,7 +95,7 @@ const ResearchCreatePage: React.FC = () => {
   const [maxQueriesPerRound, setMaxQueriesPerRound] = useState(4);
   const [maxFullReads, setMaxFullReads] = useState(8);
   const [query, setQuery] = useState('');
-  const [modelName, setModelName] = useState('gemini-3-flash-preview');
+  const [modelName, setModelName] = useState(DEFAULT_TEXT_MODEL);
   const [workflow, setWorkflow] = useState<'research' | 'packs'>('research');
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
@@ -612,7 +612,7 @@ const ResearchCreatePage: React.FC = () => {
       await fetchReleases();
     } catch (error) {
       console.error('Failed to upload pack:', error);
-      setPackMessage(`Upload failed for ${pack.pack_name}. Check GITHUB_TOKEN on the backend.`);
+      setPackMessage(`Upload failed for ${pack.pack_name}. Pack uploads are not part of the cloud web workflow.`);
     } finally {
       setUploadingPackKey('');
     }
@@ -1129,13 +1129,13 @@ const ResearchCreatePage: React.FC = () => {
                       <input
                         value={releaseOwner}
                         onChange={(event) => setReleaseOwner(event.target.value)}
-                        placeholder="GitHub owner"
+	                        placeholder="Release owner"
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                       <input
                         value={releaseRepo}
                         onChange={(event) => setReleaseRepo(event.target.value)}
-                        placeholder="GitHub repo"
+	                        placeholder="Release repo"
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                       <input
@@ -1304,15 +1304,7 @@ const ResearchCreatePage: React.FC = () => {
                                   {pack.conference.toUpperCase()} {pack.year} · {(pack.pack_size_bytes / (1024 * 1024)).toFixed(1)} MB
                                 </div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => handleUploadPack(pack)}
-                                disabled={uploadingPackKey !== '' || !releaseOwner.trim() || !releaseRepo.trim() || !releaseTag.trim()}
-                                className="shrink-0 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                              >
-                                {uploadingPackKey === key ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
-                                Upload
-                              </button>
+	                              <span className="shrink-0 text-xs text-gray-500">Local only</span>
                             </div>
                           );
                         })}

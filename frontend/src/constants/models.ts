@@ -4,10 +4,6 @@ export type ModelOption = {
 };
 
 export const TEXT_MODEL_OPTIONS: ModelOption[] = [
-  { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Faster/Cheaper)' },
-  { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (Higher Quality)' },
-  { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
-  { value: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' },
   { value: 'qwen-flash', label: 'Qwen Flash' },
   { value: 'qwen-plus', label: 'Qwen Plus' },
   { value: 'qwen-max', label: 'Qwen Max' },
@@ -26,6 +22,9 @@ export const MODEL_OPTIONS: ModelOption[] = [
 export const REPORT_MODEL_OPTIONS: ModelOption[] = [...TEXT_MODEL_OPTIONS];
 
 export const ALLOWED_MODEL_NAMES = new Set(MODEL_OPTIONS.map((item) => item.value));
+export const DEFAULT_TEXT_MODEL = 'qwen-plus';
+export const DEFAULT_PAPER_MODEL = 'qwen-plus';
+export const DEFAULT_REPORT_MODEL = 'qwen-plus';
 
 export const formatModelLabel = (modelName: string | null | undefined): string => {
   const matched = MODEL_OPTIONS.find((item) => item.value === modelName);

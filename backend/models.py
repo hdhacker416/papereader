@@ -55,7 +55,7 @@ class Task(Base):
     template_id = Column(String, ForeignKey("templates.id"), nullable=True)
     custom_reading_prompts_json = Column(Text, nullable=True)
     agent_trace_json = Column(Text, nullable=True)
-    model_name = Column(String, default="gemini-3-flash-preview")
+    model_name = Column(String, default="qwen-plus")
     status = Column(
         String, default="created"
     )  # created, running, paused, completed, failed

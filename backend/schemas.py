@@ -6,7 +6,7 @@ class TaskBase(BaseModel):
     name: str
     description: Optional[str] = None
     template_id: Optional[str] = None
-    model_name: Optional[str] = "gemini-3-flash-preview"
+    model_name: Optional[str] = "qwen-plus"
     custom_reading_prompts: Optional[List[str]] = None
     agent_trace: Optional[dict] = None
 
@@ -198,7 +198,7 @@ class TaskFromSelectionCreate(BaseModel):
     name: str
     description: Optional[str] = None
     template_id: Optional[str] = None
-    model_name: Optional[str] = "gemini-3-flash-preview"
+    model_name: Optional[str] = "qwen-plus"
     custom_reading_prompts: Optional[List[str]] = None
     selected_papers: List[TaskPaperSelection]
 
@@ -210,7 +210,7 @@ class AutoResearchTaskCreate(BaseModel):
     conferences: Optional[List[str]] = None
     years: Optional[List[int]] = None
     template_id: Optional[str] = None
-    model_name: Optional[str] = "gemini-3-flash-preview"
+    model_name: Optional[str] = "qwen-plus"
     custom_reading_prompts: Optional[List[str]] = None
     max_search_rounds: Optional[int] = None
     max_queries_per_round: Optional[int] = None
@@ -228,7 +228,7 @@ class TaskReportGenerateRequest(BaseModel):
     query: Optional[str] = None
     source_type: Optional[str] = "task"
     source_meta: Optional[str] = None
-    model_name: Optional[str] = "gemini-3-flash-preview"
+    model_name: Optional[str] = "qwen-plus"
 
 
 class ReleaseAsset(BaseModel):

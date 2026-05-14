@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 REPORT_POLL_SECONDS = 2
 UNSUPPORTED_REPORT_MODELS = {"qwen-long", "qwen-doc-turbo"}
+REPORT_TEXT_MODELS = {"qwen-flash", "qwen-plus", "qwen-max"}
 
 
 def _utcnow() -> datetime:
@@ -31,6 +32,11 @@ def _serialize_report(report: models.DeepResearchReport) -> schemas.DeepResearch
 def _resolve_report_query(task: models.Task, payload: schemas.TaskReportGenerateRequest) -> str:
     trace = deep_research_service._parse_json_dict(task.agent_trace_json)
     return payload.query or trace.get("用户问题") or task.description or task.name
+
+
+def _resolve_report_model(model_name: str | None) -> str:
+    value = str(model_name or "").strip().lower()
+    return value if value in REPORT_TEXT_MODELS else "qwen-plus"
 
 
 def enqueue_task_report_generation(
@@ -55,11 +61,11 @@ def enqueue_task_report_generation(
         )
 
     report_query = _resolve_report_query(task, payload)
-    report_model = payload.model_name or task.model_name or "gemini-3-flash-preview"
+    report_model = _resolve_report_model(payload.model_name or task.model_name)
     if str(report_model).strip().lower() in UNSUPPORTED_REPORT_MODELS:
         raise HTTPException(
             status_code=400,
-            detail="Selected model is only supported for direct PDF reading, not report generation. Use Gemini, DeepSeek, or Qwen Flash/Plus/Max.",
+            detail="Selected model is only supported for direct PDF reading, not report generation. Use Qwen Flash, Qwen Plus, or Qwen Max.",
         )
 
     report = db.query(models.DeepResearchReport).filter(
@@ -180,7 +186,7 @@ def _process_single_report(user_id: str, report_id: str) -> None:
 
         trace = deep_research_service._parse_json_dict(task.agent_trace_json)
         report_query = report.query or task.description or task.name
-        report_model = report.model_name or task.model_name or "gemini-3-flash-preview"
+        report_model = _resolve_report_model(report.model_name or task.model_name)
 
         report.status = "running"
         report.progress_stage = "preparing"

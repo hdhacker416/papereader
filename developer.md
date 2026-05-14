@@ -20,8 +20,8 @@ When a feature is generally useful, implement it on the branch where it is neede
 On `web-branch`, Settings contains:
 
 - Self-check: environment and provider availability checks.
-- Packs Management: download installed research packs, build local packs when needed, and upload packs to GitHub Releases.
-- API Management: configure Gemini, DeepSeek, DashScope, and GitHub credentials.
+- Packs Management: download installed research packs and build local packs when needed.
+- API Management: configure the Qwen / Alibaba Cloud Model Studio credential (`DASHSCOPE_API_KEY`).
 
 The web branch intentionally does not include one-click application update from the browser.
 
@@ -49,7 +49,7 @@ For compatibility with the older single-user code, each per-user `app.db` still 
 
 Shared research resources and packs remain under the shared project data/research paths and can be reused by all users.
 
-API keys are also isolated per user on `web-branch`. Settings writes Gemini, DeepSeek, DashScope, and GitHub credentials to:
+API keys are also isolated per user on `web-branch`. The cloud web UI currently exposes only the Qwen / Alibaba Cloud Model Studio key (`DASHSCOPE_API_KEY`) and writes it to:
 
 ```text
 data/users/{user_id}/secrets.env

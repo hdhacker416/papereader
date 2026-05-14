@@ -148,7 +148,7 @@ export interface SelfCheckResponse {
   items: SelfCheckItem[];
 }
 
-export type ApiKeyProvider = 'gemini' | 'deepseek' | 'dashscope' | 'github';
+export type ApiKeyProvider = 'dashscope';
 
 export interface ApiKeyInfo {
   provider: ApiKeyProvider;

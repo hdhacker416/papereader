@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import PromptListEditor from './PromptListEditor';
 import { templatesApi } from '../api/services';
 import { Template } from '../types';
-import { MODEL_OPTIONS } from '../constants/models';
+import { ALLOWED_MODEL_NAMES, DEFAULT_PAPER_MODEL, MODEL_OPTIONS } from '../constants/models';
 
 interface ReReadModalProps {
   isOpen: boolean;
@@ -30,7 +30,7 @@ const ReReadModal: React.FC<ReReadModalProps> = ({
   initialPrompts,
 }) => {
   const [templateId, setTemplateId] = useState('');
-  const [modelName, setModelName] = useState('gemini-3-flash-preview');
+  const [modelName, setModelName] = useState(DEFAULT_PAPER_MODEL);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [customReadingPrompts, setCustomReadingPrompts] = useState<string[]>(['']);
   const [onlyFailed, setOnlyFailed] = useState(false);
@@ -48,7 +48,7 @@ const ReReadModal: React.FC<ReReadModalProps> = ({
               || data.find(t => t.is_default)
               || data[0];
             setTemplateId(selected.id);
-            setModelName(initialModelName || 'gemini-3-flash-preview');
+            setModelName(initialModelName && ALLOWED_MODEL_NAMES.has(initialModelName) ? initialModelName : DEFAULT_PAPER_MODEL);
             setCustomReadingPrompts(
               initialPrompts && initialPrompts.length > 0
                 ? initialPrompts

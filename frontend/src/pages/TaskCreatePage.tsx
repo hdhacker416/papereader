@@ -5,7 +5,7 @@ import Layout from '../components/Layout';
 import PromptListEditor from '../components/PromptListEditor';
 import { tasksApi, templatesApi } from '../api/services';
 import { Template } from '../types';
-import { MODEL_OPTIONS } from '../constants/models';
+import { DEFAULT_PAPER_MODEL, MODEL_OPTIONS } from '../constants/models';
 
 const TaskCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -13,7 +13,7 @@ const TaskCreatePage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [templateId, setTemplateId] = useState('');
   const [customReadingPrompts, setCustomReadingPrompts] = useState<string[]>(['']);
-  const [modelName, setModelName] = useState('gemini-3-flash-preview');
+  const [modelName, setModelName] = useState(DEFAULT_PAPER_MODEL);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
   const [paperList, setPaperList] = useState<string[]>(['']);

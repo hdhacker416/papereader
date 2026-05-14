@@ -25,6 +25,11 @@ def _parse_agent_trace(payload: str | None):
     except json.JSONDecodeError:
         return None
 
+
+def _qwen_model_or_default(model_name: str | None) -> str:
+    value = str(model_name or "").strip().lower()
+    return value if value.startswith(("qwen", "qwq")) else "qwen-plus"
+
 def _serialize_task(task: models.Task) -> schemas.Task:
     return schemas.Task(
         id=task.id,
@@ -32,7 +37,7 @@ def _serialize_task(task: models.Task) -> schemas.Task:
         name=task.name,
         description=task.description,
         template_id=task.template_id,
-        model_name=task.model_name or "gemini-3-flash-preview",
+        model_name=task.model_name or "qwen-plus",
         custom_reading_prompts=parse_template_prompts(task.custom_reading_prompts_json or "") or None,
         agent_trace=_parse_agent_trace(task.agent_trace_json),
         status=task.status,
@@ -48,7 +53,7 @@ def _serialize_task_summary(task: models.Task) -> schemas.Task:
         name=task.name,
         description=task.description,
         template_id=task.template_id,
-        model_name=task.model_name or "gemini-3-flash-preview",
+        model_name=task.model_name or "qwen-plus",
         custom_reading_prompts=None,
         agent_trace=None,
         status=task.status,
@@ -107,7 +112,7 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
         template_id=task.template_id,
         custom_reading_prompts_json=serialize_prompt_list(task.custom_reading_prompts),
         agent_trace_json=json.dumps(task.agent_trace, ensure_ascii=False) if task.agent_trace else None,
-        model_name=task.model_name,
+        model_name=_qwen_model_or_default(task.model_name),
         user_id=DEFAULT_USER_ID,
         status="running",
     )
@@ -126,7 +131,7 @@ def reread_task(task_id: str, request: schemas.ReReadRequest, db: Session = Depe
     if request.template_id:
         task.template_id = request.template_id
     if request.model_name:
-        task.model_name = request.model_name
+        task.model_name = _qwen_model_or_default(request.model_name)
     if request.custom_reading_prompts is not None:
         task.custom_reading_prompts_json = serialize_prompt_list(request.custom_reading_prompts)
     
@@ -142,7 +147,7 @@ def reread_task(task_id: str, request: schemas.ReReadRequest, db: Session = Depe
         if request.template_id:
             paper.template_id = request.template_id
         if request.model_name:
-            paper.model_name = request.model_name
+            paper.model_name = _qwen_model_or_default(request.model_name)
             
     task.status = "running" # Ensure task is running so processor picks it up
     db.commit()

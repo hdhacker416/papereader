@@ -15,7 +15,7 @@ Paper Reader 是一个本地 AI 驱动的论文阅读与研究工作台。它可
 
 - **Task-based reading pipeline / 任务式阅读流程**: Create tasks, batch add paper titles, process papers in the background, and retry or reread papers with updated prompts and models.
 - **Automatic paper discovery / 自动检索论文**: Resolve paper sources from existing links or search arXiv and OpenReview, then download PDFs into local storage.
-- **Multi-model reading / 多模型阅读**: Use Gemini models and Qwen-family models for paper interpretation, chat, reread, and report generation.
+- **Qwen-based reading / Qwen 阅读流程**: Use Qwen-family models for PDF interpretation, chat, reread, and report generation.
 - **Reading Room / 阅读室**: Read PDFs, continue paper-grounded chat, save notes, and add papers into collections from one place.
 - **Prompt templates / 提示词模板**: Maintain reusable reading templates, select a default template, and override prompts per task.
 - **Collections / 收藏夹**: Organize papers into nested collections and rerun reading over a whole collection.
@@ -47,26 +47,14 @@ Create `backend/.env` or export the variables in your shell.
 
 | Variable | Required | Used for |
 | --- | --- | --- |
-| `GEMINI_API_KEY` | Required for Gemini-based reading and reports | Gemini paper interpretation, paper chat, task report generation, parts of Deep Research |
-| `DASHSCOPE_API_KEY` | Required for Qwen and Deep Research | Qwen models, DashScope embeddings, rerank, pack build, research self-check |
+| `DASHSCOPE_API_KEY` | Required | Qwen models, PDF reading, DashScope embeddings, rerank, pack build, research self-check |
 | `DASHSCOPE_BASE_URL` | Optional | Override the DashScope OpenAI-compatible endpoint |
-| `DEEPSEEK_API_KEY` | Optional | DeepSeek V4 reading, paper chat, task report generation, and Deep Research |
-| `DEEPSEEK_BASE_URL` | Optional | Override the DeepSeek OpenAI-compatible endpoint |
-| `DEEPSEEK_MAX_PAPER_CHARS` | Optional | Maximum extracted PDF text sent to DeepSeek per request |
-| `DEEPSEEK_THINKING` | Optional | Set to `enabled` to enable DeepSeek thinking mode |
-| `GITHUB_TOKEN` | Optional | Upload research packs to GitHub Releases |
 
 Example `backend/.env`:
 
 ```dotenv
-GEMINI_API_KEY=your_gemini_api_key_here
 DASHSCOPE_API_KEY=your_dashscope_api_key_here
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
 # DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-# DEEPSEEK_BASE_URL=https://api.deepseek.com
-# DEEPSEEK_MAX_PAPER_CHARS=800000
-# DEEPSEEK_THINKING=disabled
-# GITHUB_TOKEN=ghp_xxx
 ```
 
 You can also copy the example file first:
@@ -181,12 +169,10 @@ papereader/
 
 ## Troubleshooting / 故障排除
 
-- **`GEMINI_API_KEY` missing**: Gemini-based reading, reports, and some research flows will fail until the key is configured.
-- **`DASHSCOPE_API_KEY` missing**: Qwen models and Deep Research retrieval/rerank workflows will fail until the key is configured.
+- **`DASHSCOPE_API_KEY` missing**: Qwen models, PDF reading, and Deep Research retrieval/rerank workflows will fail until the key is configured.
 - **Frontend does not start**: Confirm `node` and `npm` are available in `PATH`, then rerun `npm install` inside `frontend/`.
 - **Ports already in use**: This is usually fine. `start.py` will choose a free backend/frontend port and print the actual URLs.
 - **Research page says there are no searchable assets**: Install a pack from Releases or build packs locally before running conference search.
-- **Pack upload fails**: Configure `GITHUB_TOKEN` on the backend side before using the upload flow.
 
 ## Notes / 备注
 

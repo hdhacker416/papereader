@@ -9,7 +9,7 @@ import ReReadModal from '../components/ReReadModal';
 import { tasksApi, papersApi, deepResearchApi } from '../api/services';
 import { Task, Paper, DeepResearchReport } from '../types';
 import clsx from 'clsx';
-import { MODEL_OPTIONS, REPORT_MODEL_OPTIONS } from '../constants/models';
+import { DEFAULT_REPORT_MODEL, MODEL_OPTIONS, REPORT_MODEL_OPTIONS } from '../constants/models';
 
 const MIN_REPORT_PAPERS = 2;
 const REPORT_SCROLL_KEY_PREFIX = 'task-report-scroll:';
@@ -17,7 +17,6 @@ const REPORT_PANEL_SCROLL_KEY_PREFIX = 'task-report-panel-scroll:';
 const TRACE_EXPANDED_KEY_PREFIX = 'task-trace-expanded:';
 const TRACE_ROUNDS_EXPANDED_KEY_PREFIX = 'task-trace-rounds-expanded:';
 const ALLOWED_REPORT_MODELS = new Set(REPORT_MODEL_OPTIONS.map((item) => item.value));
-const DEFAULT_REPORT_MODEL = 'gemini-3-flash-preview';
 
 const buildReportFilename = (taskName: string) => {
   const safeName = taskName

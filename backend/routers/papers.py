@@ -137,7 +137,7 @@ def chat_with_paper(paper_id: str, message: str = Body(..., embed=True), db: Ses
         
         # Get task to get model_name
         task = db.query(models.Task).filter(models.Task.id == paper.task_id).first()
-        model_name = task.model_name if task else "gemini-3-flash-preview"
+        model_name = task.model_name if task else "qwen-plus"
         
         response_text, _, cost, time_cost = llm_service.chat_with_paper(
             pdf_path,

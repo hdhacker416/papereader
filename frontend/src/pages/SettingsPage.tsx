@@ -549,7 +549,7 @@ const SettingsPage: React.FC = () => {
       await fetchReleases();
     } catch (err) {
       console.error('Failed to upload pack:', err);
-      setPackMessage(`Upload failed for ${pack.pack_name}. Check GITHUB_TOKEN.`);
+      setPackMessage(`Upload failed for ${pack.pack_name}. Pack uploads are not part of the cloud web workflow.`);
     } finally {
       setUploadingPackKey('');
     }
@@ -568,7 +568,7 @@ const SettingsPage: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-            <p className="text-gray-500 mt-1">Manage environment checks, research packs, and provider API keys.</p>
+            <p className="text-gray-500 mt-1">Manage environment checks, research packs, and the Qwen API key.</p>
           </div>
           <button
             type="button"
@@ -644,7 +644,7 @@ const SettingsPage: React.FC = () => {
           <SettingsSection
             id="packs"
             title="Packs Management"
-            description="Download installed research packs, build local packs, and upload packs to GitHub Releases."
+            description="Download installed research packs and build local packs when needed."
             icon={<Package size={18} />}
             open={openSections.packs}
             onToggle={toggleSection}
@@ -776,8 +776,8 @@ const SettingsPage: React.FC = () => {
               <div className="border border-gray-200 rounded-lg p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="font-semibold text-gray-900">Build And Upload Local Packs</h3>
-                    <p className="text-sm text-gray-500 mt-1">Developer workflow for generating packs locally and publishing them to a release.</p>
+                    <h3 className="font-semibold text-gray-900">Build Local Packs</h3>
+                    <p className="text-sm text-gray-500 mt-1">Developer workflow for generating packs locally. Cloud users normally only download prebuilt packs.</p>
                   </div>
                   <button
                     type="button"
@@ -791,8 +791,6 @@ const SettingsPage: React.FC = () => {
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
-                  <input value={releaseOwner} onChange={(event) => setReleaseOwner(event.target.value)} placeholder="GitHub owner" className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <input value={releaseRepo} onChange={(event) => setReleaseRepo(event.target.value)} placeholder="GitHub repo" className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   <input value={releaseTag} onChange={(event) => setReleaseTag(event.target.value)} placeholder="Release tag" className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
 
@@ -885,15 +883,7 @@ const SettingsPage: React.FC = () => {
                               <div className="font-medium text-gray-900 break-all">{pack.pack_name}</div>
                               <div className="text-xs text-gray-500 mt-1">{pack.conference.toUpperCase()} {pack.year} · {formatBytes(pack.pack_size_bytes)}</div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => uploadPack(pack)}
-                              disabled={uploadingPackKey !== '' || !releaseOwner.trim() || !releaseRepo.trim() || !releaseTag.trim()}
-                              className="shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
-                            >
-                              {uploadingPackKey === key ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                              Upload
-                            </button>
+                            <span className="shrink-0 text-xs text-gray-500">Local only</span>
                           </div>
                         );
                       })}
@@ -907,7 +897,7 @@ const SettingsPage: React.FC = () => {
           <SettingsSection
             id="api"
             title="API Management"
-            description="Configure Gemini, DeepSeek, DashScope, and GitHub credentials for your account."
+            description="Configure the Qwen / Alibaba Cloud Model Studio API key for this account."
             icon={<KeyRound size={18} />}
             open={openSections.api}
             onToggle={toggleSection}

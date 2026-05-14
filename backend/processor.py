@@ -292,7 +292,7 @@ async def process_paper(paper_id: str, user_id: str):
                 template_used = template.content
 
             # Pass model_name (check for override, then task default, then fallback)
-            task_model = task.model_name if task.model_name else "gemini-3-flash-preview"
+            task_model = task.model_name if task.model_name else "qwen-plus"
             model_name = paper.model_name if paper.model_name else task_model
             
             interpretation_text, chat_history = await asyncio.get_event_loop().run_in_executor(

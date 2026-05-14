@@ -11,8 +11,6 @@ from typing import Any, Callable
 from urllib.parse import quote
 
 from fastapi import HTTPException
-from google import genai
-from google.genai import types
 import requests
 from sqlalchemy.orm import Session
 
@@ -26,7 +24,7 @@ import schemas
 from services.template_service import ensure_default_template
 from services.template_service import parse_template_prompts
 from services.template_service import serialize_prompt_list
-from services import deepseek_service, pack_build_service, secret_service
+from services import pack_build_service, secret_service
 
 from research.agent.bounded import BoundedResearchRunner, ResearchBrief
 from research.build.build_online_assets import build_online_assets, write_summary
@@ -59,6 +57,7 @@ DEFAULT_RELEASE_OWNER = "hdhacker416"
 DEFAULT_RELEASE_REPO = "papereader"
 TITLE_KEY_RE = re.compile(r"[a-z0-9]+")
 SELF_CHECK_PROVIDER_TIMEOUT_SECONDS = 8
+QWEN_TEXT_MODELS = {"qwen-flash", "qwen-plus", "qwen-max"}
 EVIDENCE_CLAUSE_RE = re.compile(r"\(evidence:\s*(.*?)\)", re.IGNORECASE | re.DOTALL)
 UUID_RE = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.IGNORECASE)
 ENGLISH_REPORT_HEADINGS = [
@@ -83,13 +82,6 @@ DISPLAY_TO_CONFERENCE = {value.lower(): key for key, value in CONFERENCE_DISPLAY
 DISPLAY_TO_CONFERENCE["neurips"] = "nips"
 
 
-def _get_gemini_client() -> genai.Client:
-    api_key = secret_service.get_secret("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not configured")
-    return genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
-
-
 def _serialize_report(report: models.DeepResearchReport) -> schemas.DeepResearchReport:
     return schemas.DeepResearchReport.model_validate(report)
 
@@ -102,6 +94,13 @@ def _parse_json_dict(payload: str | None) -> dict[str, Any]:
         return parsed if isinstance(parsed, dict) else {}
     except json.JSONDecodeError:
         return {}
+
+
+def _qwen_model_or_default(model_name: str | None, *, text_only: bool = False) -> str:
+    value = str(model_name or "").strip().lower()
+    if text_only:
+        return value if value in QWEN_TEXT_MODELS else "qwen-plus"
+    return value if value.startswith(("qwen", "qwq")) else "qwen-plus"
 
 
 def _title_key(value: str) -> str:
@@ -655,61 +654,15 @@ def run_self_check(user_id: str | None = None) -> schemas.SelfCheckResponse:
         },
     )
 
-    gemini_key = secret_service.get_secret("GEMINI_API_KEY", user_id=user_id)
-    if not gemini_key:
-        add_item(
-            key="gemini_api",
-            label="Gemini API",
-            status="error",
-            severity="required",
-            message="GEMINI_API_KEY 未配置",
-            hint="在 Settings 里为当前用户配置 GEMINI_API_KEY，或由服务器管理员配置全局默认 key。",
-        )
-    else:
-        try:
-            client = genai.Client(
-                api_key=gemini_key,
-                http_options=types.HttpOptions(
-                    api_version="v1beta",
-                    timeout=SELF_CHECK_PROVIDER_TIMEOUT_SECONDS * 1000,
-                ),
-            )
-            response = client.models.generate_content(
-                model="gemini-3-flash-preview",
-                contents="ping",
-                config=types.GenerateContentConfig(max_output_tokens=1),
-            )
-            add_item(
-                key="gemini_api",
-                label="Gemini API",
-                status="ok",
-                severity="required",
-                message="Gemini API 可用",
-                details={
-                    "model": "gemini-3-flash-preview",
-                    "source": secret_service.get_secret_source("GEMINI_API_KEY", user_id=user_id),
-                    "response_preview": (getattr(response, "text", "") or "").strip()[:40],
-                },
-            )
-        except Exception as exc:
-            add_item(
-                key="gemini_api",
-                label="Gemini API",
-                status="error",
-                severity="required",
-                message=f"Gemini API 检查失败: {exc}",
-                hint="确认 API key 正确、账户可用，并且目标模型有权限访问。",
-            )
-
     dashscope_key = secret_service.get_secret("DASHSCOPE_API_KEY", user_id=user_id)
     if not dashscope_key:
         add_item(
             key="dashscope_api",
-            label="DashScope API",
+            label="Qwen / 百炼 API",
             status="error",
             severity="required",
             message="DASHSCOPE_API_KEY 未配置",
-            hint="在 Settings 里为当前用户配置 DASHSCOPE_API_KEY，或由服务器管理员配置全局默认 key。",
+            hint="在 Settings 里为当前用户配置 DASHSCOPE_API_KEY，或由服务器管理员配置全局默认 key。这是云端网页唯一需要配置的模型 API key。",
         )
     else:
         try:
@@ -721,122 +674,29 @@ def run_self_check(user_id: str | None = None) -> schemas.SelfCheckResponse:
             result = embedding_client.embed_text("ping")
             add_item(
                 key="dashscope_api",
-                label="DashScope API",
+                label="Qwen / 百炼 API",
                 status="ok",
                 severity="required",
-                message="DashScope embedding API 可用",
+                message="Qwen / 百炼 API 可用",
                 details={"embedding_dim": len(result.embedding), "source": secret_service.get_secret_source("DASHSCOPE_API_KEY", user_id=user_id)},
             )
         except Exception as exc:
             add_item(
                 key="dashscope_api",
-                label="DashScope API",
+                label="Qwen / 百炼 API",
                 status="error",
                 severity="required",
-                message=f"DashScope API 检查失败: {exc}",
+                message=f"Qwen / 百炼 API 检查失败: {exc}",
                 hint="确认百炼 API key 正确，且 embedding 服务已开通。",
-            )
-
-    deepseek_key = secret_service.get_secret("DEEPSEEK_API_KEY", user_id=user_id)
-    if not deepseek_key:
-        add_item(
-            key="deepseek_api",
-            label="DeepSeek API",
-            status="warning",
-            severity="optional",
-            message="DEEPSEEK_API_KEY 未配置",
-            hint="如果要使用 DeepSeek 模型，请在 Settings 里为当前用户配置 DEEPSEEK_API_KEY，或由服务器管理员配置全局默认 key。",
-        )
-    else:
-        try:
-            response_text = deepseek_service.complete_text(
-                model_name="deepseek-v4-flash",
-                system_instruction="Return a short pong.",
-                user_content="ping",
-                api_key=deepseek_key,
-                max_tokens=4,
-                timeout_seconds=SELF_CHECK_PROVIDER_TIMEOUT_SECONDS,
-            )
-            add_item(
-                key="deepseek_api",
-                label="DeepSeek API",
-                status="ok",
-                severity="optional",
-                message="DeepSeek API 可用",
-                details={
-                    "model": "deepseek-v4-flash",
-                    "source": secret_service.get_secret_source("DEEPSEEK_API_KEY", user_id=user_id),
-                    "response_preview": (response_text or "").strip()[:40],
-                },
-            )
-        except Exception as exc:
-            add_item(
-                key="deepseek_api",
-                label="DeepSeek API",
-                status="error",
-                severity="optional",
-                message=f"DeepSeek API 检查失败: {exc}",
-                hint="确认 API key 正确、账户可用，并且目标模型有权限访问。",
-            )
-
-    github_token = secret_service.get_secret("GITHUB_TOKEN", user_id=user_id)
-    if not github_token:
-        add_item(
-            key="github_api",
-            label="GitHub Release 上传",
-            status="warning",
-            severity="optional",
-            message="GITHUB_TOKEN 未配置",
-            hint="如果这台机器只负责搜索和阅读，可以忽略；如果要上传 packs，请在 Settings 里为当前用户配置 GITHUB_TOKEN。",
-        )
-    else:
-        try:
-            response = requests.get(
-                "https://api.github.com/user",
-                headers={
-                    "Accept": "application/vnd.github+json",
-                    "Authorization": f"Bearer {github_token}",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                },
-                timeout=20,
-            )
-            if response.status_code == 200:
-                payload = response.json()
-                add_item(
-                    key="github_api",
-                    label="GitHub Release 上传",
-                    status="ok",
-                    severity="optional",
-                    message="GitHub token 可用",
-                    details={"login": payload.get("login"), "source": secret_service.get_secret_source("GITHUB_TOKEN", user_id=user_id)},
-                )
-            else:
-                add_item(
-                    key="github_api",
-                    label="GitHub Release 上传",
-                    status="warning",
-                    severity="optional",
-                    message=f"GitHub token 检查失败: HTTP {response.status_code}",
-                    hint="如果要上传 pack，请确认 token 仍然有效，并有目标仓库的写权限。",
-                )
-        except Exception as exc:
-            add_item(
-                key="github_api",
-                label="GitHub Release 上传",
-                status="warning",
-                severity="optional",
-                message=f"GitHub token 检查失败: {exc}",
-                hint="如果要上传 pack，请确认网络可用且 token 正确。",
             )
 
     required_errors = [item for item in items if item.severity == "required" and item.status == "error"]
     required_warnings = [item for item in items if item.severity == "required" and item.status == "warning"]
-    optional_warnings = [item for item in items if item.severity == "optional" and item.status != "ok"]
 
     if required_errors:
         overall_status = "error"
         summary = f"自检发现 {len(required_errors)} 个关键问题，系统还不能完整工作。"
-    elif required_warnings or optional_warnings:
+    elif required_warnings:
         overall_status = "warning"
         summary = "自检通过，但有一些缺失项需要补齐。"
     else:
@@ -1377,7 +1237,7 @@ def create_task_from_selection(
         description=(payload.description or "Created from conference search selection").strip(),
         template_id=template_id,
         custom_reading_prompts_json=serialize_prompt_list(payload.custom_reading_prompts),
-        model_name=payload.model_name or "gemini-3-flash-preview",
+        model_name=_qwen_model_or_default(payload.model_name),
         status="running",
     )
     db.add(task)
@@ -1421,7 +1281,7 @@ def create_task_from_auto_research(
             "conferences": payload.conferences or [],
             "years": effective_years,
             "template_id": template_id,
-            "model_name": payload.model_name or "gemini-3-flash-preview",
+            "model_name": _qwen_model_or_default(payload.model_name, text_only=True),
             "custom_reading_prompts": payload.custom_reading_prompts or [],
             "max_search_rounds": effective_max_search_rounds,
             "max_queries_per_round": effective_max_queries_per_round,
@@ -1453,7 +1313,7 @@ def create_task_from_auto_research(
         template_id=template_id,
         custom_reading_prompts_json=serialize_prompt_list(payload.custom_reading_prompts),
         agent_trace_json=json.dumps(initial_trace, ensure_ascii=False),
-        model_name=payload.model_name or "gemini-3-flash-preview",
+        model_name=_qwen_model_or_default(payload.model_name, text_only=True),
         status="preparing",
     )
     db.add(task)
@@ -1489,7 +1349,7 @@ def generate_task_report(
 
     trace = _parse_json_dict(task.agent_trace_json)
     report_query = payload.query or trace.get("用户问题") or task.description or task.name
-    report_model = payload.model_name or task.model_name or "gemini-3-flash-preview"
+    report_model = _qwen_model_or_default(payload.model_name or task.model_name, text_only=True)
     content, generated_source_meta = _generate_task_report_content(
         task=task,
         report_query=report_query,

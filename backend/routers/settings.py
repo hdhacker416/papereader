@@ -2,45 +2,25 @@ from __future__ import annotations
 
 from typing import Literal
 
-import requests
 from fastapi import APIRouter, HTTPException, Request
-from google import genai
-from google.genai import types
 from pydantic import BaseModel
 
 try:
-    from backend.services import deepseek_service
     from backend.services import secret_service
     from research.providers.dashscope_embedding import DashScopeEmbeddingClient
 except ModuleNotFoundError:
-    from services import deepseek_service
     from services import secret_service
     from research.providers.dashscope_embedding import DashScopeEmbeddingClient
 
 
-ProviderName = Literal["gemini", "deepseek", "dashscope", "github"]
+ProviderName = Literal["dashscope"]
 SecretSource = Literal["user", "server", "missing"]
 
 PROVIDERS: dict[str, dict[str, str]] = {
-    "gemini": {
-        "label": "Gemini",
-        "env_var": "GEMINI_API_KEY",
-        "hint": "Paper reading, paper chat, task reports, and Deep Research with Gemini models.",
-    },
-    "deepseek": {
-        "label": "DeepSeek",
-        "env_var": "DEEPSEEK_API_KEY",
-        "hint": "Paper reading, paper chat, task reports, and Deep Research with DeepSeek models.",
-    },
     "dashscope": {
-        "label": "DashScope",
+        "label": "Qwen / Alibaba Cloud Model Studio",
         "env_var": "DASHSCOPE_API_KEY",
-        "hint": "Qwen models, embeddings, rerank, pack build, and research search workflows.",
-    },
-    "github": {
-        "label": "GitHub",
-        "env_var": "GITHUB_TOKEN",
-        "hint": "Optional token for uploading research packs to GitHub Releases.",
+        "hint": "The only cloud model provider used by the web app: Qwen PDF reading, chat, reports, Deep Research, embeddings, rerank, and pack build.",
     },
 }
 
@@ -137,39 +117,6 @@ def _delete_key(provider: str, *, user_id: str | None = None) -> ApiKeyInfo:
     return _key_info(provider, user_id=user_id)
 
 
-def _check_gemini(user_id: str | None = None) -> ApiKeyCheckResponse:
-    api_key = secret_service.get_secret("GEMINI_API_KEY", user_id=user_id)
-    if not api_key:
-        return ApiKeyCheckResponse(provider="gemini", status="warning", message="GEMINI_API_KEY is not configured")
-    try:
-        client = genai.Client(api_key=api_key, http_options={"api_version": "v1beta"})
-        client.models.generate_content(
-            model="gemini-3-flash-preview",
-            contents="ping",
-            config=types.GenerateContentConfig(max_output_tokens=1),
-        )
-        return ApiKeyCheckResponse(provider="gemini", status="ok", message="Gemini API is available")
-    except Exception as exc:
-        return ApiKeyCheckResponse(provider="gemini", status="error", message=f"Gemini API check failed: {exc}")
-
-
-def _check_deepseek(user_id: str | None = None) -> ApiKeyCheckResponse:
-    api_key = secret_service.get_secret("DEEPSEEK_API_KEY", user_id=user_id)
-    if not api_key:
-        return ApiKeyCheckResponse(provider="deepseek", status="warning", message="DEEPSEEK_API_KEY is not configured")
-    try:
-        deepseek_service.complete_text(
-            model_name="deepseek-v4-flash",
-            system_instruction="Return a short pong.",
-            user_content="ping",
-            api_key=api_key,
-            max_tokens=4,
-        )
-        return ApiKeyCheckResponse(provider="deepseek", status="ok", message="DeepSeek API is available")
-    except Exception as exc:
-        return ApiKeyCheckResponse(provider="deepseek", status="error", message=f"DeepSeek API check failed: {exc}")
-
-
 def _check_dashscope(user_id: str | None = None) -> ApiKeyCheckResponse:
     api_key = secret_service.get_secret("DASHSCOPE_API_KEY", user_id=user_id)
     if not api_key:
@@ -177,37 +124,13 @@ def _check_dashscope(user_id: str | None = None) -> ApiKeyCheckResponse:
     try:
         client = DashScopeEmbeddingClient(api_key=api_key, batch_size=1)
         client.embed_text("ping")
-        return ApiKeyCheckResponse(provider="dashscope", status="ok", message="DashScope API is available")
+        return ApiKeyCheckResponse(provider="dashscope", status="ok", message="Qwen / Alibaba Cloud Model Studio API is available")
     except Exception as exc:
-        return ApiKeyCheckResponse(provider="dashscope", status="error", message=f"DashScope API check failed: {exc}")
-
-
-def _check_github(user_id: str | None = None) -> ApiKeyCheckResponse:
-    token = secret_service.get_secret("GITHUB_TOKEN", user_id=user_id)
-    if not token:
-        return ApiKeyCheckResponse(provider="github", status="warning", message="GITHUB_TOKEN is not configured")
-    try:
-        response = requests.get(
-            "https://api.github.com/user",
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {token}",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-            timeout=20,
-        )
-        if response.status_code == 200:
-            return ApiKeyCheckResponse(provider="github", status="ok", message="GitHub token is available")
-        return ApiKeyCheckResponse(provider="github", status="error", message=f"GitHub check failed: HTTP {response.status_code}")
-    except Exception as exc:
-        return ApiKeyCheckResponse(provider="github", status="error", message=f"GitHub check failed: {exc}")
+        return ApiKeyCheckResponse(provider="dashscope", status="error", message=f"Qwen / Alibaba Cloud Model Studio API check failed: {exc}")
 
 
 CHECKERS = {
-    "gemini": _check_gemini,
-    "deepseek": _check_deepseek,
     "dashscope": _check_dashscope,
-    "github": _check_github,
 }
 
 
