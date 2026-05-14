@@ -84,7 +84,12 @@ def serve_pdf(file_path: str, request: Request):
     target_path = (base_dir / file_path).resolve()
     if not str(target_path).startswith(str(base_dir)) or not target_path.is_file():
         raise HTTPException(status_code=404, detail="PDF not found")
-    return FileResponse(str(target_path), media_type="application/pdf", filename=target_path.name)
+    return FileResponse(
+        str(target_path),
+        media_type="application/pdf",
+        filename=target_path.name,
+        content_disposition_type="inline",
+    )
 
 
 @app.get("/api/mobile-pdfs/{token}", name="serve_mobile_pdf")
@@ -111,7 +116,12 @@ def serve_mobile_pdf(token: str):
             base_dir = Path(get_data_dir()).resolve()
             if not str(target_path).startswith(str(base_dir)) or not target_path.is_file():
                 raise HTTPException(status_code=404, detail="PDF not found")
-            return FileResponse(str(target_path), media_type="application/pdf", filename=target_path.name)
+            return FileResponse(
+                str(target_path),
+                media_type="application/pdf",
+                filename=target_path.name,
+                content_disposition_type="inline",
+            )
         finally:
             db.close()
 
