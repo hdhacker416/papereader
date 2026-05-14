@@ -17,6 +17,7 @@ from database import (
     iter_user_ids,
     user_context,
 )
+import models
 from routers import auth, templates, tasks, papers, collections, deep_research, settings
 from processor import processor_loop
 from services import conference_service
@@ -53,7 +54,7 @@ app.add_middleware(
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
-    public_api = path.startswith("/api/auth") or path == "/api" or path == "/api/"
+    public_api = path.startswith("/api/auth") or path.startswith("/api/mobile-pdfs/") or path == "/api" or path == "/api/"
     if path.startswith("/api") and not public_api:
         user = auth_service.get_user_from_request(request)
         if user is None:
@@ -84,6 +85,35 @@ def serve_pdf(file_path: str, request: Request):
     if not str(target_path).startswith(str(base_dir)) or not target_path.is_file():
         raise HTTPException(status_code=404, detail="PDF not found")
     return FileResponse(str(target_path), media_type="application/pdf", filename=target_path.name)
+
+
+@app.get("/api/mobile-pdfs/{token}", name="serve_mobile_pdf")
+def serve_mobile_pdf(token: str):
+    from services import file_access_service
+    from routers.papers import get_paper_pdf_path
+
+    payload = file_access_service.verify_mobile_file_token(token)
+    user_id = str(payload.get("user_id") or "")
+    paper_id = str(payload.get("paper_id") or "")
+    if not user_id or not paper_id:
+        raise HTTPException(status_code=401, detail="Invalid file token")
+
+    with user_context(user_id):
+        db = SessionLocal()
+        try:
+            paper = db.query(models.Paper).filter(models.Paper.id == paper_id).first()
+            if not paper:
+                raise HTTPException(status_code=404, detail="PDF not found")
+            pdf_path = get_paper_pdf_path(paper)
+            if not pdf_path:
+                raise HTTPException(status_code=404, detail="PDF not found")
+            target_path = Path(pdf_path).resolve()
+            base_dir = Path(get_data_dir()).resolve()
+            if not str(target_path).startswith(str(base_dir)) or not target_path.is_file():
+                raise HTTPException(status_code=404, detail="PDF not found")
+            return FileResponse(str(target_path), media_type="application/pdf", filename=target_path.name)
+        finally:
+            db.close()
 
 @app.on_event("startup")
 async def startup_event():

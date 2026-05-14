@@ -29,15 +29,15 @@ Implemented:
 - Upload local PDF files.
 - Paper detail with interpretation content.
 - Paper chat.
+- Open available PDFs through a short-lived mobile PDF link.
+- Deep Research auto-task creation.
+- Collections list, create/delete, re-read, and paper membership management.
 - Per-user API key management.
 - Deep Research self-check.
 
 Not yet implemented:
 
-- Native PDF viewer.
-- Deep Research task creation UI.
 - Packs download/build/upload UI.
-- Collections.
 - Push notifications.
 - Offline cache.
 

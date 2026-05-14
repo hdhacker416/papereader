@@ -7,6 +7,7 @@ import {
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -21,7 +22,7 @@ import {
 const API_BASE_URL = 'http://120.26.173.133/api';
 const TOKEN_KEY = 'paperreader_mobile_token';
 
-type TabKey = 'tasks' | 'settings' | 'account';
+type TabKey = 'tasks' | 'research' | 'collections' | 'settings' | 'account';
 type Provider = 'gemini' | 'deepseek' | 'dashscope' | 'github';
 
 interface AuthUser {
@@ -77,6 +78,37 @@ interface Paper {
     template_used: string;
     created_at: string;
   };
+}
+
+interface Collection {
+  id: string;
+  name: string;
+  parent_id?: string;
+}
+
+interface DeepResearchTargetYearCount {
+  year: number;
+  paper_count: number;
+}
+
+interface DeepResearchTargetConference {
+  code: string;
+  label: string;
+  years: DeepResearchTargetYearCount[];
+  total_paper_count: number;
+}
+
+interface DeepResearchTargetOptionsResponse {
+  conferences: DeepResearchTargetConference[];
+  years: number[];
+  default_years: number[];
+}
+
+interface DeepResearchTaskCreateResponse {
+  ok: boolean;
+  task_id: string;
+  task_name: string;
+  imported_count: number;
 }
 
 interface ChatMessage {
@@ -173,6 +205,21 @@ export default function App() {
   const [paperTitles, setPaperTitles] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
+
+  const [targetOptions, setTargetOptions] = useState<DeepResearchTargetOptionsResponse | null>(null);
+  const [researchQuery, setResearchQuery] = useState('');
+  const [researchName, setResearchName] = useState('');
+  const [researchModel, setResearchModel] = useState(models[0]);
+  const [selectedConferences, setSelectedConferences] = useState<string[]>([]);
+  const [selectedYears, setSelectedYears] = useState<number[]>([]);
+  const [researchBusy, setResearchBusy] = useState(false);
+
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
+  const [collectionPapers, setCollectionPapers] = useState<Paper[]>([]);
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [collectionBusy, setCollectionBusy] = useState(false);
+  const [paperCollections, setPaperCollections] = useState<Collection[]>([]);
 
   const [keys, setKeys] = useState<ApiKeyInfo[]>([]);
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
@@ -328,12 +375,16 @@ export default function App() {
     setLoading(true);
     setMessage('');
     try {
-      const [paperDetail, chatData] = await Promise.all([
+      const [paperDetail, chatData, collectionData, allCollections] = await Promise.all([
         request<Paper>(`/papers/${paper.id}`),
         request<ChatMessage[]>(`/papers/${paper.id}/chat`),
+        request<Collection[]>(`/collections/paper/${paper.id}`),
+        request<Collection[]>('/collections/'),
       ]);
       setSelectedPaper(paperDetail);
       setChat(chatData);
+      setPaperCollections(collectionData);
+      setCollections(allCollections);
     } catch (err) {
       showError(err, 'Failed to load paper');
     } finally {
@@ -526,6 +577,190 @@ export default function App() {
     }
   };
 
+  const loadResearchTargets = useCallback(async () => {
+    setResearchBusy(true);
+    try {
+      const data = await request<DeepResearchTargetOptionsResponse>('/deep-research/targets');
+      setTargetOptions(data);
+      setSelectedYears((current) => current.length ? current : data.default_years);
+      setSelectedConferences((current) => current.length ? current : data.conferences.slice(0, 3).map((item) => item.code));
+    } catch (err) {
+      showError(err, 'Failed to load research targets');
+    } finally {
+      setResearchBusy(false);
+    }
+  }, [request]);
+
+  useEffect(() => {
+    if (user && tab === 'research') {
+      loadResearchTargets();
+    }
+  }, [loadResearchTargets, tab, user]);
+
+  const toggleResearchConference = (code: string) => {
+    setSelectedConferences((current) => current.includes(code) ? current.filter((item) => item !== code) : [...current, code]);
+  };
+
+  const toggleResearchYear = (year: number) => {
+    setSelectedYears((current) => current.includes(year) ? current.filter((item) => item !== year) : [...current, year].sort((a, b) => b - a));
+  };
+
+  const createAutoResearchTask = async () => {
+    const query = researchQuery.trim();
+    if (!query) {
+      setMessage('Research query is required.');
+      return;
+    }
+    setResearchBusy(true);
+    try {
+      const result = await request<DeepResearchTaskCreateResponse>('/deep-research/tasks/auto-create', {
+        method: 'POST',
+        body: JSON.stringify({
+          query,
+          name: researchName.trim() || undefined,
+          conferences: selectedConferences.length ? selectedConferences : undefined,
+          years: selectedYears.length ? selectedYears : undefined,
+          model_name: researchModel,
+        }),
+      });
+      setMessage(`Research task created: ${result.task_name}`);
+      setResearchQuery('');
+      setResearchName('');
+      setTab('tasks');
+      await loadTasks();
+    } catch (err) {
+      showError(err, 'Failed to create research task');
+    } finally {
+      setResearchBusy(false);
+    }
+  };
+
+  const loadCollections = useCallback(async () => {
+    setCollectionBusy(true);
+    try {
+      const data = await request<Collection[]>('/collections/');
+      setCollections(data);
+      if (selectedCollection) {
+        const updated = data.find((item) => item.id === selectedCollection.id);
+        if (updated) setSelectedCollection(updated);
+      }
+    } catch (err) {
+      showError(err, 'Failed to load collections');
+    } finally {
+      setCollectionBusy(false);
+    }
+  }, [request, selectedCollection]);
+
+  useEffect(() => {
+    if (user && tab === 'collections' && !selectedCollection) {
+      loadCollections();
+    }
+  }, [loadCollections, selectedCollection, tab, user]);
+
+  const createCollection = async () => {
+    const name = newCollectionName.trim();
+    if (!name) {
+      setMessage('Collection name is required.');
+      return;
+    }
+    setCollectionBusy(true);
+    try {
+      await request<Collection>('/collections/', {
+        method: 'POST',
+        body: JSON.stringify({ name, parent_id: selectedCollection?.id }),
+      });
+      setNewCollectionName('');
+      await loadCollections();
+    } catch (err) {
+      showError(err, 'Failed to create collection');
+    } finally {
+      setCollectionBusy(false);
+    }
+  };
+
+  const deleteCollection = async (collection: Collection) => {
+    Alert.alert('Delete collection', `Delete "${collection.name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setCollectionBusy(true);
+          try {
+            await request(`/collections/${collection.id}`, { method: 'DELETE' });
+            if (selectedCollection?.id === collection.id) {
+              setSelectedCollection(null);
+              setCollectionPapers([]);
+            }
+            await loadCollections();
+          } catch (err) {
+            showError(err, 'Failed to delete collection');
+          } finally {
+            setCollectionBusy(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const openCollection = async (collection: Collection) => {
+    setCollectionBusy(true);
+    try {
+      const data = await request<Paper[]>(`/collections/${collection.id}/papers`);
+      setSelectedCollection(collection);
+      setCollectionPapers(data);
+    } catch (err) {
+      showError(err, 'Failed to load collection');
+    } finally {
+      setCollectionBusy(false);
+    }
+  };
+
+  const reReadCollection = async (collection: Collection) => {
+    setCollectionBusy(true);
+    try {
+      const result = await request<{ ok: boolean; count: number }>(`/collections/${collection.id}/reread`, {
+        method: 'POST',
+        body: JSON.stringify({ only_failed: false }),
+      });
+      setMessage(`Queued ${result.count} paper(s) for re-read.`);
+      await openCollection(collection);
+    } catch (err) {
+      showError(err, 'Failed to re-read collection');
+    } finally {
+      setCollectionBusy(false);
+    }
+  };
+
+  const togglePaperCollection = async (collection: Collection) => {
+    if (!selectedPaper) return;
+    const isAdded = paperCollections.some((item) => item.id === collection.id);
+    try {
+      await request(`/collections/${collection.id}/papers/${selectedPaper.id}`, {
+        method: isAdded ? 'DELETE' : 'POST',
+      });
+      const updated = await request<Collection[]>(`/collections/paper/${selectedPaper.id}`);
+      setPaperCollections(updated);
+    } catch (err) {
+      showError(err, 'Failed to update collection');
+    }
+  };
+
+  const openPdf = async () => {
+    if (!selectedPaper) return;
+    try {
+      const data = await request<{ url: string; expires_in: number }>(`/papers/${selectedPaper.id}/mobile-pdf-link`, { method: 'POST' });
+      const supported = await Linking.canOpenURL(data.url);
+      if (!supported) {
+        setMessage('No app is available to open this PDF.');
+        return;
+      }
+      await Linking.openURL(data.url);
+    } catch (err) {
+      showError(err, 'Failed to open PDF');
+    }
+  };
+
   if (booting) {
     return (
       <SafeAreaView style={styles.center}>
@@ -569,18 +804,24 @@ export default function App() {
     ? renderPaperScreen()
     : selectedTask
       ? renderTaskScreen()
-      : tab === 'settings'
-        ? renderSettingsScreen()
-        : tab === 'account'
-          ? renderAccountScreen()
-          : renderTasksScreen();
+      : selectedCollection
+        ? renderCollectionDetailScreen()
+        : tab === 'research'
+          ? renderResearchScreen()
+          : tab === 'collections'
+            ? renderCollectionsScreen()
+            : tab === 'settings'
+              ? renderSettingsScreen()
+              : tab === 'account'
+                ? renderAccountScreen()
+                : renderTasksScreen();
 
   return (
     <SafeAreaView style={styles.screen}>
       <StatusBar style="dark" />
       <View style={styles.header}>
-        {(selectedTask || selectedPaper) ? (
-          <Pressable onPress={() => selectedPaper ? setSelectedPaper(null) : setSelectedTask(null)} style={styles.backButton}>
+        {(selectedTask || selectedPaper || selectedCollection) ? (
+          <Pressable onPress={() => selectedPaper ? setSelectedPaper(null) : selectedTask ? setSelectedTask(null) : setSelectedCollection(null)} style={styles.backButton}>
             <Text style={styles.backText}>Back</Text>
           </Pressable>
         ) : (
@@ -594,12 +835,12 @@ export default function App() {
         </Pressable>
       )}
       {content}
-      {!selectedTask && !selectedPaper && (
+      {!selectedTask && !selectedPaper && !selectedCollection && (
         <View style={styles.tabBar}>
-          {(['tasks', 'settings', 'account'] as TabKey[]).map((item) => (
+          {(['tasks', 'research', 'collections', 'settings', 'account'] as TabKey[]).map((item) => (
             <Pressable key={item} style={[styles.tabItem, tab === item && styles.tabItemActive]} onPress={() => setTab(item)}>
               <Text style={[styles.tabText, tab === item && styles.tabTextActive]}>
-                {item === 'tasks' ? 'Tasks' : item === 'settings' ? 'Settings' : 'Account'}
+                {item === 'tasks' ? 'Tasks' : item === 'research' ? 'Research' : item === 'collections' ? 'Collections' : item === 'settings' ? 'Settings' : 'Account'}
               </Text>
             </Pressable>
           ))}
@@ -713,9 +954,30 @@ export default function App() {
           <Text style={styles.title}>{selectedPaper.title}</Text>
           <Text style={[styles.badge, { color: statusColor(selectedPaper.status) }]}>{selectedPaper.status}</Text>
           {selectedPaper.failure_reason ? <Text style={styles.errorText}>{selectedPaper.failure_reason}</Text> : null}
+          <View style={styles.buttonRow}>
+            <Pressable style={styles.secondaryButton} onPress={openPdf} disabled={!selectedPaper.pdf_path}>
+              <Text style={styles.secondaryButtonText}>Open PDF</Text>
+            </Pressable>
+          </View>
           <View style={styles.panel}>
             <Text style={styles.sectionTitle}>Reading</Text>
             <Text style={styles.bodyText}>{selectedPaper.interpretation?.content || 'No interpretation yet. Pull to refresh after processing finishes.'}</Text>
+          </View>
+          <View style={styles.panel}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.sectionTitle}>Collections</Text>
+              <Text style={styles.muted}>{paperCollections.length} selected</Text>
+            </View>
+            {collections.length === 0 ? (
+              <Text style={styles.emptyText}>Create collections from the Collections tab.</Text>
+            ) : collections.map((collection) => {
+              const isAdded = paperCollections.some((item) => item.id === collection.id);
+              return (
+                <Pressable key={collection.id} style={[styles.collectionToggle, isAdded && styles.collectionToggleActive]} onPress={() => togglePaperCollection(collection)}>
+                  <Text style={[styles.bodyText, isAdded && styles.collectionToggleTextActive]}>{isAdded ? 'Added' : 'Add'} · {collection.name}</Text>
+                </Pressable>
+              );
+            })}
           </View>
           <Text style={styles.sectionTitle}>Chat</Text>
           {chat.map((item, index) => (
@@ -733,6 +995,130 @@ export default function App() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+    );
+  }
+
+  function renderResearchScreen() {
+    return (
+      <ScrollView style={styles.content} refreshControl={<RefreshControl refreshing={researchBusy} onRefresh={loadResearchTargets} />}>
+        <Text style={styles.title}>Deep Research</Text>
+        <Text style={styles.muted}>Create cloud research tasks. Packs are managed on the server/web side.</Text>
+        <View style={styles.panel}>
+          <TextInput
+            style={[styles.input, styles.multiline]}
+            placeholder="Research question"
+            value={researchQuery}
+            onChangeText={setResearchQuery}
+            multiline
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Task name, optional"
+            value={researchName}
+            onChangeText={setResearchName}
+          />
+          <Text style={styles.sectionTitle}>Model</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.modelStrip}>
+            {models.map((item) => (
+              <Pressable key={item} style={[styles.pill, researchModel === item && styles.pillActive]} onPress={() => setResearchModel(item)}>
+                <Text style={[styles.pillText, researchModel === item && styles.pillTextActive]}>{item}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Text style={styles.sectionTitle}>Conferences</Text>
+          <View style={styles.wrapRow}>
+            {(targetOptions?.conferences || []).map((item) => (
+              <Pressable key={item.code} style={[styles.pill, selectedConferences.includes(item.code) && styles.pillActive]} onPress={() => toggleResearchConference(item.code)}>
+                <Text style={[styles.pillText, selectedConferences.includes(item.code) && styles.pillTextActive]}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.sectionTitle}>Years</Text>
+          <View style={styles.wrapRow}>
+            {(targetOptions?.years || []).map((year) => (
+              <Pressable key={year} style={[styles.pill, selectedYears.includes(year) && styles.pillActive]} onPress={() => toggleResearchYear(year)}>
+                <Text style={[styles.pillText, selectedYears.includes(year) && styles.pillTextActive]}>{year}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable style={styles.primaryButton} onPress={createAutoResearchTask} disabled={researchBusy}>
+            {researchBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Create Research Task</Text>}
+          </Pressable>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  function renderCollectionsScreen() {
+    const rootCollections = collections.filter((item) => !item.parent_id);
+    return (
+      <ScrollView style={styles.content} refreshControl={<RefreshControl refreshing={collectionBusy} onRefresh={loadCollections} />}>
+        <Text style={styles.title}>Collections</Text>
+        <Text style={styles.muted}>Organize papers and queue collection re-reads.</Text>
+        <View style={styles.panel}>
+          <TextInput style={styles.input} placeholder="New root collection" value={newCollectionName} onChangeText={setNewCollectionName} />
+          <Pressable style={styles.primaryButton} onPress={createCollection} disabled={collectionBusy}>
+            <Text style={styles.primaryButtonText}>Create Collection</Text>
+          </Pressable>
+        </View>
+        {rootCollections.length === 0 && <Text style={styles.emptyText}>No collections yet.</Text>}
+        {rootCollections.map((collection) => renderCollectionNode(collection, 0))}
+      </ScrollView>
+    );
+  }
+
+  function renderCollectionNode(collection: Collection, level: number): React.ReactNode {
+    const children = collections.filter((item) => item.parent_id === collection.id);
+    return (
+      <View key={collection.id}>
+        <Pressable style={[styles.card, { marginLeft: level * 16 }]} onPress={() => openCollection(collection)}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.cardTitle}>{collection.name}</Text>
+            <Text style={styles.meta}>{children.length} sub</Text>
+          </View>
+          <View style={styles.buttonRow}>
+            <Pressable style={styles.secondaryButton} onPress={() => openCollection(collection)}>
+              <Text style={styles.secondaryButtonText}>Open</Text>
+            </Pressable>
+            <Pressable style={styles.secondaryButton} onPress={() => reReadCollection(collection)}>
+              <Text style={styles.secondaryButtonText}>Re-read</Text>
+            </Pressable>
+            <Pressable style={styles.dangerButton} onPress={() => deleteCollection(collection)}>
+              <Text style={styles.dangerButtonText}>Delete</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+        {children.map((child) => renderCollectionNode(child, level + 1))}
+      </View>
+    );
+  }
+
+  function renderCollectionDetailScreen() {
+    if (!selectedCollection) return null;
+    const children = collections.filter((item) => item.parent_id === selectedCollection.id);
+    return (
+      <ScrollView style={styles.content} refreshControl={<RefreshControl refreshing={collectionBusy} onRefresh={() => openCollection(selectedCollection)} />}>
+        <Text style={styles.title}>{selectedCollection.name}</Text>
+        <Text style={styles.muted}>{collectionPapers.length} paper(s) · {children.length} sub-collection(s)</Text>
+        <View style={styles.panel}>
+          <TextInput style={styles.input} placeholder="New sub-collection" value={newCollectionName} onChangeText={setNewCollectionName} />
+          <Pressable style={styles.primaryButton} onPress={createCollection} disabled={collectionBusy}>
+            <Text style={styles.primaryButtonText}>Create Sub-collection</Text>
+          </Pressable>
+        </View>
+        {children.map((collection) => renderCollectionNode(collection, 0))}
+        <Text style={styles.sectionTitle}>Papers</Text>
+        {collectionPapers.length === 0 && <Text style={styles.emptyText}>No papers in this collection.</Text>}
+        {collectionPapers.map((paper) => (
+          <Pressable key={paper.id} style={styles.card} onPress={() => loadPaper(paper)}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>{paper.title}</Text>
+              <Text style={[styles.badge, { color: statusColor(paper.status) }]}>{paper.status}</Text>
+            </View>
+            <Text style={styles.meta}>{formatDate(paper.created_at)}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
     );
   }
 
@@ -1046,6 +1432,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     marginTop: 4,
   },
+  wrapRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
   modelStrip: {
     marginBottom: 12,
   },
@@ -1111,6 +1503,7 @@ const styles = StyleSheet.create({
   tabText: {
     color: '#64748b',
     fontWeight: '800',
+    fontSize: 11,
   },
   tabTextActive: {
     color: '#1d4ed8',
@@ -1168,5 +1561,21 @@ const styles = StyleSheet.create({
     borderTopColor: '#e2e8f0',
     paddingTop: 10,
     marginTop: 10,
+  },
+  collectionToggle: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    padding: 11,
+    marginBottom: 8,
+    backgroundColor: '#fff',
+  },
+  collectionToggleActive: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#86efac',
+  },
+  collectionToggleTextActive: {
+    color: '#166534',
+    fontWeight: '800',
   },
 });

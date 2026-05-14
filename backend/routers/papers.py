@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import models, schemas
 from database import get_data_dir, get_db
-from services import llm_service
+from services import file_access_service, llm_service
 import logging
 import os
 
@@ -62,6 +62,32 @@ def read_paper(paper_id: str, db: Session = Depends(get_db)):
     # For now returning the model with relationships might work if Pydantic config is set
     
     return paper
+
+
+@router.post("/{paper_id}/mobile-pdf-link")
+def create_mobile_pdf_link(paper_id: str, request: Request, db: Session = Depends(get_db)):
+    paper = db.query(models.Paper).filter(models.Paper.id == paper_id).first()
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    task = db.query(models.Task).filter(models.Task.id == paper.task_id, models.Task.user_id == DEFAULT_USER_ID).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Paper not found")
+
+    pdf_path = get_paper_pdf_path(paper)
+    if not pdf_path:
+        raise HTTPException(status_code=400, detail="PDF not available")
+
+    current_user = getattr(request.state, "current_user", None)
+    user_id = getattr(current_user, "id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    token = file_access_service.create_mobile_file_token({"user_id": user_id, "paper_id": paper_id})
+    return {
+        "url": str(request.url_for("serve_mobile_pdf", token=token)),
+        "expires_in": file_access_service.DEFAULT_TTL_SECONDS,
+    }
 
 @router.post("/{paper_id}/chat")
 def chat_with_paper(paper_id: str, message: str = Body(..., embed=True), db: Session = Depends(get_db)):
