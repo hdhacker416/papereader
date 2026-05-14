@@ -2,12 +2,13 @@ import { StatusBar } from 'expo-status-bar';
 import * as DocumentPicker from 'expo-document-picker';
 import * as SecureStore from 'expo-secure-store';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Pdf from 'react-native-pdf';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   FlatList,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -195,6 +196,8 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [papers, setPapers] = useState<Paper[]>([]);
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null);
+  const [pdfUrl, setPdfUrl] = useState('');
+  const [pdfTitle, setPdfTitle] = useState('');
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -331,6 +334,37 @@ export default function App() {
     setSelectedTask(null);
     setSelectedPaper(null);
   };
+
+  const navigateBack = useCallback(() => {
+    if (pdfUrl) {
+      setPdfUrl('');
+      setPdfTitle('');
+      return true;
+    }
+    if (selectedPaper) {
+      setSelectedPaper(null);
+      return true;
+    }
+    if (selectedTask) {
+      setSelectedTask(null);
+      return true;
+    }
+    if (selectedCollection) {
+      setSelectedCollection(null);
+      return true;
+    }
+    if (tab !== 'tasks') {
+      setTab('tasks');
+      return true;
+    }
+    return false;
+  }, [pdfUrl, selectedCollection, selectedPaper, selectedTask, tab]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return undefined;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', navigateBack);
+    return () => subscription.remove();
+  }, [navigateBack]);
 
   const loadTasks = useCallback(async () => {
     setLoading(true);
@@ -749,12 +783,8 @@ export default function App() {
     if (!selectedPaper) return;
     try {
       const data = await request<{ url: string; expires_in: number }>(`/papers/${selectedPaper.id}/mobile-pdf-link`, { method: 'POST' });
-      const supported = await Linking.canOpenURL(data.url);
-      if (!supported) {
-        setMessage('No app is available to open this PDF.');
-        return;
-      }
-      await Linking.openURL(data.url);
+      setPdfTitle(selectedPaper.title);
+      setPdfUrl(data.url);
     } catch (err) {
       showError(err, 'Failed to open PDF');
     }
@@ -799,9 +829,11 @@ export default function App() {
     );
   }
 
-  const content = selectedPaper
-    ? renderPaperScreen()
-    : selectedTask
+  const content = pdfUrl
+    ? renderPdfScreen()
+    : selectedPaper
+      ? renderPaperScreen()
+      : selectedTask
       ? renderTaskScreen()
       : selectedCollection
         ? renderCollectionDetailScreen()
@@ -819,8 +851,8 @@ export default function App() {
     <SafeAreaView style={styles.screen}>
       <StatusBar style="dark" />
       <View style={styles.header}>
-        {(selectedTask || selectedPaper || selectedCollection) ? (
-          <Pressable onPress={() => selectedPaper ? setSelectedPaper(null) : selectedTask ? setSelectedTask(null) : setSelectedCollection(null)} style={styles.backButton}>
+        {(pdfUrl || selectedTask || selectedPaper || selectedCollection) ? (
+          <Pressable onPress={navigateBack} style={styles.backButton}>
             <Text style={styles.backText}>Back</Text>
           </Pressable>
         ) : (
@@ -834,7 +866,7 @@ export default function App() {
         </Pressable>
       )}
       {content}
-      {!selectedTask && !selectedPaper && !selectedCollection && (
+      {!pdfUrl && !selectedTask && !selectedPaper && !selectedCollection && (
         <View style={styles.tabBar}>
           {(['tasks', 'research', 'collections', 'settings', 'account'] as TabKey[]).map((item) => (
             <Pressable key={item} style={[styles.tabItem, tab === item && styles.tabItemActive]} onPress={() => setTab(item)}>
@@ -994,6 +1026,25 @@ export default function App() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+    );
+  }
+
+  function renderPdfScreen() {
+    return (
+      <View style={styles.pdfScreen}>
+        <View style={styles.pdfHeader}>
+          <Text style={styles.pdfTitle} numberOfLines={2}>{pdfTitle || 'Paper PDF'}</Text>
+        </View>
+        <Pdf
+          source={{ uri: pdfUrl, cache: false }}
+          trustAllCerts={false}
+          style={styles.pdfViewer}
+          onError={(error) => {
+            console.error('PDF viewer failed:', error);
+            setMessage('PDF failed to load. Please go back and open it again.');
+          }}
+        />
+      </View>
     );
   }
 
@@ -1291,6 +1342,27 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+  },
+  pdfScreen: {
+    flex: 1,
+    backgroundColor: '#e2e8f0',
+  },
+  pdfHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  pdfTitle: {
+    color: '#0f172a',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  pdfViewer: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#e2e8f0',
   },
   title: {
     fontSize: 24,
