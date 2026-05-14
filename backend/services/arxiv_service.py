@@ -1,38 +1,17 @@
 import difflib
-import html
 import logging
 import re
 import threading
 import time
 from typing import Dict, Optional
-from urllib.parse import urlencode
 
 import arxiv
-import requests
 
 logger = logging.getLogger(__name__)
 
 TITLE_TOKEN_RE = re.compile(r"[a-z0-9]+")
 MIN_ACCEPTABLE_TITLE_SCORE = 0.94
 ARXIV_MIN_REQUEST_INTERVAL_SECONDS = 3.2
-ARXIV_USER_AGENT = "PaperReader/1.0"
-ARXIV_SEARCH_TIMEOUT_SECONDS = 25
-KNOWN_ARXIV_TITLES = {
-    "attention is all you need": {
-        "arxiv_id": "1706.03762",
-        "title": "Attention Is All You Need",
-        "authors": [
-            "Ashish Vaswani",
-            "Noam Shazeer",
-            "Niki Parmar",
-            "Jakob Uszkoreit",
-            "Llion Jones",
-            "Aidan N. Gomez",
-            "Lukasz Kaiser",
-            "Illia Polosukhin",
-        ],
-    },
-}
 
 _arxiv_request_lock = threading.Lock()
 _last_arxiv_request_at = 0.0
@@ -105,106 +84,6 @@ def _result_payload(result: arxiv.Result) -> Dict:
     }
 
 
-def _strip_html(value: str) -> str:
-    value = re.sub(r"<[^>]+>", " ", value)
-    return " ".join(html.unescape(value).split())
-
-
-def _html_result_payload(arxiv_id: str, title: str, abstract: str = "", authors: list[str] | None = None) -> Dict:
-    clean_id = arxiv_id.strip().removesuffix(".pdf")
-    return {
-        "title": title,
-        "authors": authors or [],
-        "abstract": abstract,
-        "pdf_url": f"https://arxiv.org/pdf/{clean_id}.pdf",
-        "source": "arxiv",
-        "source_url": f"https://arxiv.org/abs/{clean_id}",
-        "published": None,
-    }
-
-
-def _known_title_payload(clean_title: str) -> Optional[Dict]:
-    known = KNOWN_ARXIV_TITLES.get(_normalize_title(clean_title))
-    if not known:
-        return None
-    return _html_result_payload(
-        known["arxiv_id"],
-        known["title"],
-        authors=known["authors"],
-    )
-
-
-def _search_arxiv_html(clean_title: str) -> Optional[Dict]:
-    params = {
-        "query": clean_title,
-        "searchtype": "title",
-        "abstracts": "show",
-        "order": "relevance",
-        "size": "25",
-    }
-    url = f"https://arxiv.org/search/?{urlencode(params)}"
-    _wait_for_arxiv_slot()
-    try:
-        response = requests.get(
-            url,
-            headers={"User-Agent": ARXIV_USER_AGENT},
-            timeout=ARXIV_SEARCH_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        if _is_temporary_arxiv_error(exc):
-            raise ArxivTemporaryError(f"arXiv HTML search temporarily unavailable: {exc}") from exc
-        logger.warning("arXiv HTML search failed for %s: %s", clean_title, exc)
-        return None
-
-    best_payload: Dict | None = None
-    best_score = 0.0
-    for block in re.findall(r'<li class="arxiv-result">(.*?)</li>', response.text, flags=re.S):
-        id_match = re.search(r'href="(?:https?://arxiv\.org)?/abs/([^"#?]+)"', block)
-        if not id_match:
-            continue
-        title_match = re.search(r'<p class="title[^"]*">(.*?)</p>', block, flags=re.S)
-        if not title_match:
-            title_match = re.search(r'<p class="list-title[^"]*">.*?</span>(.*?)</p>', block, flags=re.S)
-        if not title_match:
-            continue
-
-        candidate_title = _strip_html(title_match.group(1))
-        score = _title_score(clean_title, candidate_title)
-        if score <= best_score:
-            continue
-
-        abstract_match = re.search(r'<span class="abstract-full[^"]*">(.*?)</span>', block, flags=re.S)
-        authors = [
-            _strip_html(item)
-            for item in re.findall(r'<p class="authors[^"]*">(.*?)</p>', block, flags=re.S)
-        ]
-        best_score = score
-        best_payload = _html_result_payload(
-            id_match.group(1),
-            candidate_title,
-            _strip_html(abstract_match.group(1)) if abstract_match else "",
-            authors,
-        )
-
-    if best_payload and best_score >= MIN_ACCEPTABLE_TITLE_SCORE:
-        logger.info(
-            "arXiv HTML matched '%s' to '%s' with score %.3f",
-            clean_title,
-            best_payload["title"],
-            best_score,
-        )
-        return best_payload
-    if best_payload:
-        logger.info(
-            "arXiv HTML best candidate score too low for '%s': '%s' (%.3f)",
-            clean_title,
-            best_payload["title"],
-            best_score,
-        )
-    return None
-
-
 def _iter_candidates(client: arxiv.Client, clean_title: str):
     searches = [
         arxiv.Search(
@@ -248,24 +127,16 @@ def search_arxiv(title: str) -> Optional[Dict]:
     while retries > 0:
         try:
             clean_title = title.replace("\n", " ").strip()
-            known_result = _known_title_payload(clean_title)
-            if known_result:
-                return known_result
-
             best_result = None
             best_score = 0.0
-            temporary_error: ArxivTemporaryError | None = None
 
-            try:
-                for result in _iter_candidates(client, clean_title):
-                    score = _title_score(clean_title, result.title)
-                    if score > best_score:
-                        best_result = result
-                        best_score = score
-                    if score >= 0.98:
-                        break
-            except ArxivTemporaryError as exc:
-                temporary_error = exc
+            for result in _iter_candidates(client, clean_title):
+                score = _title_score(clean_title, result.title)
+                if score > best_score:
+                    best_result = result
+                    best_score = score
+                if score >= 0.98:
+                    break
 
             time.sleep(0.1)
 
@@ -277,13 +148,6 @@ def search_arxiv(title: str) -> Optional[Dict]:
                     best_score,
                 )
                 return _result_payload(best_result)
-
-            html_result = _search_arxiv_html(clean_title)
-            if html_result:
-                return html_result
-
-            if temporary_error:
-                raise temporary_error
 
             if best_result:
                 logger.info(
