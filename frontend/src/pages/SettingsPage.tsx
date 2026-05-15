@@ -8,20 +8,24 @@ import {
   EyeOff,
   KeyRound,
   Loader2,
+  Plus,
   RefreshCw,
   Save,
+  Star,
+  Check,
   Terminal,
   Trash2,
   Wrench,
 } from 'lucide-react';
 import clsx from 'clsx';
 import Layout from '../components/Layout';
-import { deepResearchApi, settingsApi } from '../api/services';
+import { deepResearchApi, settingsApi, templatesApi } from '../api/services';
 import {
   ApiKeyCheckResponse,
   ApiKeyInfo,
   ApiKeyProvider,
   SelfCheckResponse,
+  Template,
 } from '../types';
 
 const statusStyles = {
@@ -36,7 +40,7 @@ const keySourceLabels: Record<ApiKeyInfo['source'], string> = {
   missing: 'Missing',
 };
 
-type SectionKey = 'selfCheck' | 'api';
+type SectionKey = 'selfCheck' | 'templates' | 'api';
 
 interface SettingsSectionProps {
   id: SectionKey;
@@ -81,6 +85,7 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({
 const SettingsPage: React.FC = () => {
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     selfCheck: true,
+    templates: false,
     api: true,
   });
 
@@ -93,6 +98,12 @@ const SettingsPage: React.FC = () => {
 
   const [selfChecking, setSelfChecking] = useState(false);
   const [selfCheckResult, setSelfCheckResult] = useState<SelfCheckResponse | null>(null);
+
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [newTemplateContent, setNewTemplateContent] = useState<string[]>(['']);
 
   const [error, setError] = useState('');
 
@@ -117,6 +128,79 @@ const SettingsPage: React.FC = () => {
   useEffect(() => {
     loadKeys();
   }, []);
+
+  const loadTemplates = async () => {
+    setLoadingTemplates(true);
+    setError('');
+    try {
+      const data = await templatesApi.list();
+      setTemplates(data);
+    } catch (err) {
+      console.error('Failed to load templates:', err);
+      setError('Failed to load templates.');
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  useEffect(() => {
+    if (openSections.templates && templates.length === 0) {
+      loadTemplates();
+    }
+  }, [openSections.templates, templates.length]);
+
+  const addTemplateStep = () => {
+    setNewTemplateContent(prev => [...prev, '']);
+  };
+
+  const updateTemplateStep = (index: number, value: string) => {
+    setNewTemplateContent(prev => prev.map((item, itemIndex) => itemIndex === index ? value : item));
+  };
+
+  const removeTemplateStep = (index: number) => {
+    setNewTemplateContent(prev => prev.length <= 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const createTemplate = async () => {
+    const content = newTemplateContent.map(item => item.trim()).filter(Boolean);
+    if (!newTemplateName.trim() || content.length === 0) {
+      setError('Template name and at least one prompt are required.');
+      return;
+    }
+    setError('');
+    try {
+      await templatesApi.create({ name: newTemplateName.trim(), content });
+      setNewTemplateName('');
+      setNewTemplateContent(['']);
+      setShowTemplateForm(false);
+      await loadTemplates();
+    } catch (err) {
+      console.error('Failed to create template:', err);
+      setError('Failed to create template.');
+    }
+  };
+
+  const deleteTemplate = async (id: string) => {
+    setError('');
+    try {
+      await templatesApi.delete(id);
+      await loadTemplates();
+    } catch (err) {
+      console.error('Failed to delete template:', err);
+      setError('Failed to delete template.');
+    }
+  };
+
+  const setDefaultTemplate = async (id: string) => {
+    setError('');
+    try {
+      await templatesApi.setDefault(id);
+      await loadTemplates();
+    } catch (err) {
+      console.error('Failed to set default template:', err);
+      setError('Failed to set default template.');
+    }
+  };
 
   const updateKeyInState = (updated: ApiKeyInfo) => {
     setKeys(prev => prev.map(item => item.provider === updated.provider ? updated : item));
@@ -279,6 +363,168 @@ const SettingsPage: React.FC = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </SettingsSection>
+
+          <SettingsSection
+            id="templates"
+            title="Templates"
+            description="Manage paper reading prompt templates from Settings instead of the main sidebar."
+            icon={<Terminal size={18} />}
+            open={openSections.templates}
+            onToggle={toggleSection}
+          >
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div>
+                <h3 className="font-semibold text-gray-900">Reading templates</h3>
+                <p className="text-sm text-gray-500 mt-1">Templates define multi-step prompts for paper reading tasks.</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={loadTemplates}
+                  disabled={loadingTemplates}
+                  className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <RefreshCw size={16} className={clsx(loadingTemplates && 'animate-spin')} />
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTemplateForm(prev => !prev)}
+                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                >
+                  <Plus size={16} />
+                  New
+                </button>
+              </div>
+            </div>
+
+            {showTemplateForm && (
+              <div className="mb-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input
+                      value={newTemplateName}
+                      onChange={(event) => setNewTemplateName(event.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder="Template name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Prompts</label>
+                    <div className="space-y-3">
+                      {newTemplateContent.map((step, index) => (
+                        <div key={index}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-gray-500">Step {index + 1}</span>
+                            {newTemplateContent.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeTemplateStep(index)}
+                                className="text-xs text-red-600 hover:text-red-700"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                          <textarea
+                            value={step}
+                            onChange={(event) => updateTemplateStep(index, event.target.value)}
+                            className="w-full h-24 px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm resize-none"
+                            placeholder={`Prompt for step ${index + 1}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addTemplateStep}
+                      className="mt-2 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      <Plus size={16} />
+                      Add step
+                    </button>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowTemplateForm(false)}
+                      className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={createTemplate}
+                      disabled={!newTemplateName.trim() || newTemplateContent.every(item => !item.trim())}
+                      className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Create
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {loadingTemplates ? (
+              <div className="text-sm text-gray-500">Loading templates...</div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className={clsx(
+                      'border rounded-lg p-4 bg-white',
+                      template.is_default ? 'border-blue-300 ring-1 ring-blue-200' : 'border-gray-200',
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h4 className="font-semibold text-gray-900">{template.name}</h4>
+                        {template.is_default && (
+                          <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                            <Check size={12} />
+                            Default
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        {!template.is_default && (
+                          <button
+                            type="button"
+                            onClick={() => setDefaultTemplate(template.id)}
+                            className="w-8 h-8 rounded-md text-gray-400 hover:bg-yellow-50 hover:text-yellow-600 flex items-center justify-center"
+                            title="Set as default"
+                          >
+                            <Star size={16} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => deleteTemplate(template.id)}
+                          className="w-8 h-8 rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600 flex items-center justify-center"
+                          title="Delete template"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {template.content.map((step, index) => (
+                        <div key={index} className="rounded-md border border-gray-100 bg-gray-50 p-2">
+                          <div className="text-[11px] font-semibold text-gray-400 mb-1">Step {index + 1}</div>
+                          <p className="text-xs text-gray-600 font-mono whitespace-pre-wrap line-clamp-3">{step}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {templates.length === 0 && (
+                  <div className="text-sm text-gray-500">No templates found.</div>
+                )}
               </div>
             )}
           </SettingsSection>

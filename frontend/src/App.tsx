@@ -4,7 +4,6 @@ import TaskListPage from './pages/TaskListPage';
 import TaskCreatePage from './pages/TaskCreatePage';
 import TaskDetailPage from './pages/TaskDetailPage';
 import ReadingRoomPage from './pages/ReadingRoomPage';
-import TemplatesPage from './pages/TemplatesPage';
 import CollectionsPage from './pages/CollectionsPage';
 import ResearchCreatePage from './pages/ResearchCreatePage';
 import CommunityPage from './pages/CommunityPage';
@@ -38,7 +37,7 @@ function App() {
           <Route path="/tasks/create" element={<ProtectedRoute><TaskCreatePage /></ProtectedRoute>} />
           <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetailPage /></ProtectedRoute>} />
           <Route path="/reader/:paperId" element={<ProtectedRoute><ReadingRoomPage /></ProtectedRoute>} />
-          <Route path="/templates" element={<ProtectedRoute><TemplatesPage /></ProtectedRoute>} />
+          <Route path="/templates" element={<Navigate to="/settings" replace />} />
           <Route path="/collections" element={<ProtectedRoute><CollectionsPage /></ProtectedRoute>} />
           <Route path="/research" element={<ProtectedRoute><ResearchCreatePage /></ProtectedRoute>} />
           <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />

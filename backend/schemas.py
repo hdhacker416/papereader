@@ -414,3 +414,23 @@ class CommunityAnswerResponse(BaseModel):
     route: str
     elapsed_sec: float
     results: List[CommunityPaperAnswer]
+
+
+class CommunityTopic(BaseModel):
+    id: str
+    question: str
+    description: str
+    tags: List[str]
+    cached: bool
+    answer_count: int = 0
+    updated_at: Optional[str] = None
+
+
+class CommunityFeedResponse(BaseModel):
+    topics: List[CommunityTopic]
+
+
+class CommunityTopicResponse(BaseModel):
+    topic: CommunityTopic
+    route: str
+    results: List[CommunityPaperAnswer]

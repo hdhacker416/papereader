@@ -358,6 +358,26 @@ export interface CommunityAnswerResponse {
   results: CommunityPaperAnswer[];
 }
 
+export interface CommunityTopic {
+  id: string;
+  question: string;
+  description: string;
+  tags: string[];
+  cached: boolean;
+  answer_count: number;
+  updated_at?: string;
+}
+
+export interface CommunityFeedResponse {
+  topics: CommunityTopic[];
+}
+
+export interface CommunityTopicResponse {
+  topic: CommunityTopic;
+  route: string;
+  results: CommunityPaperAnswer[];
+}
+
 export interface ResearchPackBuildResponse {
   ok: boolean;
   results: ResearchPackInfo[];

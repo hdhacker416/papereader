@@ -27,7 +27,9 @@ import {
   ApiKeyProvider,
   ApiKeyUpdateResponse,
   AuthResponse,
-  CommunityAnswerResponse
+  CommunityAnswerResponse,
+  CommunityFeedResponse,
+  CommunityTopicResponse
 } from '../types';
 
 export const templatesApi = {
@@ -121,6 +123,16 @@ export const authApi = {
 };
 
 export const communityApi = {
+  listTopics: () =>
+    api.get<CommunityFeedResponse>('/community/topics').then(res => res.data),
+  getTopic: (topicId: string) =>
+    api.get<CommunityTopicResponse>(`/community/topics/${topicId}`).then(res => res.data),
+  generateTopic: (topicId: string, data?: {
+    limit?: number;
+    max_text_chars?: number;
+    figure_max_pages?: number;
+  }) =>
+    api.post<CommunityTopicResponse>(`/community/topics/${topicId}/generate`, data || {}, { timeout: 300000 }).then(res => res.data),
   generateAnswers: (data: {
     query: string;
     limit?: number;

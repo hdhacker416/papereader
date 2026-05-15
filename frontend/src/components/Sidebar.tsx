@@ -172,7 +172,6 @@ const Sidebar: React.FC = () => {
     { path: '/research', label: 'Research', icon: FlaskConical },
     { path: '/community', label: 'Community', icon: MessageCircle },
     { path: '/collections', label: 'Collections', icon: FolderOpen },
-    { path: '/templates', label: 'Templates', icon: FileText },
     { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
