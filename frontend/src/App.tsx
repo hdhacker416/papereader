@@ -7,6 +7,7 @@ import ReadingRoomPage from './pages/ReadingRoomPage';
 import TemplatesPage from './pages/TemplatesPage';
 import CollectionsPage from './pages/CollectionsPage';
 import ResearchCreatePage from './pages/ResearchCreatePage';
+import CommunityPage from './pages/CommunityPage';
 import SettingsPage from './pages/SettingsPage';
 import AuthPage from './pages/AuthPage';
 import { AuthProvider, useAuth } from './auth/AuthContext';
@@ -40,6 +41,7 @@ function App() {
           <Route path="/templates" element={<ProtectedRoute><TemplatesPage /></ProtectedRoute>} />
           <Route path="/collections" element={<ProtectedRoute><CollectionsPage /></ProtectedRoute>} />
           <Route path="/research" element={<ProtectedRoute><ResearchCreatePage /></ProtectedRoute>} />
+          <Route path="/community" element={<ProtectedRoute><CommunityPage /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
           <Route path="/research/create" element={<Navigate to="/research" replace />} />
           <Route path="/research/:id" element={<Navigate to="/research" replace />} />

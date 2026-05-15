@@ -26,7 +26,8 @@ import {
   ApiKeyListResponse,
   ApiKeyProvider,
   ApiKeyUpdateResponse,
-  AuthResponse
+  AuthResponse,
+  CommunityAnswerResponse
 } from '../types';
 
 export const templatesApi = {
@@ -117,6 +118,16 @@ export const authApi = {
     api.post<AuthResponse>('/auth/register', data).then(res => res.data),
   logout: () =>
     api.post<{ ok: boolean }>('/auth/logout').then(res => res.data),
+};
+
+export const communityApi = {
+  generateAnswers: (data: {
+    query: string;
+    limit?: number;
+    max_text_chars?: number;
+    figure_max_pages?: number;
+  }) =>
+    api.post<CommunityAnswerResponse>('/community/answers', data, { timeout: 300000 }).then(res => res.data),
 };
 
 export const deepResearchApi = {

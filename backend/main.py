@@ -18,7 +18,7 @@ from database import (
     user_context,
 )
 import models
-from routers import auth, templates, tasks, papers, collections, deep_research, settings
+from routers import auth, templates, tasks, papers, collections, deep_research, settings, community
 from processor import processor_loop
 from services import conference_service
 from services import auth_service
@@ -75,6 +75,7 @@ app.include_router(papers.router)
 app.include_router(collections.router)
 app.include_router(deep_research.router)
 app.include_router(settings.router)
+app.include_router(community.router)
 
 
 @app.get("/api/pdfs/{file_path:path}")

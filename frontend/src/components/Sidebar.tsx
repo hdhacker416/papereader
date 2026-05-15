@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FileText, FolderOpen, BookOpen, ChevronRight, ChevronDown, Folder, FlaskConical, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, FolderOpen, BookOpen, ChevronRight, ChevronDown, Folder, FlaskConical, Settings, LogOut, MessageCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { tasksApi, collectionsApi } from '../api/services';
 import { Task, Paper, Collection } from '../types';
@@ -170,6 +170,7 @@ const Sidebar: React.FC = () => {
   const navItems = [
     { path: '/tasks', label: 'Tasks', icon: LayoutDashboard },
     { path: '/research', label: 'Research', icon: FlaskConical },
+    { path: '/community', label: 'Community', icon: MessageCircle },
     { path: '/collections', label: 'Collections', icon: FolderOpen },
     { path: '/templates', label: 'Templates', icon: FileText },
     { path: '/settings', label: 'Settings', icon: Settings },

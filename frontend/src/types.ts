@@ -323,6 +323,41 @@ export interface PackBuildJob {
   finished_at?: string;
 }
 
+export interface CommunityFigureRef {
+  id: string;
+  page_number: number;
+  label: string;
+  caption: string;
+  confidence: number;
+  warnings: string[];
+}
+
+export interface CommunityPaperAnswer {
+  rank: number;
+  paper_id: string;
+  conference: string;
+  year: number;
+  title: string;
+  abstract: string;
+  authors: string[];
+  source_url: string;
+  rerank_score?: number;
+  local_pdf_path?: string;
+  figure_count: number;
+  figures: CommunityFigureRef[];
+  answer?: string;
+  seconds?: number;
+  status: string;
+  error?: string;
+}
+
+export interface CommunityAnswerResponse {
+  query: string;
+  route: string;
+  elapsed_sec: number;
+  results: CommunityPaperAnswer[];
+}
+
 export interface ResearchPackBuildResponse {
   ok: boolean;
   results: ResearchPackInfo[];

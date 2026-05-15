@@ -372,3 +372,45 @@ class ResearchPackUploadResponse(BaseModel):
     release_id: int
     release_url: str
     uploaded_assets: List[str]
+
+
+class CommunityAnswerRequest(BaseModel):
+    query: str
+    limit: int = 5
+    max_text_chars: int = 120000
+    figure_max_pages: int = 12
+
+
+class CommunityFigureRef(BaseModel):
+    id: str
+    page_number: int
+    label: str
+    caption: str
+    confidence: float
+    warnings: List[str] = []
+
+
+class CommunityPaperAnswer(BaseModel):
+    rank: int
+    paper_id: str
+    conference: str
+    year: int
+    title: str
+    abstract: str
+    authors: List[str]
+    source_url: str
+    rerank_score: Optional[float] = None
+    local_pdf_path: Optional[str] = None
+    figure_count: int = 0
+    figures: List[CommunityFigureRef] = []
+    answer: Optional[str] = None
+    seconds: Optional[float] = None
+    status: str
+    error: Optional[str] = None
+
+
+class CommunityAnswerResponse(BaseModel):
+    query: str
+    route: str
+    elapsed_sec: float
+    results: List[CommunityPaperAnswer]
