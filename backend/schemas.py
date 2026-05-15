@@ -388,6 +388,7 @@ class CommunityFigureRef(BaseModel):
     caption: str
     confidence: float
     warnings: List[str] = []
+    image_url: Optional[str] = None
 
 
 class CommunityPaperAnswer(BaseModel):

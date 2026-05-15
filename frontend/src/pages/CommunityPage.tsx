@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { AlertCircle, FileText, Image as ImageIcon, Loader2, MessageCircle, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 import Layout from '../components/Layout';
+import { buildApiUrl } from '../api';
 import { communityApi } from '../api/services';
 import { CommunityPaperAnswer, CommunityTopic, CommunityTopicResponse } from '../types';
 
@@ -270,6 +271,16 @@ const PaperAnswerCard: React.FC<{ paper: CommunityPaperAnswer }> = ({ paper }) =
           <div className="space-y-3">
             {paper.figures.map((figure) => (
               <div key={figure.id} className="rounded-md border border-gray-200 px-3 py-3 bg-gray-50">
+                {figure.image_url && (
+                  <div className="mb-3 overflow-hidden rounded-md border border-gray-200 bg-white">
+                    <img
+                      src={buildApiUrl(figure.image_url)}
+                      alt={`${figure.label} from ${paper.title}`}
+                      className="max-h-[460px] w-full object-contain"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
                   <span className="font-medium text-gray-800">{figure.label}</span>
                   <span>Page {figure.page_number} · confidence {figure.confidence.toFixed(2)}</span>

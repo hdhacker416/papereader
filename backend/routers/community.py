@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 
 import schemas
 from services import community_service
@@ -38,3 +39,21 @@ def generate_topic(topic_id: str, payload: schemas.CommunityAnswerRequest | None
         return community_service.generate_topic(topic_id, payload)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/seeded-figures/{topic_id}/{paper_id}/{figure_id}.png")
+def get_seeded_figure(topic_id: str, paper_id: str, figure_id: str):
+    try:
+        path = community_service.get_seeded_figure_path(topic_id, paper_id, figure_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Figure not found") from exc
+    return FileResponse(str(path), media_type="image/png")
+
+
+@router.get("/assets/{asset_path:path}")
+def get_community_asset(asset_path: str):
+    try:
+        path = community_service.get_community_asset_path(asset_path)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Asset not found") from exc
+    return FileResponse(str(path), media_type="image/png")

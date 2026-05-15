@@ -4,6 +4,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 import schemas
 from services import deepseek_service
@@ -14,6 +15,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 SEED_TOPIC_DIR = ROOT_DIR / "community" / "seeded_topics"
+SEED_FIGURE_DIR = ROOT_DIR / "community" / "seeded_figures"
 
 from community.figure_extractor import extract_figures  # noqa: E402
 from community.persona_answer_experiment import (  # noqa: E402
@@ -77,6 +79,22 @@ def _topic_seed_path(topic_id: str) -> Path:
     return SEED_TOPIC_DIR / f"{topic_id}.json"
 
 
+def get_seeded_figure_path(topic_id: str, paper_id: str, figure_id: str) -> Path:
+    base_dir = SEED_FIGURE_DIR.resolve()
+    target = (base_dir / topic_id / paper_id / f"{figure_id}.png").resolve()
+    if not str(target).startswith(str(base_dir)) or not target.is_file():
+        raise FileNotFoundError("figure not found")
+    return target
+
+
+def get_community_asset_path(asset_path: str) -> Path:
+    base_dir = _community_dir().resolve()
+    target = (base_dir / asset_path).resolve()
+    if not str(target).startswith(str(base_dir)) or not target.is_file() or target.suffix.lower() != ".png":
+        raise FileNotFoundError("community asset not found")
+    return target
+
+
 def _load_topic_cache(topic_id: str) -> dict | None:
     for path in (_topic_cache_path(topic_id), _topic_seed_path(topic_id)):
         if not path.exists():
@@ -122,7 +140,17 @@ def _figure_refs(manifest: dict | None, limit: int = 8) -> list[schemas.Communit
     if not manifest:
         return []
     refs: list[schemas.CommunityFigureRef] = []
+    output_dir = Path(str(manifest.get("output_dir") or "")) if manifest.get("output_dir") else None
+    community_dir = _community_dir().resolve()
     for item in (manifest.get("figures") or [])[:limit]:
+        image_url = None
+        if output_dir and item.get("crop_path"):
+            crop_path = (output_dir / str(item.get("crop_path"))).resolve()
+            try:
+                relative_path = crop_path.relative_to(community_dir)
+                image_url = f"/community/assets/{quote(str(relative_path), safe='/')}"
+            except ValueError:
+                image_url = None
         refs.append(
             schemas.CommunityFigureRef(
                 id=str(item.get("id") or ""),
@@ -131,6 +159,7 @@ def _figure_refs(manifest: dict | None, limit: int = 8) -> list[schemas.Communit
                 caption=str(item.get("caption") or ""),
                 confidence=float(item.get("confidence") or 0.0),
                 warnings=[str(warning) for warning in (item.get("warnings") or [])],
+                image_url=image_url,
             )
         )
     return refs

@@ -42,7 +42,8 @@
           "label": "Figure 1",
           "caption": "Llama2-70B also displays lost-in-the-middle phenomenon",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/xw5nxFWMlo/fig_001_page_007.png"
         }
       ],
       "answerability": "yes",
@@ -71,7 +72,8 @@
           "label": "Figure 1",
           "caption": "Performance of LLMs across to- ken usage ratios. Higher ratio corresponds to retrieving more passages. Lines indicate per- formance when retrieving top-similarity pas- sages within a fixed token usage ratio (1.0 = full context). ☆marks the performance of LDAR optimized for each LLM, illustrat- ing its ability to strike a balance between in- formation coverage and distraction that sur- passes all fixed token usage baselines.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/c8CZWLy4T4/fig_001_page_001.png"
         },
         {
           "id": "fig_002_page_003",
@@ -79,7 +81,8 @@
           "label": "Figure 2",
           "caption": "Visualization of different retrieval strategies and their impact on performance. A green circle ( ) indicates retrieving the passage yields a wrong answer, and a purple star (",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/c8CZWLy4T4/fig_002_page_003.png"
         },
         {
           "id": "fig_003_page_004",
@@ -87,7 +90,8 @@
           "label": "Figure 3",
           "caption": "(Left) Visualization of passages retrieved by πθ based on the similarity distribution be- tween queries and passages, with retrieved passages marked in green if they contain the correct answer and in red otherwise. (Right) Comparison of performance and passage usage ratio across Bernoulli- and band-based retrieval strategies across gradient steps.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/c8CZWLy4T4/fig_003_page_004.png"
         },
         {
           "id": "fig_004_page_005",
@@ -95,7 +99,8 @@
           "label": "Figure 4",
           "caption": "Overview of LDAR, a learning-based retrieval strategy that adapts to each LLM by bal- ancing information coverage and distraction. Given a query, a fixed pretrained retriever computes cosine similarity scores between the query and passages. Then periodic embeddings encode each score into a token, followed by a Transformer encoder that processes the tokenized similarity dis- tribution. The encoder representations are aggregated via attention pooling, after which two output heads predict the lower and upper quantiles that define the similarity interval used for retrieval. The selected passages are passed to a pretrained LLM for prediction, and the evaluation signal is used to update the adaptive retriever through gradient-based learning.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/c8CZWLy4T4/fig_004_page_005.png"
         },
         {
           "id": "fig_005_page_010",
@@ -103,7 +108,8 @@
           "label": "Figure 5",
           "caption": "Average performance plotted against total cumulative computational cost (GPU hours) for both training and inference. The left two panels report the total cost when applying LDAR at different training epochs under 100K and 500K inference calls using open-source LLMs; the right two panels show the corresponding results for closed-source LLMs.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/c8CZWLy4T4/fig_005_page_010.png"
         }
       ],
       "answerability": "partial",
@@ -140,7 +146,8 @@
           "label": "Figure 2",
           "caption": "Ablation of Llama3-ChatQA-2-70B with RAG given different top-k = {5, 10, 20, 40} retrieval, and chunk-size = {300, 600, 1200} on long context benchmarks within 32K tokens (see Section 4.2 for more details). The accuracy can be monotonically improved with more retrieved tokens (i.e., k× chunk_size) in the context window.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/cPD2hU35x3/fig_001_page_009.png"
         },
         {
           "id": "fig_002_page_010",
@@ -150,7 +157,8 @@
           "confidence": 0.45,
           "warnings": [
             "No nearby image/vector graphics found; used caption-relative page crop."
-          ]
+          ],
+          "image_url": "/community/seeded-figures/long-context-retrieval/cPD2hU35x3/fig_002_page_010.png"
         }
       ],
       "answerability": "yes",
@@ -188,7 +196,8 @@
           "label": "Figure 1",
           "caption": "Long-context benchmark results of frontier LCLMs (Llama-3.1 8B/70B, GPT-4o-mini, GPT-4o-08-06, and Gemini-1.5 Flash/Pro) at 128K input length. NIAH is saturated for almost all models; RULER (Hsieh et al., 2024) and ∞BENCH (Zhang et al., 2024b) show unexpected trends for Llama-3.1 (Dubey et al., 2024). In contrast, HELMET demonstrates more consistent rankings of these frontier models.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/293V3bJbmE/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_006",
@@ -196,7 +205,8 @@
           "label": "Figure 2",
           "caption": "Comparison between ROUGE-L F1 and our model-based evaluation metric on summa- rization tasks. Our metric shows more consistent trends: it reflects the performance gain on GPT-4o with increased input length, while ROUGE remains almost the same; our metric also clearly differ- entiates models while ROUGE shows little distinction.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/293V3bJbmE/fig_002_page_006.png"
         },
         {
           "id": "fig_003_page_007",
@@ -204,7 +214,8 @@
           "label": "Figure 3",
           "caption": "Spearman’s rank correlation at 128K input length, calculated across 35 instruction-tuned models.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/293V3bJbmE/fig_003_page_007.png"
         },
         {
           "id": "fig_004_page_008",
@@ -212,7 +223,8 @@
           "label": "Figure 4",
           "caption": "Distribution of instruction-tuned models’ performance on ∞BENCH QA with respect to NIAH, RULER MK, and HotpotQA.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/293V3bJbmE/fig_004_page_008.png"
         },
         {
           "id": "fig_005_page_008",
@@ -220,7 +232,8 @@
           "label": "Figure 5",
           "caption": "Spearman rank correlation between different categories at L =128K.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/293V3bJbmE/fig_005_page_008.png"
         },
         {
           "id": "fig_006_page_009",
@@ -228,7 +241,8 @@
           "label": "Figure 6",
           "caption": "Results of HELMET. All models are instruction-tuned and have a claimed context win- dow of 128K tokens or more.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/293V3bJbmE/fig_006_page_009.png"
         },
         {
           "id": "fig_007_page_010",
@@ -236,7 +250,8 @@
           "label": "Figure 7",
           "caption": "Results of selected instruct models on various lengths and increasing complexity of tasks. Notably, Qwen2 relies on position extrapolation, while other open-models are trained at or greater than 128K context window.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/293V3bJbmE/fig_007_page_010.png"
         }
       ],
       "answerability": "partial",
@@ -272,7 +287,8 @@
           "label": "Figure 1",
           "caption": "Overview of Chain-of-Agents, a training-free, task agnostic, and highly-interpretable framework that harnesses multi-agent collaboration for long-context tasks. Blue boxes indicate communication unit CUi between worker agents Wi and Wi+1. It consists of multiple worker agents who sequentially communicate to handle different segmented portions of the text, followed by a manager agent who synthesizes these contributions into a coherent final output.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/LuCLf4BJsr/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_004",
@@ -282,7 +298,8 @@
           "confidence": 0.45,
           "warnings": [
             "No nearby image/vector graphics found; used caption-relative page crop."
-          ]
+          ],
+          "image_url": "/community/seeded-figures/long-context-retrieval/LuCLf4BJsr/fig_002_page_004.png"
         },
         {
           "id": "fig_003_page_007",
@@ -290,7 +307,8 @@
           "label": "Figure 2",
           "caption": "Performance of Claude 3 on BookSum. Improvement is more obvious for longer inputs.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/LuCLf4BJsr/fig_003_page_007.png"
         },
         {
           "id": "fig_004_page_008",
@@ -298,7 +316,8 @@
           "label": "Figure 3",
           "caption": "Comparison on NarrativeQA. X-axis/Y- axis indicate RAG/CoA performance while each point represents a bin. The number indicates the chunk index of gold answer (ratio of number of samples in bracket), and the size of the point indi- cates the improvement of CoA over RAG.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/LuCLf4BJsr/fig_004_page_008.png"
         },
         {
           "id": "fig_005_page_008",
@@ -306,7 +325,8 @@
           "label": "Figure 4",
           "caption": "Performance of CoA and Full on Nat- ural Questions. CoA mitigates the lost-in-the- middle issue. X-axis is the index of document with gold answer where small number indicates gold answer is closer to start.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/LuCLf4BJsr/fig_005_page_008.png"
         },
         {
           "id": "fig_006_page_008",
@@ -314,7 +334,8 @@
           "label": "Figure 5",
           "caption": "A case study of RAG (left) and CoA (right) on HotpotQA. The sequential agent communi- cation enables CoA to perform complex multi-hop reasoning over long contexts. 5.2 CoA Improvement is More Obvious When Long Context Models Meet Longer Inputs",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/LuCLf4BJsr/fig_006_page_008.png"
         }
       ],
       "answerability": "partial",
@@ -347,7 +368,8 @@
           "label": "Figure 1",
           "caption": "Overview of the HoloBench instance generation process, illustrating the partitioning of databases into relevant and non-relevant subsets, verbalization of table rows into textual contexts, and construction of the final inference context based on information positioning parameters.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/5LXcoDtNyq/fig_001_page_004.png"
         },
         {
           "id": "fig_002_page_005",
@@ -355,7 +377,8 @@
           "label": "Figure 2",
           "caption": "Illustration of how relevant context cq (highlighted in green) is placed within the entire context c for different information positioning strategies.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/5LXcoDtNyq/fig_002_page_005.png"
         },
         {
           "id": "fig_003_page_008",
@@ -363,7 +386,8 @@
           "label": "Figure 3",
           "caption": "Variations in model performances with position of relevant information. Concentrated information benefits most models, although optimal position varies for each model.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/5LXcoDtNyq/fig_003_page_008.png"
         },
         {
           "id": "fig_004_page_008",
@@ -371,7 +395,8 @@
           "label": "Figure 4",
           "caption": "LCLMs’ performance on various query types. Max/Min queries are an easier task across context lengths than other types. In contrast, We observe a performance drop for Aggregation queries, particularly for longer contexts.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/5LXcoDtNyq/fig_004_page_008.png"
         },
         {
           "id": "fig_005_page_009",
@@ -379,7 +404,8 @@
           "label": "Figure 5",
           "caption": "LCLMs’ performance on various query difficulties. Model performance declines as query difficulty increases. Performance drops further as context length increases.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/5LXcoDtNyq/fig_005_page_009.png"
         },
         {
           "id": "fig_006_page_009",
@@ -389,7 +415,8 @@
           "confidence": 0.45,
           "warnings": [
             "No nearby image/vector graphics found; used caption-relative page crop."
-          ]
+          ],
+          "image_url": "/community/seeded-figures/long-context-retrieval/5LXcoDtNyq/fig_006_page_009.png"
         },
         {
           "id": "fig_007_page_010",
@@ -397,7 +424,8 @@
           "label": "Figure 6",
           "caption": "Performance comparison of LCLM and RAG. For long contexts, large models outperform RAG but a retriever helps a small model due to its limited ability to handle long contexts.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/5LXcoDtNyq/fig_007_page_010.png"
         },
         {
           "id": "fig_008_page_010",
@@ -405,7 +433,8 @@
           "label": "Figure 7",
           "caption": "Performance comparison of GPT-4o with CoT and without CoT. Generally, CoT improves performance, particularly for tasks that require reasoning over multiple information sources.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/5LXcoDtNyq/fig_008_page_010.png"
         }
       ],
       "answerability": "partial",
@@ -445,7 +474,8 @@
           "label": "Figure 1",
           "caption": "Normalized performance vs. effective context lengths on MuSiQue. Each line represents a fixed configuration, scaled by adjusting the number of documents. Red dots and dash lines represent the optimal configurations and their fitting results. Standard RAG plateaus early at 104 tokens, in contrast, DRAG and IterDRAG show near-linear improvement as the effective context length grows.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/FSjIrOm1vz/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_003",
@@ -453,7 +483,8 @@
           "label": "Figure 2",
           "caption": "Evaluation accuracy of Gemini 1.5 Flash using different methods: zero-shot QA, many-shot QA, RAG (with an optimal number of documents), DRAG and IterDRAG on benchmark QA datasets. By scaling up inference compute (up to 5M tokens), DRAG consistently outperforms baselines, while IterDRAG improves upon DRAG through interleaving retrieval and iterative generation.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/FSjIrOm1vz/fig_002_page_003.png"
         },
         {
           "id": "fig_003_page_005",
@@ -461,7 +492,8 @@
           "label": "Figure 3",
           "caption": "DRAG vs. IterDRAG. IterDRAG breaks down the input query into sub-queries and answer them to improve the accuracy of the final answer. In test-time, IterDRAG scales the computation through multiple inference steps to decompose complex queries and retrieve documents.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/FSjIrOm1vz/fig_003_page_005.png"
         },
         {
           "id": "fig_004_page_007",
@@ -469,7 +501,8 @@
           "label": "Figure 4",
           "caption": "Normalized performance vs. effective context lengths across datasets. Each line represents a fixed configuration, scaled by varying the number of documents. Red dots indicate the optimal configurations, with the dashed line showing the fitting results. The observed optimal performance can be approximated by a linear relationship with the effective context lengths.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/FSjIrOm1vz/fig_004_page_007.png"
         },
         {
           "id": "fig_005_page_008",
@@ -477,7 +510,8 @@
           "label": "Figure 5",
           "caption": "RAG performance changes with varying number of documents and in-context examples. 5a reports the averaged metric values across datasets, whereas in 5b and 5c, each line represents the normalized performance of a consistent configuration with progressively increasing documents / shots. 4.4 PARAMETER-SPECIFIC SCALING",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/FSjIrOm1vz/fig_005_page_008.png"
         },
         {
           "id": "fig_006_page_009",
@@ -485,7 +519,8 @@
           "label": "Figure 6",
           "caption": "The estimated performance using the proposed observational scaling laws vs. actual metric values in DRAG. The subplots represent different datasets, where each line corresponds to a fixed number of documents, we scale the context length by increasing the number of shots. maximum iterations n within θ, namely θ := (k, m, n)T . To account for the variance across methods and tasks, we introduce i := (idoc, ishot, 0)T . idoc and ishot measure the informativeness of documents and in-context examples respectively. While technically we can also define an iiter to measure the informativeness of additional generation steps, applying iiter does not yield improved accuracy, so we leave it as 0 in our experiments. We formulate the computation allocation model as2:",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/FSjIrOm1vz/fig_006_page_009.png"
         }
       ],
       "answerability": "partial",
@@ -522,7 +557,8 @@
           "label": "Figure 1",
           "caption": "a) Generation of BABILong dataset. Facts relevant for the question are hidden inside a larger background texts from PG19. b) Recurrent transformers answer questions about facts from very long texts when retrieval augmented generation fails. Common RAG method fails to answer questions because order of facts matters. GPT-4 effectively uses only about 10% of the full 128K window. Gemini 1.5 Pro shows strong performance up to 64K tokens. Small LMs, ARMT & RMT with GPT-2 (137M) and Mamba (130M) fine-tuned for the task are able to solve it, with recurrent memory transformers scoring well up to record 50 000 000 tokens. Here we show the best results obtained by models.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/u7m2CG84BQ/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_005",
@@ -530,7 +566,8 @@
           "label": "Figure 2",
           "caption": "LLMs struggle to answer questions about facts in texts larger than 10,000 tokens. The plots demonstrate how the performance of selected leading models deteriorates with increasing context size. For single supporting fact questions (QA1), the majority of models perform well up to 4,000 tokens. However, when a correct response requires two (QA2) or three (QA3) facts, LLMs fail to achieve satisfactory accuracy.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/u7m2CG84BQ/fig_002_page_005.png"
         },
         {
           "id": "fig_003_page_006",
@@ -538,7 +575,8 @@
           "label": "Figure 3",
           "caption": "Fine-tuning but not RAG solves BABILong. a) RAG on QA1 task. Retrieval by chunks with size 512 tokens (RAG-C) fails to improve GPT-4 and Llama-3 performance on long-context tasks. RAG-S, which retrieves by sentences achieves better results, but further increasing the number of retrieved sentences from top-5 to top-20 does not help. b) Task specific fine-tuning. Finetuned Mamba achieves the best overall results, greatly outperforming RAG models. However, processing sequences longer than 128k is extremely slow due to technical limitations. On the other hand, RMT shines on extremely long sequences, managing to keep high accuracy up to 10M tokens.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/u7m2CG84BQ/fig_003_page_006.png"
         },
         {
           "id": "fig_004_page_008",
@@ -546,7 +584,8 @@
           "label": "Figure 4",
           "caption": "BABILong is similar to MMLU (Hendrycks et al., 2020) on short lengths and captures differences in models behavior for longer contexts. MMLU is a relatively short benchmark, with samples up to 1k tokens in length. BABILong has a higher correlation with MMLU on short contexts (0K) than RULER (Hsieh et al., 2024). However, RULER maintains a high correlation regardless of task length, with an even higher correlation at 64K, while BABILong’s correlation with MMLU decreases with length. This may indicate that BABILong is better at capturing differences in models behavior at different context lengths.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/u7m2CG84BQ/fig_004_page_008.png"
         }
       ],
       "answerability": "partial",
@@ -575,7 +614,8 @@
           "label": "Figure 1",
           "caption": "RAG vs. GraphRAG. The pipelines of RAG and GraphRAG and their characteristics. the absence of corpora with varying information densities, ranging from tightly structured domain knowledge to loosely organized real-world documents, further restricts the evaluation of graph structures’ scalability and adaptability.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/i9q9xDMjG7/fig_001_page_003.png"
         },
         {
           "id": "fig_002_page_004",
@@ -583,7 +623,8 @@
           "label": "Figure 2",
           "caption": "Distribution of question difficulty levels.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/i9q9xDMjG7/fig_002_page_004.png"
         },
         {
           "id": "fig_003_page_005",
@@ -591,7 +632,8 @@
           "label": "Figure 3",
           "caption": "The overall framework of GraphRAG-Bench. It consists of three key components: (i) pipeline of benchmark construction (left), (ii) task classification by difficulty (upper right), and (iii) a multi-stage evaluation framework covering indexing, retrieval, and generation (lower right).",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/i9q9xDMjG7/fig_003_page_005.png"
         },
         {
           "id": "fig_004_page_007",
@@ -599,7 +641,8 @@
           "label": "Figure 4",
           "caption": "Retrieval and generation performance of RAG and GraphRAG across four different tasks.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/i9q9xDMjG7/fig_004_page_007.png"
         },
         {
           "id": "fig_005_page_009",
@@ -607,7 +650,8 @@
           "label": "Figure 5",
           "caption": "The relational structure of different methods. Table 5: The Graph statistics across RAG methods.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/i9q9xDMjG7/fig_005_page_009.png"
         }
       ],
       "answerability": "partial",
@@ -645,7 +689,8 @@
           "label": "Figure 1",
           "caption": "Performance of ChatQA-1.5, one of the strongest RAG models, on different context size k. We observe a trade-off of selecting top-k contexts: a smaller k compromises the recall, while a larger k could introduce irrelevant or noisy context and mislead the LLM generation.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/S1fc92uemC/fig_001_page_003.png"
         },
         {
           "id": "fig_002_page_008",
@@ -653,7 +698,8 @@
           "label": "Figure 3",
           "caption": "Performance with different retrievers. The performance of Recall is in Appendix E.1.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/S1fc92uemC/fig_002_page_008.png"
         },
         {
           "id": "fig_003_page_010",
@@ -661,7 +707,8 @@
           "label": "Figure 4",
           "caption": "Performance w.r.t. # Ranking Data",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/long-context-retrieval/S1fc92uemC/fig_003_page_010.png"
         }
       ],
       "answerability": "partial",

@@ -330,6 +330,7 @@ export interface CommunityFigureRef {
   caption: string;
   confidence: number;
   warnings: string[];
+  image_url?: string;
 }
 
 export interface CommunityPaperAnswer {

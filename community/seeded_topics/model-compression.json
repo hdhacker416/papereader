@@ -31,7 +31,8 @@
           "label": "Figure 1",
           "caption": "An overview of our pipeline. On the left, we benchmark compressed R1 variants on various reasoning tasks. On the right, by computing weight importance towards a specific reasoning behavior (a dot product of the steering vector and gradients with respect to an LRM’s activations), we study the compression effects on individual weight matrices. We empirically verify our findings on weight importance by selectively quantizing or protecting a module to test its importance.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/2za3iNkwXn/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_008",
@@ -39,7 +40,8 @@
           "label": "Figure 2",
           "caption": "Ic mℓof DeepSeek-R1-Distill-Llama-8B (upper) and change of RIc mℓfrom DeepSeek-R1-Distill-Llama-8B to Llama-3.1-8B (lower). Each heatmap displays scores of importance (or importance shift) of every module at each layer, providing a fine-grained analysis of weight contributions to the corresponding reasoning capability. For the lower part, in- creases in RIc mℓare set to 0, as they only offset decreases elsewhere as discussed in 2.3. Every cluster of 4 side-by-side heatmaps (including those displayed below) follow the same scaling to show the precise magnitude of each weight module.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/2za3iNkwXn/fig_002_page_008.png"
         },
         {
           "id": "fig_003_page_009",
@@ -47,7 +49,8 @@
           "label": "Figure 3",
           "caption": "Change of RIc mℓfrom DeepSeek-R1-Distill-Llama-8B to its 4-bit AWQ variant. Justification of only showing the decrease of RIc mℓin the main content is specified in Appendix H.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/2za3iNkwXn/fig_003_page_009.png"
         }
       ],
       "answerability": "partial",
@@ -86,7 +89,8 @@
           "label": "Figure 1",
           "caption": "MINITRON results. Our approach greatly reduces training costs for additional models (40×) while improving accuracy.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/9U0nLnNMJ7/fig_001_page_001.png"
         },
         {
           "id": "fig_002_page_003",
@@ -94,7 +98,8 @@
           "label": "Figure 2",
           "caption": "High-level overview of our proposed iterative pruning and distillation approach to train a family of smaller LLMs. On a pretrained LLM, we first evaluate importance of neurons, rank them, trim the least important neurons and distill the knowledge from the original LLM to the pruned model. The original model is replaced with the distilled model for the next iteration of compression.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/9U0nLnNMJ7/fig_002_page_003.png"
         },
         {
           "id": "fig_003_page_004",
@@ -104,7 +109,8 @@
           "confidence": 0.45,
           "warnings": [
             "No nearby image/vector graphics found; used caption-relative page crop."
-          ]
+          ],
+          "image_url": "/community/seeded-figures/model-compression/9U0nLnNMJ7/fig_003_page_004.png"
         },
         {
           "id": "fig_004_page_005",
@@ -112,7 +118,8 @@
           "label": "Figure 3",
           "caption": "Overview of our neural architecture search algorithm. We perform a search on multiple axes: number of layers, attention head count, MLP and embedding dimensions to arrive at a set of feasible architectures meeting the parameter budget. RT refers to retraining.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/9U0nLnNMJ7/fig_004_page_005.png"
         },
         {
           "id": "fig_005_page_005",
@@ -120,7 +127,8 @@
           "label": "Figure 4",
           "caption": "Overview of Distillation. A student model with N layers is distilled from a teacher model with M layers. The student learns by minimizing a combination of embedding output loss, logit loss and transformer encoder specific losses mapped across student block S and teacher block T.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/9U0nLnNMJ7/fig_005_page_005.png"
         }
       ],
       "answerability": "partial",
@@ -154,7 +162,8 @@
           "label": "Figure 1",
           "caption": "LLM Surgeon allows interpolation of model size between existing pretrained models.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/DYIIRgwg2i/fig_001_page_001.png"
         },
         {
           "id": "fig_002_page_003",
@@ -164,7 +173,8 @@
           "confidence": 0.45,
           "warnings": [
             "No nearby image/vector graphics found; used caption-relative page crop."
-          ]
+          ],
+          "image_url": "/community/seeded-figures/model-compression/DYIIRgwg2i/fig_002_page_003.png"
         },
         {
           "id": "fig_003_page_009",
@@ -172,7 +182,8 @@
           "label": "Figure 4",
           "caption": "Sparsity levels obtained with structured pruning on OPT-125m by layer depth and type.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/DYIIRgwg2i/fig_003_page_009.png"
         }
       ],
       "answerability": "partial",
@@ -201,7 +212,8 @@
           "label": "Figure 1",
           "caption": "(a) Single compression techniques (Sun et al., 2023; Ashkboos et al., 2024) rapidly reaches limits under sub-4 bits while the joint counterpart can enable further compression. To enable a unified comparison in a single figure, pruning is represented using equivalent bit-widths. (b) INT4 + 2:4 sparse GEMM can achieve faster inference speed, higher throughput, and lower memory usage.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/VQIvBpL5ag/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_004",
@@ -209,7 +221,8 @@
           "label": "Figure 2",
           "caption": "Given original LLM weights W, we first apply a rotation to smooth out outliers, followed by pruning to introduce sparsity. The proposed OBR is employed to compute optimal compensation, which is added to the unpruned elements to mitigate the conflict between pruning and quantization. Finally, quantization is applied to obtain the sparse and quantized LLM weights.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/VQIvBpL5ag/fig_002_page_004.png"
         },
         {
           "id": "fig_003_page_006",
@@ -217,7 +230,8 @@
           "label": "Figure 3",
           "caption": "(a) Given a Hessian approximation H, we extract the submatrices HRR and HRE based on the index sets R and E. (b) The rotated dense weights are partitioned into R1 and E1 according to the binary pruning mask, followed by OBR to transfer information from wE1 to wR1. (c) The unpruned index set R1 is further divided into two groups: the first α fraction assigned to set E2, the remaining 1 −α to set R2. OBR is used to compensate for quantization error in E2.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/VQIvBpL5ag/fig_003_page_006.png"
         },
         {
           "id": "fig_004_page_008",
@@ -225,7 +239,8 @@
           "label": "Figure 4",
           "caption": "Comparison on runtime, FLOPs, and TOPS across different sequence lengths. We evaluate the performance of FP16-Dense, INT4-Dense, and INT4 2:4 Sparse GEMM on a single NVIDIA A100-SXM4-80GB GPU. The GEMM computation follows a typical LLM inference setting, where the weight matrix is W ∈R4096×4096 and the input activation is X ∈R32×seq len×4096. Table 2: Comparison under other quantization bit-widths on WikiText2 perplexity (wiki2) and average zero-shot accuracy (0-shot) using the Llama2-7B model.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/VQIvBpL5ag/fig_004_page_008.png"
         },
         {
           "id": "fig_005_page_009",
@@ -233,7 +248,8 @@
           "label": "Figure 5",
           "caption": "Applying the proposed OBR to WANDA (Sun et al., 2023) pruning algo- rithm in single compression tasks.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/VQIvBpL5ag/fig_005_page_009.png"
         },
         {
           "id": "fig_006_page_010",
@@ -241,7 +257,8 @@
           "label": "Figure 6",
           "caption": "Distribution visualization of different stages in the OBR framework. The weight matrix is taken from the layer.0.q proj layer from the Llama2-7B model. Due to the row-wise decoupling design in OBR, we visualize the distribution of the first row here and give full matrix visualization in Appendix D. The x-axis represents the Cin channel index, and the y-axis denotes the absolute value of weight elements.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/VQIvBpL5ag/fig_006_page_010.png"
         }
       ],
       "answerability": "partial",
@@ -270,7 +287,8 @@
           "label": "Figure 1",
           "caption": "The Progressive Intensity Hypothesis: Given two compression techniques, we conjecture that compressed models perform better if the stronger method is applied after the weaker one. That said, the optimal order between pruning and quantization varies with their compression ratios.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/KWtOTMMvKU/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_006",
@@ -278,7 +296,8 @@
           "label": "Figure 2",
           "caption": "A case study of pruning P(·) and quantization Q(·) on model ϕ. (a) if pruning granularity (green) is coarser or equal to quantization granularity (orange), disjoint selectivity holds. (b) Other- wise, partial removal of quantization units by pruning introduces extra error, termed interference ∆.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/KWtOTMMvKU/fig_002_page_006.png"
         },
         {
           "id": "fig_003_page_007",
@@ -286,7 +305,8 @@
           "label": "Figure 3",
           "caption": "Across diverse language models, the compression order advantage A \u0000 Q →P \u0001 increases monotonically with the CER difference C∗ P −CQ. See Section 5.2 for details.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/KWtOTMMvKU/fig_003_page_007.png"
         },
         {
           "id": "fig_004_page_008",
@@ -294,7 +314,8 @@
           "label": "Figure 4",
           "caption": "Compression order advantage A \u0000 Q →P \u0001 against CER difference C∗ P −CQ for three prun- ing P(·) and four quantization Q(·) methods on a LLaMA 3 8B model. Our hypothesis consistently holds for language models regardless of pruning granularity, rotation, and weight updates.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/KWtOTMMvKU/fig_004_page_008.png"
         },
         {
           "id": "fig_005_page_008",
@@ -302,7 +323,8 @@
           "label": "Figure 5",
           "caption": "Rotation im- pact on pruning. See Section 5.2 for details.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/KWtOTMMvKU/fig_005_page_008.png"
         },
         {
           "id": "fig_006_page_009",
@@ -310,7 +332,8 @@
           "label": "Figure 6",
           "caption": "The Progressive Intensity Hypothesis holds across diverse vision models. See Section 5.3 for details.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/KWtOTMMvKU/fig_006_page_009.png"
         },
         {
           "id": "fig_007_page_009",
@@ -318,7 +341,8 @@
           "label": "Figure 7",
           "caption": "Multi-stage compression results on LLaMA 3 8B model.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/KWtOTMMvKU/fig_007_page_009.png"
         },
         {
           "id": "fig_008_page_010",
@@ -326,7 +350,8 @@
           "label": "Figure 8",
           "caption": "Joint compression re- sults with LoRA adapters.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/KWtOTMMvKU/fig_008_page_010.png"
         }
       ],
       "answerability": "partial",
@@ -358,7 +383,8 @@
           "label": "Figure 1",
           "caption": "The effect of varying the rank ratio and number of iterations on zero-shot and five-shot accuracy.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/DLDuVbxORA/fig_001_page_007.png"
         },
         {
           "id": "fig_002_page_008",
@@ -366,7 +392,8 @@
           "label": "Figure 2",
           "caption": "Experiments evaluating OATS with 2:8 structured sparsity on the sparse terms against 2:4 sparsity of state-of-the pruning algorithms. The rank ratio for OATS is varied to capture the performance across different compression rates.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/DLDuVbxORA/fig_002_page_008.png"
         },
         {
           "id": "fig_003_page_009",
@@ -374,7 +401,8 @@
           "label": "Figure 3",
           "caption": "below provides a visualization of how the information would flow through a standard transformer block for both settings.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/DLDuVbxORA/fig_003_page_009.png"
         },
         {
           "id": "fig_004_page_009",
@@ -382,7 +410,8 @@
           "label": "Figure 3",
           "caption": "A visualization of how the attention rollout is computed to isolate the contribution of the sparse terms versus low-rank terms given by the OATS algorithm.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/DLDuVbxORA/fig_004_page_009.png"
         },
         {
           "id": "fig_005_page_009",
@@ -390,7 +419,8 @@
           "label": "Figure 4",
           "caption": "depicts the attention rollout for various images in the Microsoft COCO dataset (Lin et al., 2014) passed to a ViT-B that was compressed by 50%, with a rank ratio of 20%.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/DLDuVbxORA/fig_005_page_009.png"
         },
         {
           "id": "fig_006_page_009",
@@ -398,7 +428,8 @@
           "label": "Figure 4",
           "caption": "Attention rollout visualization applied to various images on the Microsoft COCO dataset.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/DLDuVbxORA/fig_006_page_009.png"
         }
       ],
       "answerability": "partial",
@@ -433,7 +464,8 @@
           "label": "Figure 1",
           "caption": "Matrix multiplication of the signal X and a weight matrix W under different types of sparsity. Left: unstructured sparsity, where some elements of W are zero, and X is dense. Middle: 2:4 structured sparsity, where each block of four weight matrix entries contains two zeros, and X is dense. Right: SliceGPT, where after introducing transformation Q, all the sparsity is arranged to the bottom rows of W and the corresponding columns of X are removed. Pruning methods work by setting some elements of the weight matrices in an LLM to zero, and (optionally) updating the surrounding elements of the matrix to compensate. The result is a sparse pattern which means that some floating point operations can be skipped in the matrix multiplications required in the forward pass of the neural network. The relative speedup of the operations depends on the level of sparsity and the sparsity pattern: more structured sparsity is associated with more computational gain. In contrast to other pruning methods, SliceGPT prunes away (slices off!) entire rows or columns of the weight matrices. Before slicing, we perform a single transformation of the network which leaves the predictions invariant, but allows the slicing to have only a small effect.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/vXxardq6db/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_002",
@@ -441,7 +473,8 @@
           "label": "Figure 1",
           "caption": "compares our approach with existing sparsity methods. Our contributions are as follows:",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/vXxardq6db/fig_002_page_002.png"
         },
         {
           "id": "fig_003_page_003",
@@ -449,7 +482,8 @@
           "label": "Figure 2",
           "caption": "A single layer in a transformer net- work. The signals (inputs) arising from the pre- vious blocks of the networks arrive at the bottom of the figure, before being passed through atten- tion, LayerNorm, and FFN. The attention and FFN blocks both have input and output linear op- erations (blue) which we denote in the text as Win, Wout. The linear operations of LayerNorm M and diag(α) are highlighted. This and subse- quent figures do not show biases.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/vXxardq6db/fig_003_page_003.png"
         },
         {
           "id": "fig_004_page_006",
@@ -457,7 +491,8 @@
           "label": "Figure 3",
           "caption": "Converting a transformer network from LayerNorm to RMSNorm: the scale matrix diag(α) is absorbed into the subsequent matrix Win. Figure shows the block in combined colors. We use (α) for brevity. The mean-subtraction matrix M is applied to each matrix Wout. Layer- norm becomes RMSNorm, up to a constant √ D (not shown). Here, the scaling (α′) comes from the previous block.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/vXxardq6db/fig_004_page_006.png"
         },
         {
           "id": "fig_005_page_008",
@@ -465,7 +500,8 @@
           "label": "Figure 5",
           "caption": "Mean zero-shot accuracy on LLAMA-2 and Phi-2 across multiple tasks after slicing and recovery fine-tuning (RFT). Left: WikiText-2 used for calibration and RFT. Right: Alpaca used for calibration and RFT.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/vXxardq6db/fig_005_page_008.png"
         }
       ],
       "answerability": "partial",
@@ -494,7 +530,8 @@
           "label": "Figure 1",
           "caption": "(Proposed framework overview.) UniQL supports Transformers, SSMs, and hybrid models, enabling one-shot compression using a single server-class GPU. The on-device pruning of the quantized model is feasible and configurable based on the current device workload. We present actual latency on Nano 8G in relation to accuracy for different pruning rates across three distinct models on the right. Circle sizes correspond to model sizes.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/iOGu4wtDTF/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_003",
@@ -502,7 +539,8 @@
           "label": "Figure 2",
           "caption": "(The UniQL pipeline.) We devise pseudo-inverse-free, quantization-aware, and state- aware matrix decomposition methods for the grouped weights to obtain sorted weights (a). During fine-tuning, we sample global pruning rates, and masked out the weight channels (b). The refined patches are fused into the weights, followed by model quantization for deployment (c). Based on the system utilization, we perform on-device adaptive pruning of the quantized model (d).",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/iOGu4wtDTF/fig_002_page_003.png"
         },
         {
           "id": "fig_003_page_004",
@@ -510,7 +548,8 @@
           "label": "Figure 3",
           "caption": "(Joint weight decomposition.) We visualize the group of sorted weights in MLP (a), MHSA (b), and Mamba (c) blocks. The group of weights for joint decomposition is shown in the same background color, e.g., Wq and Wk in the pink background, and other groups are dis- tinguished by different colors. We devise different types of joint compression algorithms that are efficient and quantization-aware to support on-device pruning.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/iOGu4wtDTF/fig_003_page_004.png"
         },
         {
           "id": "fig_004_page_005",
@@ -518,7 +557,8 @@
           "label": "Figure 4",
           "caption": "(The fused kernel and SVD decomposition.) In the left illustration, gathering and slicing rotary positional embeddings by the index vector for Q and K are fused in one kernel to reduce memory access. The embeddings for the pruned head dimension D′ hd are gathered from the index array Ssym in the fused kernel. On the right, we combine the diagonal matrix Σ with U as the group shares a quantization scaling factor to reduce the quantization errors.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/iOGu4wtDTF/fig_004_page_005.png"
         }
       ],
       "answerability": "partial",
@@ -555,7 +595,8 @@
           "label": "Figure 1",
           "caption": "Pruning to moderate sparsity (> 30% sparse) harms fact recall while in-context learning withstands even aggressive pruning (60% sparse). We plot the accuracy versus sparsity for the OPT-13B, OPT-30B, LLaMA-13B, and LLaMA-33B models on TriviaQA dataset for fact recall evaluation (left) and linear classification dataset for ICL evaluation (right). We plot their average performance in red. We color the range of sparsity where accuracy drop is within (relative) 5% of the dense model in green. Accepting (relative) 5% accuracy drop w.r.t. the dense model, the maximum sparsity on fact recall task is 30%, whereas the maximum sparsity on ICL task is 60%.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/ldJXXxPE0L/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_006",
@@ -563,7 +604,8 @@
           "label": "Figure 2",
           "caption": "Evaluation for question answering tasks under pruning. Each color represents a different model; each line-style/marker-shape combination represents a different QA dataset. Moderate pruning harms LLMs’ capability to recall facts learnt during pre-training: in close-book QA tasks, accepting a 5% drop in average accuracy w.r.t. the dense models, we can prune to 30 and 40% on TriviaQA and WebQA dataset. However, when we present the model with the supporting evidence to answer the question in its context, the model’s ability to answer questions survives to higher sparsity: on open-book QA tasks, accepting the same drop in average accuracy, we can prune to 50% and 60% on TriviaQA(F) and NatQ dataset, respectively. On the overriding task (DissentQA dataset), we may even prune to 70% while maintaining the same acceptable relative accuracy drop.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/ldJXXxPE0L/fig_002_page_006.png"
         },
         {
           "id": "fig_003_page_008",
@@ -571,7 +613,8 @@
           "label": "Figure 3",
           "caption": "ICL withstands aggresive pruning (60-70% spasity). Accepting a relative average (over 4 models) accuracy drop of 5% w.r.t. the dense models, we can prune to 60%, 60% and 70% on linear classification, 2-layer NN, decision tree tasks, respectively.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/ldJXXxPE0L/fig_003_page_008.png"
         },
         {
           "id": "fig_004_page_008",
@@ -579,7 +622,8 @@
           "label": "Figure 4",
           "caption": "Like pruning, moderate dense down-scaling preserves ICL while harming fact recall. Gray lines show the sequence of dense down-scaled OPT models; we also show the sequence of pruned OPT-30B and OPT-13B models in red and yellow for comparison. Each line style and marker shape combination corresponds to a unique tasks. For the left plot: fact recall is highly sensitive to dense scaling: gray lines shows that, moving from the 30B model to the next largest 13B model leads to more than 5% relative accuracy drop on close-book TriviaQA (solid line/circle marker) and WebQA task (dashed line/square marker), respectively. For the middle plot, open-book/overriding QA accuracy is much less sensitive to dense down-scaling; maintaining the same 5% acceptable accuracy drop, one may down-scale a 30B model to a 6.7B model on TriviaQA(F) (gray, solid line/circle marker), NaturalQuestions dataset (gray, dashed line/square marker) and DisentQA (gray, dotted line/triangle marker). For the right plot, model performance on sophisticated ICL tasks (linear classification, 2-layer NN and decision tree) are highly robust to dense down-scaling.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/ldJXXxPE0L/fig_004_page_008.png"
         }
       ],
       "answerability": "partial",
@@ -612,7 +656,8 @@
           "label": "Figure 1",
           "caption": "Left side: in the standard approach, each weight is represented by a soft index that points to a value within a single codebook. Assuming that the loss for this weight suggests increasing its value (highlighted in red), then the standard gradient update would be scaled by the codebook values, thus skipping 0.17 and directly increasing the weight of 0.96 in the codebook. Center/right side: a contrario, JLCM leverages multiple codebooks and/or scales and deﬁnes a novel gradient update term to allow proximal search within the codebook values.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/model-compression/1RrOtCmuKr/fig_001_page_002.png"
         }
       ],
       "answerability": "partial",

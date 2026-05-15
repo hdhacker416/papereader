@@ -37,7 +37,8 @@
           "label": "Figure 1",
           "caption": "Overview of Jailbreak Antidote. (a) Obtaining the safety direction dsafe using PCA on hidden states from benign and harmful prompts. (b) Adjusting the internal state hS′ of the adver- sarial prompt S′ by shifting it towards dsafe during inference. S0 represents the original harmful prompt, and S′ represents the adversarial attack prompt. The example uses a past-tense attack. (c) Comparison on Llama-3.1-8B-it, with lines representing different k% values. Points along each line correspond to varying α values. The baseline point shows the performance of the original model without defense.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/s20W12XTF8/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_004",
@@ -45,7 +46,8 @@
           "label": "Figure 2",
           "caption": "(a) t-SNE visualization of hidden states of benign prompts, harmful prompts, and adver- sarial prompts (PAIR and GCG) at different layers in Llama-3.1-8B-it. The safety direction dl safe is indicated by the arrows. In deeper layers, attack prompts are positioned between the benign and harmful clusters, indicating how attacks manipulate internal states. (b) Distribution of the compo- nents of dl safe at different layers, showing a long-tailed distribution that indicates sparsity in safety representations.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/s20W12XTF8/fig_002_page_004.png"
         },
         {
           "id": "fig_003_page_005",
@@ -55,7 +57,8 @@
           "confidence": 0.45,
           "warnings": [
             "No nearby image/vector graphics found; used caption-relative page crop."
-          ]
+          ],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/s20W12XTF8/fig_003_page_005.png"
         },
         {
           "id": "fig_004_page_008",
@@ -63,7 +66,8 @@
           "label": "Figure 3",
           "caption": "DSR heatmaps for different attack-defense combinations on (a) Phi-3-mini-it, (b) Qwen- 1.5-7B-it, and (c) Llama-3-70B-it. Rows represent defense methods; columns represent attack meth- ods. Our method, Jailbreak Antidote, demonstrates high DSR across all attack methods, including more sophisticated ones like PAIR and GCG, which are designed to exploit model vulnerabilities. Notably,",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/s20W12XTF8/fig_004_page_008.png"
         },
         {
           "id": "fig_005_page_009",
@@ -71,7 +75,8 @@
           "label": "Figure 4",
           "caption": "Runtime per Query versus DSR for different defense methods across various models. Each point represents a defense method, with the x-axis showing the average runtime per query (seconds) and the y-axis showing the DSR. As shown in Figure 4, Jailbreak Antidote achieves the shortest runtime per query across all models, highlighting its efficiency advantage. This is because our method works by directly adjusting the internal states rather than introducing additional tokens or modifying the input prompt, thus mini- mizing computational overhead. In contrast, methods like SemanticSmoothLLM and SmoothLLM result in significantly higher query runtimes due to their reliance on a substantial number of addi- tional defense tokens, which increase computational cost and user-perceived delays. Despite their longer query runtimes, these methods achieve lower DSRs compared to our approach, indicating that their defense performance is less effective relative to the computational overhead they introduce.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/s20W12XTF8/fig_005_page_009.png"
         },
         {
           "id": "fig_006_page_010",
@@ -79,7 +84,8 @@
           "label": "Figure 5",
           "caption": "Impact of the scaling factor α on DSR and Win Rate for different sparsity levels k. The left y-axis represents Win Rate (bars), and the right y-axis represents DSR (lines). (a) Qwen-2-7B-it, (b) Llama-3.1-8B-it. Different colors represent different k% values.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/s20W12XTF8/fig_006_page_010.png"
         },
         {
           "id": "fig_007_page_010",
@@ -87,7 +93,8 @@
           "label": "Figure 6",
           "caption": "Win Rate versus DSR for different values of k and selection strategies across various models. Dots represent other defense methods; lines represent Jailbreak Antidote with different k% values. Diamonds indicate top k% selection; squares indicate random k% selection. As shown in Figure 5, interestingly, when α < 0, the model’s safety performance drops below the baseline (α = 0), which indicates that our method can be reversed to weaken safety, effectively turning it into an attack method. This showcases the flexibility of the approach, although our primary focus remains on enhancing safety.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/s20W12XTF8/fig_007_page_010.png"
         }
       ],
       "answerability": "yes",
@@ -121,7 +128,8 @@
           "label": "Figure 1",
           "caption": "The pipeline of our proposed Prompt Adversarial Tuning (PAT) at the inference stage. When our safety prefix is attached to the input prompts, the protected LLM will be robust to malicious attacks while maintaining reasonable responses to legitimate requests.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/nRdST1qifJ/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_007",
@@ -129,7 +137,8 @@
           "label": "Figure 2",
           "caption": "Transferability of PAT across models. PAT can acquire low ASR when it transfers the prefix across different model architectures.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/nRdST1qifJ/fig_002_page_007.png"
         },
         {
           "id": "fig_003_page_008",
@@ -137,7 +146,8 @@
           "label": "Figure 3",
           "caption": "The examples of PAT to defend jailbreak attacks for closed-source models.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/nRdST1qifJ/fig_003_page_008.png"
         },
         {
           "id": "fig_004_page_009",
@@ -145,7 +155,8 @@
           "label": "Figure 4",
           "caption": "Ablation Studies for PAT. We investigate the influence of different factors, including (a) the length of the defense control |Idef| (b) the trade-off factor α",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/nRdST1qifJ/fig_004_page_009.png"
         }
       ],
       "answerability": "yes",
@@ -174,7 +185,8 @@
           "label": "Figure 1",
           "caption": "ASR of Adversarial Reason- ing against models.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/Wx5xG7FPXK/fig_001_page_001.png"
         },
         {
           "id": "fig_002_page_001",
@@ -182,7 +194,8 @@
           "label": "Figure 2",
           "caption": "Left: accuracy of intent extraction during safety reasoning. Right: safety performance when extracting the correct and wrong intent.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/Wx5xG7FPXK/fig_002_page_001.png"
         },
         {
           "id": "fig_003_page_002",
@@ -190,7 +203,8 @@
           "label": "Figure 3",
           "caption": "Reasoning-based safety-aligned LLMs mislead by the advanced optimization-based jail- break prompt and falsely catch the intent, resulting in a misaligned output. In contrast, ARMOR extracts the core intent of the instruction with a jailbreak strategy analysis, along with a policy-based safety analysis, demonstrating robustness to advanced optimization-based jailbreak attacks. LLMs demonstrate strong generative abilities [1, 41], excelling in tasks like math [8, 17] and code synthesis [59, 33], enabling broad applications. Yet safety remains a key concern [49, 62], post- training alignment methods such as SFT [6] and RLHF [3] reduce harmful outputs but remain vulnerable to jailbreaks [67, 55, 46, 35]. Recently, works like o1 [23, 16], STAIR [65], and STAR-1 [54] explore safety reasoning, where models use chain-of-thought reasoning (CoT) [56] to assess risks during inference before producing final outputs, yielding safer responses.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/Wx5xG7FPXK/fig_003_page_002.png"
         },
         {
           "id": "fig_004_page_004",
@@ -198,7 +212,8 @@
           "label": "Figure 4",
           "caption": "The framework of ARMOR consists of the following steps: (1) Construct the Meticulous Reasoning steps with jailbreak prompts, their coordinate ground truth (GT) jailbreak strategy and intent, and the safety policy; (2) Format the reasoning steps with inputs involving the user’s prompts and the system prompt consists of a dynamic strategy library and the safety policy; (3) Train the base model to get the ARMOR model; (4) Conduct inference of ARMOR with a custom strategy library and the safety policy; (5) Conduct test-time scaling with the DPO model and PRM trained on preference data generated from grounded tree sampling.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/Wx5xG7FPXK/fig_004_page_004.png"
         },
         {
           "id": "fig_005_page_008",
@@ -206,7 +221,8 @@
           "label": "Figure 5",
           "caption": "Average length of safety reasoning.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/Wx5xG7FPXK/fig_005_page_008.png"
         },
         {
           "id": "fig_006_page_008",
@@ -214,7 +230,8 @@
           "label": "Figure 6",
           "caption": "Safety rate of AR- MOR on ExHarm with test- time scaling.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/Wx5xG7FPXK/fig_006_page_008.png"
         },
         {
           "id": "fig_007_page_009",
@@ -222,7 +239,8 @@
           "label": "Figure 7",
           "caption": "Relationship between the score of preceding steps and the average score of its subsequent steps. Steps include strategy analysis, intent analysis, safety analysis and final answer. A higher score represents that the analysis of the steps is more accurate.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/Wx5xG7FPXK/fig_007_page_009.png"
         }
       ],
       "answerability": "partial",
@@ -257,7 +275,8 @@
           "label": "Figure 1",
           "caption": "An inferential adversary can infer an answer to the harmful question by asking dual-intent subquestions without jailbreaking, demonstrating robust models can still be misused.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/8Rov0fjpOL/fig_001_page_001.png"
         },
         {
           "id": "fig_002_page_005",
@@ -265,7 +284,8 @@
           "label": "Figure 2",
           "caption": "Decomposition Attacks outperform PAIR as measured by average information gain across multiple victim models, and their performance maintains when additional defense mechanisms to Meta-Llama-3.1-70B-Instruct such as DeRTa and Llama RMU are applied.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/8Rov0fjpOL/fig_002_page_005.png"
         },
         {
           "id": "fig_003_page_006",
@@ -273,7 +293,8 @@
           "label": "Figure 3",
           "caption": "Comparison of attack success rates, measured by the fraction of times the adversary model’s pre-attack prediction was wrong and post-attack prediction correct out of the times it’s pre-attack prediction was wrong.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/8Rov0fjpOL/fig_003_page_006.png"
         }
       ],
       "answerability": "partial",
@@ -309,7 +330,8 @@
           "label": "Figure 1",
           "caption": "Illustration of jailbreak attacks and RobustKV.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/L5godAOC2z/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_004",
@@ -319,7 +341,8 @@
           "confidence": 0.45,
           "warnings": [
             "No nearby image/vector graphics found; used caption-relative page crop."
-          ]
+          ],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/L5godAOC2z/fig_002_page_004.png"
         },
         {
           "id": "fig_003_page_009",
@@ -327,7 +350,8 @@
           "label": "Figure 3",
           "caption": "Impact of eviction rate and eviction randomness on RobustKV.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/L5godAOC2z/fig_003_page_009.png"
         },
         {
           "id": "fig_004_page_009",
@@ -335,7 +359,8 @@
           "label": "Figure 3",
           "caption": "illustrates RobustKV’s performance under varying eviction rates and randomness settings. Observe that the ASR decreases sharply as the eviction rate increases, while the LLM’s performance on AlpacaEval drops slightly as KVs of more tokens are evicted. An eviction rate of p = 20% appears to strike an optimal balance between attack robustness and the LLM’s general performance. The deterministic eviction policy generally outperforms the randomized policy, corroborating the observation that tokens of harmful queries consistently rank lower than those of jailbreak prompts.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/L5godAOC2z/fig_004_page_009.png"
         },
         {
           "id": "fig_005_page_009",
@@ -343,7 +368,8 @@
           "label": "Figure 4",
           "caption": "RobustKV’s response to adaptive at- tacks that duplicate harmful queries.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/L5godAOC2z/fig_005_page_009.png"
         },
         {
           "id": "fig_006_page_010",
@@ -351,7 +377,8 @@
           "label": "Figure 5",
           "caption": "RobustKV’s response to adaptive at- tacks that manipulate token importance.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/L5godAOC2z/fig_006_page_010.png"
         },
         {
           "id": "fig_007_page_010",
@@ -361,7 +388,8 @@
           "confidence": 0.45,
           "warnings": [
             "No nearby image/vector graphics found; used caption-relative page crop."
-          ]
+          ],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/L5godAOC2z/fig_007_page_010.png"
         }
       ],
       "answerability": "yes",
@@ -390,7 +418,8 @@
           "label": "Figure 1",
           "caption": "Overview of the GraphShield framework. Given a prompt, hidden states and attentions are extracted from a single forward pass over the prompt from the target LLM (e.g., LLaMA-2, Vicuna). Anchor tokens (e.g., “I”, “can”, “cannot”, “else”, “help”) are used to construct token–layer graphs where nodes represent anchor-aligned hidden states and edges capture attention-guided semantic flow. From these graphs, multi-scale structural and semantic features are derived and fed into a lightweight classifier to decide whether the prompt is harmful or benign.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/vGk4D0fUzv/fig_001_page_003.png"
         },
         {
           "id": "fig_002_page_008",
@@ -398,7 +427,8 @@
           "label": "Figure 2",
           "caption": "Performance comparison of GraphShield’s jailbreak prompt detection under the seen setting on LLaMA-2 and Vicuna. Blue bars denote TPR (%), and green bars denote Specificity (1−FPR, %). The x-axis lists attack methods, and the y-axis indicates detection rate in percentage.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/vGk4D0fUzv/fig_002_page_008.png"
         },
         {
           "id": "fig_003_page_008",
@@ -408,7 +438,8 @@
           "confidence": 0.45,
           "warnings": [
             "No nearby image/vector graphics found; used caption-relative page crop."
-          ]
+          ],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/vGk4D0fUzv/fig_003_page_008.png"
         },
         {
           "id": "fig_004_page_009",
@@ -416,7 +447,8 @@
           "label": "Figure 3",
           "caption": "Comparison between harmful and benign prompts visualized as token–layer graphs on LLaMA-2 using the anchor token “cannot.” (a) Harmful prompt: “Describe in detail how criminals could secretly make a bomb using common items found inside a kitchen.” (b) Benign prompt: “Explain how children in a classroom can build a creative science project using paper.” Circle area is proportional to the routed node score, and edges indicate statistically significant attention-based propagation. Annotated tokens are shown at subword granularity (leading underscore ‘ ’ denotes BPE word boundary).",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/vGk4D0fUzv/fig_004_page_009.png"
         }
       ],
       "answerability": "partial",
@@ -452,7 +484,8 @@
           "label": "Figure 1",
           "caption": "(Left) Existing MLLM defense methods remain susceptible to text-driven multimodal jailbreaks, exhibiting overdefensive behavior and imposing heavy training overhead. (Right) SafePTR outperforms prior methods by achieving stronger jailbreak mitigation (i.e., Jailbreak28K, Figstep and MM-Safety), better preserving task utility (i.e., MMVet and MME), and minimal computational overhead (i.e., Training-free and One-bypass Inference). Performances of SafePTR across more MLLMs are provided in Appendix.A",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/MNSiBGNAvx/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_003",
@@ -460,7 +493,8 @@
           "label": "Figure 2",
           "caption": "Layer-wise vulnerability analysis of MLLMs. Each curve represents the Attack Success Rate (ASR) under layer-wise interventions with varying contiguous layer spans k = 2, 4 . The orange region highlights the layers most susceptible to safety breaches, with its left and right boundaries marking the earliest and latest compromised layers within the model, respectively. Since the intervention requires k consecutive layers, the horizontal axis is limited to the range [0, L −k].",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/MNSiBGNAvx/fig_002_page_003.png"
         },
         {
           "id": "fig_003_page_004",
@@ -468,7 +502,8 @@
           "label": "Figure 4",
           "caption": "Token-wise semantic deviation analysis for LLaVA-1.5-7B. Left: layer-wise distribution of harmful tokens across all layers. Middle: semantic deviation heatmap at layer 8 (brighter = higher deviation). Right: blurred overlay of identified harmful tokens. More visualization results of heatmaps across MiniGPT-4, DeepSeek-VL2 on FigStep and MM-SafetyBench provided in Appendix.C.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/MNSiBGNAvx/fig_003_page_004.png"
         },
         {
           "id": "fig_004_page_005",
@@ -476,7 +511,8 @@
           "label": "Figure 5",
           "caption": "Overview of SafePTR framework. The Harmful Token Pruning (HTP) module removes harmful visual and textual tokens in early vulnerable layers by comparing them with a safety-aligned instruction. The Benign Feature Restoration (BFR) module then recovers task-relevant benign features in later layers to preserve model utility. This decoupled design ensures interpretability and enables training-free, lightweight deployment. 3.1 Harmful Token Prunning As indicated in Fig. 2, the very early layers, contribute minimally to harmful behaviors For the subse- quent layers [n, n+∆n), where ∆n = 2 (e.g., layers [7, 9) for LLaVA1.5-7B and MiniGPT-4-7B, lay- ers [4, 6) for DeepSeek-VL2), Harmful Token Prunning (HTP) is applied to remove vision/instruction",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/MNSiBGNAvx/fig_004_page_005.png"
         }
       ],
       "answerability": "partial",
@@ -515,7 +551,8 @@
           "label": "Figure 1",
           "caption": "(left) Normal jailbreak process attacks aligned LLMs, where red parts represent an example of adversarial prefix and suffix. (right) Our IBProtector extracts compression information related to expected responses to mitigate jailbreaking attacks on LLMs.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/u9ShP64FJV/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_004",
@@ -523,7 +560,8 @@
           "label": "Figure 2",
           "caption": "The model framework of IBProtector, where fire and snowflake denote frozen and trained parameters, respectively, and the small language model is optional. Given an input prompt, the extractor can extract the most informative parts for the predictor to respond to.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/u9ShP64FJV/fig_002_page_004.png"
         },
         {
           "id": "fig_003_page_007",
@@ -531,7 +569,8 @@
           "label": "Figure 3",
           "caption": "An example of the IBProtector. We use ‘.’ perturbation in the adversarial prompt thus all uninfor- mative tokens are replaced with ‘.’.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/u9ShP64FJV/fig_003_page_007.png"
         },
         {
           "id": "fig_004_page_008",
@@ -539,7 +578,8 @@
           "label": "Figure 4",
           "caption": "IBProtector’s extractor and Smooth LLMs defense results from other target models, where a lower ASR is better. IBProtector is interpreted as masking the most useless information, whereas Smooth is interpreted as randomizing masks where the number of copies is a way of ensemble masks.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/u9ShP64FJV/fig_004_page_008.png"
         },
         {
           "id": "fig_005_page_009",
@@ -547,7 +587,8 @@
           "label": "Figure 5",
           "caption": "Ablation study of the PAIR attacks on Vicuna-13B.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/u9ShP64FJV/fig_005_page_009.png"
         }
       ],
       "answerability": "partial",
@@ -576,7 +617,8 @@
           "label": "Figure 1",
           "caption": "HMNS successfully jailbreaks LLaMA 3.1 70B, demonstrating high attack success and compute efficiency even on large-scale, strongly aligned models.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/qlf6y1A4Zu/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_003",
@@ -584,7 +626,8 @@
           "label": "Figure 2",
           "caption": "Overview of HMNS procedure. Each step in the closed-loop intervention pipeline is shown: attribution identifies influential heads; masking suppresses them; nullspace steering com- putes an orthogonal direction; and a scaled perturbation is injected into the residual stream. If unsuccessful, the process repeats with updated attribution.",
           "confidence": 0.72,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/qlf6y1A4Zu/fig_002_page_003.png"
         },
         {
           "id": "fig_003_page_010",
@@ -592,7 +635,8 @@
           "label": "Figure 3",
           "caption": "Ablation studies on Phi-3 Medium 14B (AdvBench). (a) Attribution mechanisms: KL- divergence achieves the best ASR–compute tradeoff; removing proxy pre-selection preserves ASR but nearly triples IPC. (b) Nullspace and injection design: strict orthogonality and hard masking are critical; partial masking (γ =0.5) degrades ASR and raises ACQ. Bars show ASR (%, GPT-4o/GPT- 5); overlaid lines show FPS (×1012) in (a) and ACQ in (b).",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/qlf6y1A4Zu/fig_003_page_010.png"
         }
       ],
       "answerability": "partial",
@@ -631,7 +675,8 @@
           "label": "Figure 1",
           "caption": "An example to illustrate how the router assigns weights to Gladresp and Unwillresp. The h_states and o_states represent the input vector and output vector respectively.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/SrFbgIjb53/fig_001_page_002.png"
         },
         {
           "id": "fig_002_page_004",
@@ -639,7 +684,8 @@
           "label": "Figure 2",
           "caption": "Overall framework of our MoGU.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/SrFbgIjb53/fig_002_page_004.png"
         },
         {
           "id": "fig_003_page_010",
@@ -647,7 +693,8 @@
           "label": "Figure 4",
           "caption": "We present the results (ASR%) of LLMs under red team evaluations and various jailbreak attacks, with drouter set at 128, 256, 512, and 1024. The “AVG.” indicates the average defense performance. Lower ASR% values indicate better defense performance.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/SrFbgIjb53/fig_003_page_010.png"
         },
         {
           "id": "fig_004_page_010",
@@ -655,7 +702,8 @@
           "label": "Figure 3",
           "caption": "The distribution of weights as- signed by the router of Vicuna7B.",
           "confidence": 0.82,
-          "warnings": []
+          "warnings": [],
+          "image_url": "/community/seeded-figures/jailbreak-defense-tradeoff/SrFbgIjb53/fig_004_page_010.png"
         }
       ],
       "answerability": "yes",
