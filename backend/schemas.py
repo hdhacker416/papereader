@@ -376,7 +376,7 @@ class ResearchPackUploadResponse(BaseModel):
 
 class CommunityAnswerRequest(BaseModel):
     query: str
-    limit: int = 5
+    limit: int = 10
     max_text_chars: int = 120000
     figure_max_pages: int = 12
 
@@ -403,6 +403,8 @@ class CommunityPaperAnswer(BaseModel):
     local_pdf_path: Optional[str] = None
     figure_count: int = 0
     figures: List[CommunityFigureRef] = []
+    answerability: Optional[str] = None
+    answerability_reason: Optional[str] = None
     answer: Optional[str] = None
     seconds: Optional[float] = None
     status: str

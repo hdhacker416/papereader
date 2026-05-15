@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { AlertCircle, FileText, Image as ImageIcon, Loader2, MessageCircle, RefreshCw, Sparkles } from 'lucide-react';
+import { AlertCircle, FileText, Image as ImageIcon, Loader2, MessageCircle, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 import Layout from '../components/Layout';
 import { communityApi } from '../api/services';
@@ -12,7 +12,6 @@ const CommunityPage: React.FC = () => {
   const [topicData, setTopicData] = useState<CommunityTopicResponse | null>(null);
   const [loadingTopics, setLoadingTopics] = useState(true);
   const [loadingTopic, setLoadingTopic] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
 
   const selectedTopic = useMemo(
@@ -63,28 +62,6 @@ const CommunityPage: React.FC = () => {
       loadTopic(selectedTopicId);
     }
   }, [selectedTopicId]);
-
-  const precomputeTopic = async () => {
-    if (!selectedTopic || generating) {
-      return;
-    }
-    setGenerating(true);
-    setError('');
-    try {
-      const response = await communityApi.generateTopic(selectedTopic.id, {
-        limit: 5,
-        max_text_chars: 120000,
-        figure_max_pages: 12,
-      });
-      setTopicData(response);
-      await loadTopics();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to precompute answers';
-      setError(message);
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   const answers = topicData?.results || [];
 
@@ -169,29 +146,18 @@ const CommunityPage: React.FC = () => {
 
           <section className="flex-1 min-w-0 border border-gray-200 bg-white rounded-lg overflow-hidden flex flex-col">
             <div className="shrink-0 border-b border-gray-100 px-6 py-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
-                    {selectedTopic?.tags.join(' / ') || 'Community'}
-                  </div>
-                  <h2 className="mt-1 text-xl font-semibold text-gray-900 leading-snug">
-                    {selectedTopic?.question || 'Select a question'}
-                  </h2>
-                  {topicData?.topic.updated_at && (
-                    <div className="mt-2 text-xs text-gray-500">
-                      Updated {new Date(topicData.topic.updated_at).toLocaleString()}
-                    </div>
-                  )}
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
+                  {selectedTopic?.tags.join(' / ') || 'Community'}
                 </div>
-                <button
-                  type="button"
-                  onClick={precomputeTopic}
-                  disabled={!selectedTopic || generating}
-                  className="shrink-0 inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {generating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                  Precompute
-                </button>
+                <h2 className="mt-1 text-xl font-semibold text-gray-900 leading-snug">
+                  {selectedTopic?.question || 'Select a question'}
+                </h2>
+                {topicData?.topic.updated_at && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    Updated {new Date(topicData.topic.updated_at).toLocaleString()}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -209,9 +175,9 @@ const CommunityPage: React.FC = () => {
                     <div className="mx-auto w-12 h-12 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center">
                       <MessageCircle size={24} />
                     </div>
-                    <h3 className="mt-4 font-semibold text-gray-900">No precomputed answers yet</h3>
+                    <h3 className="mt-4 font-semibold text-gray-900">This topic is not ready yet</h3>
                     <p className="mt-2 text-sm text-gray-500 leading-6">
-                      This page is now a feed-style browser. Generate this topic once, then future visits will load the cached paper answers immediately.
+                      Community is cache-first. Answers are prepared offline and then shown here automatically.
                     </p>
                   </div>
                 </div>
@@ -237,10 +203,20 @@ const PaperAnswerCard: React.FC<{ paper: CommunityPaperAnswer }> = ({ paper }) =
             Answer {paper.rank} · {paper.conference} {paper.year}
           </div>
           <h3 className="mt-1 text-xl font-semibold text-gray-950 leading-snug">{paper.title}</h3>
-          <div className="mt-2 text-xs text-gray-500">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+            {paper.answerability && (
+              <span className={clsx(
+                'rounded-full px-2 py-0.5 font-medium',
+                paper.answerability === 'yes' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700',
+              )}>
+                {paper.answerability === 'yes' ? 'direct answer' : 'partial answer'}
+              </span>
+            )}
+            <span>
             {paper.authors.slice(0, 5).join(', ')}
             {paper.authors.length > 5 ? ' et al.' : ''}
             {typeof paper.seconds === 'number' ? ` · ${paper.seconds.toFixed(1)}s generated` : ''}
+            </span>
           </div>
         </div>
         {paper.source_url && (
@@ -259,6 +235,12 @@ const PaperAnswerCard: React.FC<{ paper: CommunityPaperAnswer }> = ({ paper }) =
       {paper.error && (
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           {paper.error}
+        </div>
+      )}
+
+      {paper.answerability_reason && (
+        <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+          {paper.answerability_reason}
         </div>
       )}
 

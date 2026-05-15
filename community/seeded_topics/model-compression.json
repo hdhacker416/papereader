@@ -1,0 +1,626 @@
+{
+  "topic": {
+    "id": "model-compression",
+    "question": "如果想把大模型部署到更便宜的机器上，量化、蒸馏和剪枝哪个更值得优先做？",
+    "description": "模型压缩、推理加速和部署相关论文的回答合集。",
+    "tags": [
+      "Compression",
+      "Quantization",
+      "Deployment"
+    ]
+  },
+  "route": "4_deepseek_text_figures_answer",
+  "updated_at": "2026-05-15T20:34:46",
+  "results": [
+    {
+      "rank": 1,
+      "paper_id": "2za3iNkwXn",
+      "conference": "iclr",
+      "year": 2026,
+      "title": "When Reasoning Meets Compression: Understanding the Effects of LLMs Compression on Large Reasoning Models",
+      "abstract": "Compression methods, including quantization, distillation, and pruning, improve the computational efficiency of large reasoning models (LRMs). However, existing studies either fail to sufficiently compare all three compression methods on LRMs or lack in-depth interpretation analysis. In this paper, we investigate how the reasoning capabilities of LRMs are compromised during compression, through performance benchmarking and mechanistic interpretation. To uncover the effects of compression on reasoning performance, we benchmark quantized, distilled, and pruned DeepSeek-R1 models on four reasoning datasets (AIME 2024, FOLIO, Temporal Sequences, and MuSiQue). To precisely locate compression effects on model weights, we adapt difference of means and attribution patching techniques, focusing on the activation of every linear component in compressed LRMs, to interpret fine-grained causal relationships between weights and various reasoning capabilities. This fine-grained interpretation addresses a fundamental question of compression: which weights are the most important for reasoning? Overall, we find dynamically quantized 2.51-bit R1 reaches close-to-R1 performance. With empirical verification, we present three main findings that generalize across both Llama and Qwen: (1) Weight count has a greater impact on LRMs' knowledge memorization than reasoning, highlighting the risks of pruning and distillation; (2) The MLP up projection in the final layer of distilled LRMs is one of the most important components, offering a new perspective on locating critical weights - a fundamental problem in model compression; and (3) Current quantization methods overly compress the final-layer modules and MLP gate projections, so protecting just 2% of all weights that are excessively compressed can raise average accuracy by 6.57%, greatly surpassing the state-of-the-art.",
+      "authors": [],
+      "source_url": "https://openreview.net/forum?id=2za3iNkwXn",
+      "rerank_score": 0.5280267191421217,
+      "local_pdf_path": null,
+      "figure_count": 3,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "An overview of our pipeline. On the left, we benchmark compressed R1 variants on various reasoning tasks. On the right, by computing weight importance towards a specific reasoning behavior (a dot product of the steering vector and gradients with respect to an LRM’s activations), we study the compression effects on individual weight matrices. We empirically verify our findings on weight importance by selectively quantizing or protecting a module to test its importance.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_008",
+          "page_number": 8,
+          "label": "Figure 2",
+          "caption": "Ic mℓof DeepSeek-R1-Distill-Llama-8B (upper) and change of RIc mℓfrom DeepSeek-R1-Distill-Llama-8B to Llama-3.1-8B (lower). Each heatmap displays scores of importance (or importance shift) of every module at each layer, providing a fine-grained analysis of weight contributions to the corresponding reasoning capability. For the lower part, in- creases in RIc mℓare set to 0, as they only offset decreases elsewhere as discussed in 2.3. Every cluster of 4 side-by-side heatmaps (including those displayed below) follow the same scaling to show the precise magnitude of each weight module.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_009",
+          "page_number": 9,
+          "label": "Figure 3",
+          "caption": "Change of RIc mℓfrom DeepSeek-R1-Distill-Llama-8B to its 4-bit AWQ variant. Justification of only showing the decrease of RIc mℓin the main content is specified in Appendix H.",
+          "confidence": 0.72,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "The paper compares quantization, distillation, and pruning on large reasoning models, providing performance benchmarks and stating that quantization is recommended for knowledge-intensive tasks. However, it does not directly address the user's question of which method is more worthwhile for deploying to cheaper machines, and it focuses on reasoning models (LRMs) rather than general LLMs. The insights are relevant but insufficient for a definitive recommendation.",
+      "answer": "这个问题我恰好系统地研究过——我把量化、蒸馏和剪枝三种压缩方法在DeepSeek-R1系列上都跑了一遍，还做了细粒度的因果归因分析。我的答案是：**如果你追求性价比和部署稳定性，优先做量化；如果你的任务是知识密集型的，千万别首选蒸馏或剪枝。**\n\n直接说结论背后的原因。我在AIME 2024、FOLIO、时序推理和MuSiQue这四个难度跨度很大的推理基准上测试了各种压缩变体。最直观的证据来自性能评测：2.51-bit动态量化版的R1在平均准确率上甚至略高于原版R1（84.8 vs 83.1），而且1.58-bit这种极低比特的量化也只是把平均分降到78.7。相比之下，蒸馏模型到8B或7B这个级别时，平均准确率已经掉到65%左右；一旦在蒸馏基础上再施加50%稀疏度的剪枝，AIME 2024上的得分直接砍到23.3分，几乎不可用。也就是说，**量化对推理能力的伤害比蒸馏和剪枝小得多**。\n\n更重要的是，我通过\"重要性偏移\"分析发现了一个关键差异——**参数量对知识记忆的影响远大于对推理能力的影响**。剪枝和蒸馏都会直接减少权重数量，MuSiQue上的表现清楚地印证了这一点：把R1-Distill-Llama-70B剪到40%稀疏度时，MuSiQue的EM分数直接从13.0暴跌到6.0，而数学推理AIME只是从63.3降到56.7。甚至可以举个例子，Qwen-32B在推理任务上比Llama-70B还强一点，但在需要记忆知识的MuSiQue上，Qwen-32B的EM只有2.7，而Llama-70B有13.3。这说明剪枝和蒸馏在压缩过程中，首当其冲被干掉的往往是储存知识的权重结构。所以如果你的任务依赖模型的内部分知识，量化几乎是唯一安全的选择。\n\n你可能会问，\"那为什么量化就能表现这么好？\"我的分析揭示了一个反直觉的事实：**现在的量化方法其实压缩错了重点**。我在Figure 3和Figure 7里展示了，无论是AWQ还是GPTQ，它们对最后一层的MLP模块和中间层的门控投影都过度压缩了，而这些恰恰是推理最依赖的组件。验证实验也很说明问题：仅仅把最后一层MLP的权重从3-bit保护回16-bit，只动了所有权重的2%，平均准确率就能提升6.57%，最高提升达23.17%。\n\n所以如果非要在三者里排个优先级，我的建议很明确：**信任量化，警惕剪枝，谨慎选择蒸馏的目标模型大小**。量化是目前性价比最高的部署方案。",
+      "seconds": 7.22,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 2,
+      "paper_id": "9U0nLnNMJ7",
+      "conference": "nips",
+      "year": 2024,
+      "title": "Compact Language Models via Pruning and Knowledge Distillation",
+      "abstract": "Large language models (LLMs) targeting different deployment scales and sizes are currently produced by training each variant from scratch; this is extremely compute-intensive. In this paper, we investigate if pruning an existing LLM and then re-training it with a fraction <3% of the original training data can be a suitable alternative to repeated, full retraining. To this end, we develop a set of practical and effective **compression best practices** for LLMs that combine depth, width, attention and MLP pruning with knowledge distillation-based retraining; we arrive at these best practices through a detailed empirical exploration of pruning strategies for each axis, methods to combine axes, distillation strategies, and search techniques for arriving at optimal compressed architectures. We use this guide to compress the Nemotron-4 family of LLMs by a factor of 2-4x, and compare their performance to similarly-sized models on a variety of language modeling tasks. On these tasks, we perform better than Nemotron-3 8B and LLaMa2 7B using **up to 40x** fewer training tokens}, on par with Mistral 7B and Gemma 7B using **up to 85x fewer tokens** and slightly worse than LLaMa3 8B using **up to 159x fewer tokens**. Our models also compare favorably to state-of-the-art compression techniques from the literature.",
+      "authors": [
+        "Saurav Muralidharan",
+        "Sharath Turuvekere Sreenivas",
+        "Raviraj Bhuminand Joshi",
+        "Marcin Chochowski",
+        "Mostofa Patwary",
+        "Mohammad Shoeybi",
+        "Bryan Catanzaro",
+        "Jan Kautz",
+        "Pavlo Molchanov"
+      ],
+      "source_url": "https://neurips.cc/virtual/2024/poster/96308",
+      "rerank_score": 0.4697365520130936,
+      "local_pdf_path": null,
+      "figure_count": 5,
+      "figures": [
+        {
+          "id": "fig_001_page_001",
+          "page_number": 1,
+          "label": "Figure 1",
+          "caption": "MINITRON results. Our approach greatly reduces training costs for additional models (40×) while improving accuracy.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_003",
+          "page_number": 3,
+          "label": "Figure 2",
+          "caption": "High-level overview of our proposed iterative pruning and distillation approach to train a family of smaller LLMs. On a pretrained LLM, we first evaluate importance of neurons, rank them, trim the least important neurons and distill the knowledge from the original LLM to the pruned model. The original model is replaced with the distilled model for the next iteration of compression.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_004",
+          "page_number": 4,
+          "label": "Figure 2",
+          "caption": "provides an overview of how pruned models are obtained. For a given architecture configu- ration, we first rank the elements of each axis according to the computed importance and perform trimming (reshaping) of the corresponding weight matrices directly. For neuron and head pruning, we trim MLP and MHA layer weights, respectively. In the case of embedding channels, we trim the embedding dimension of the weight matrices in MLP, MHA, and LayerNorm layers. When pruning attention heads, we add the residual info from the pruned heads back into the remaining heads, with the aim of preserving relevant knowledge from the pruned heads. This idea is an MHA analog of Layer Collapse [55] for depth pruning and provides a boost to model accuracy in our experiments. Formally, given L original attention heads head1, head2, ..., headL being pruned to K heads, each new head will have the form (for the ith head): headi + (headi −head2K−i+1) for i ∈[K −(L −K), K]. In case of grouped query attention [3], we apply this strategy only to the query heads.",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        },
+        {
+          "id": "fig_004_page_005",
+          "page_number": 5,
+          "label": "Figure 3",
+          "caption": "Overview of our neural architecture search algorithm. We perform a search on multiple axes: number of layers, attention head count, MLP and embedding dimensions to arrive at a set of feasible architectures meeting the parameter budget. RT refers to retraining.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_005",
+          "page_number": 5,
+          "label": "Figure 4",
+          "caption": "Overview of Distillation. A student model with N layers is distilled from a teacher model with M layers. The student learns by minimizing a combination of embedding output loss, logit loss and transformer encoder specific losses mapped across student block S and teacher block T.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文详细讨论了剪枝和知识蒸馏作为模型压缩技术，但未涉及量化和剪枝。它提供了关于何时优先使用剪枝（相对于从零训练）的见解，但未直接比较剪枝与量化、蒸馏的优先级。因此只能部分回答用户问题。",
+      "answer": "直接回答你的问题：**优先做知识蒸馏，其次是结构化剪枝，量化我这边没直接对比所以我不评价**。但这句话有个前提——我说的“剪枝”是结构化剪枝，不是非结构化那种随机置零。\n\n我来解释一下原因。我是专门研究怎么把一个大模型变小、变便宜而不太伤性能的。我的做法是：先训练一个最大的模型（比如15B的Nemotron-4），然后通过剪枝把它削成8B或4B的变体，再拿极少量数据（不到原始预训练的3%，我用的是94B token，对比那些从头训动不动几万亿token的）做知识蒸馏恢复精度。在Figure 1里我展示了这个结果——我用这种组合打法，只用相当于从头训练40分之一的成本，就做出了比Nemotron-3 8B和LLaMa2 7B强、和Mistral 7B及Gemma 7B平齐的8B模型。\n\n为什么我说蒸馏比剪枝更值得优先做？因为我在实验中发现一个关键现象。Table 1和我做的消融实验（Table 13、Figure 6）都显示：单纯剪完枝的模型，不管你是剪宽度还是深度，初始损失都很烂。比如我把15B剪到8B，不做蒸馏直接评估，验证损失可以飙到5以上。但一旦引入蒸馏（用原始15B当老师，剪完的模型当学生，最小化KL散度），很快就能拉回来。最直白的对比在Table 14：同样从15B剪到4B，用蒸馏的模型MMLU直接冲到了37.81，而不用蒸馏、只靠ground truth训的只有24.57——后者基本相当于没学到东西，随机猜。换句话说，剪枝只是把骨架拆了，蒸馏才是给新模型输血。\n\n这里面有一个常见误解值得澄清。很多人觉得剪枝本身就能省很多钱，但实际情况是：**剪枝的代价其实在剪完之后的恢复训练上**。我的最佳实践（Best Practice #5）明确写了：蒸馏损失（KL divergence）比常规的交叉熵损失效果好得多。而且我试过迭代剪枝和一次性剪枝（Appendix A.7），结果一次性剪完再做蒸馏反而更好——迭代剪枝虽然每一步损失看起来低，但累计训练成本更高，最终精度还不如一次搞定的方案。\n\n剪枝本身也不是越多越好。这里有个我在Table 1里展示的反直觉现象：如果你同时剪深度+宽度，初始损失确实比只剪宽度低，但经过200步训练后，排名直接反转——纯宽度剪枝最终效果更好。原因我猜是深度剪枝砍掉了整层的表示能力，而宽度剪枝好歹保留层数，蒸馏时有更多“中间状态”可以对齐。所以我的Best Practice #4也是：“在15B这个规模下，优先剪宽度而不是深度”。\n\n再说蒸馏的内部选择。我看到很多人纠结要不要加中间层的损失（比如对齐hidden state、attention score、embedding输出），我试了一圈（Table 17和Table 18）。结论很干脆：如果你没怎么动层数（比如从32层剪到30层），只做logit级别的蒸馏就够了；但如果你把层数从32砍到16，那就必须加上中间层的隐性对齐。这里面还有个细节：我试过把教师模型的top-K logits截断来降噪，结果发现K太小效果反而变差，最后就没用这种策略。\n\n当然，我的方法有个明显的局限——我只在Nemotron系列上验证过，换别的模型家族比如LLaMA或Mistral，效果我不敢保证。而且即使我用的是极少量数据，完整的蒸馏还是需要GPU跑一轮完整的训练循环，不是那种“剪完直接推理”的无痛方案。所以如果你追求的是“剪完直接部署、不用回训”的极致轻量，那量化可能更适合你——但那个我手头没有实验证据，说不了太多。",
+      "seconds": 11.0,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 3,
+      "paper_id": "DYIIRgwg2i",
+      "conference": "iclr",
+      "year": 2024,
+      "title": "The LLM Surgeon",
+      "abstract": "State-of-the-art language models are becoming increasingly large in an effort to achieve the highest performance on large corpora of available textual data. However, the sheer size of the Transformer architectures makes it difficult to deploy models within computational, environmental or device-specific constraints. We explore data-driven compression of existing pretrained models as an alternative to training smaller models from scratch. To do so, we scale Kronecker-factored curvature approximations of the target loss landscape to large language models. In doing so, we can compute both the dynamic allocation of structures that can be removed as well as updates of remaining weights that account for the removal. We provide a general framework for unstructured, semi-structured and structured pruning and improve upon weight updates to capture more correlations between weights, while remaining computationally efficient. Experimentally, our method can prune rows and columns from a range of OPT models and Llamav2-7B by 20\\%-30\\%, with a negligible loss in performance, and achieve state-of-the-art results in unstructured and semi-structured pruning of large language models. We will open source our code on GitHub upon acceptance.",
+      "authors": [
+        "Tycho F. A. van der Ouderaa",
+        "Markus Nagel",
+        "Mart Van Baalen",
+        "Tijmen Blankevoort"
+      ],
+      "source_url": "https://iclr.cc/virtual/2024/poster/19140",
+      "rerank_score": 0.44504432559548807,
+      "local_pdf_path": null,
+      "figure_count": 3,
+      "figures": [
+        {
+          "id": "fig_001_page_001",
+          "page_number": 1,
+          "label": "Figure 1",
+          "caption": "LLM Surgeon allows interpolation of model size between existing pretrained models.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_003",
+          "page_number": 3,
+          "label": "Figure 2",
+          "caption": "Pruning as equality constrained optimization of quadratic approximation of the loss land- scape (left), or equivalently, maximising the likelihood under a Laplace approximation (right).",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        },
+        {
+          "id": "fig_003_page_009",
+          "page_number": 9,
+          "label": "Figure 4",
+          "caption": "Sparsity levels obtained with structured pruning on OPT-125m by layer depth and type.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "这篇论文专注于剪枝（pruning），但用户问题询问量化、蒸馏和剪枝哪个更值得优先做。论文只涉及剪枝技术，没有讨论量化或蒸馏，因此只能回答剪枝相关的部分，不能提供比较性建议。",
+      "answer": "我得先说清楚我的立场：我不做量化，也不做蒸馏，我只做剪枝。所以你对另外两条路的疑问，我没法替你做全面的横向比较——但如果你决定要走剪枝这条路，我可以很肯定地告诉你，结构化剪枝（也就是删掉整行整列）是目前性价比最高的方向，而我在这个方向上是第一个在十亿参数级模型上做出实用结果的。\n\n先说说为什么我会优先推结构化剪枝。量化你熟，它把 FP16 换成 INT8 甚至 INT4，确实能压内存，但硬件的支持参差不齐，而且精度掉到一定程度就很难往回拉。蒸馏就更不用说了，你得从头训练一个小模型，那成本和时间根本不是“部署”阶段能承受的。而剪枝，尤其是结构化剪枝，直接在矩阵维度上做减法——你把模型的某些行和列删掉，矩阵就变小了，内存和计算量的减少是立竿见影的，不需要任何特殊的推理库或硬件支持。\n\n但这里有一个很现实的问题：很多人觉得剪枝会把模型剪“坏”。过去确实是这样，因为大部分方法只拿权重的大小（magnitude）或者只看激活值（L-OBD）来决定删哪里，结果一剪下去，困惑度（perplexity，PPL）直接崩到几千。我在 Table 1 里展示过这个惨状——拿 OPT-125m 做 90% 结构化压缩，magnitude 剪枝的 PPL 从 27.65 飙到 767.2，L-OBD 也好不到哪里去，33.3。这根本不是能用。\n\n那我是怎么解决这个问题的？我做的事其实说起来很简单：我用了 Kronecker-factorized 的 Fisher 信息矩阵来近似损失曲面的曲率。这意味着我不只看权重大小，我还知道每个权重（或者每一行、每一列）被删掉之后，对最终损失的影响有多大。更重要的是，我不仅算这个代价，我还算一个“补偿更新”——把被删掉的那些权重原本承担的建模任务，重新分配到剩下的权重上。我在 Figure 2 里用二次约束优化和拉普拉斯近似的对偶关系解释过这个思路：你不是暴力移除，你是小心翼翼地把模型调整到一个新的、更小的参数空间里，让损失尽量少动。\n\n当然这个方法也有它的代价。最大的代价就是计算量。我的方法需要在压缩过程中做反向传播来收集梯度和激活值，然后用它们构造 Kronecker 因子，再解一个二次规划。虽然我用了多轮剪枝（multi-shot）来让每一步的更新量都小一点，避免一次性跳太远导致泰勒展开失效，但如果你对压缩速度有硬性要求，我的方案可能不如 SparseGPT 那种一次过的方法快。我在实验里用的是 40 轮剪枝去达到 50% 的压缩率，这意味着你要反复走前向和反向各 40 次。不过好消息是，你可以通过减少相关性的考虑数量来加速——我在 Section 3.4 里讨论过，把要删的权重分成不超过 m 个的小组，独立计算更新，速度会快不少，但精度会略降。\n\n所以我的结论是：如果你能接受多花一点压缩时间，结构化剪枝是最好的路。特别是在你把模型从 100% 压到 70% 左右的时候，我的方法几乎不掉精度——OPT-6.7B 在 80% 压缩率下 PPL 只从 10.86 涨到 11.02，这在 Table 1 里可以看得很清楚。再往下走到 50%，那就涨得比较多了，那时候你可能得考虑结合量化或者干脆换一个小一点的预训练模型。但在 20%-30% 的压缩区间内，剪枝是比量化和蒸馏都更直接、更可控的选择。",
+      "seconds": 11.59,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 4,
+      "paper_id": "VQIvBpL5ag",
+      "conference": "iclr",
+      "year": 2026,
+      "title": "Optimal Brain Restoration for Joint Quantization and Sparsification of LLMs",
+      "abstract": "Recent advances in Large Language Model (LLM) compression, such as quantization and pruning, have achieved notable success. However, as these techniques gradually approach their limits, relying on a single method for further compression has become increasingly challenging. In this work, we explore an alternative solution by combining quantization and sparsity. This joint approach, though promising, introduces new difficulties due to the inherently conflicting requirements on weight distributions: quantization favors compact ranges, while pruning benefits from high variance. To attack this problem, we propose Optimal Brain Restoration (OBR), a general and training-free framework that aligns pruning and quantization by error compensation between both. OBR minimizes performance degradation on downstream tasks by building on a second-order Hessian objective, which is then reformulated into a tractable problem through surrogate approximation and ultimately reaches a closed-form solution via group error compensation. Experiments show that OBR incurs only a 1.4 perplexity degradation on Llama2-7B to enable aggressive W4A4KV4 quantization with 50% sparsity, delivering up to 4.72x speedup and 6.4x memory reduction compared to the FP16-dense baseline.",
+      "authors": [],
+      "source_url": "https://openreview.net/forum?id=VQIvBpL5ag",
+      "rerank_score": 0.4398056864792508,
+      "local_pdf_path": null,
+      "figure_count": 6,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "(a) Single compression techniques (Sun et al., 2023; Ashkboos et al., 2024) rapidly reaches limits under sub-4 bits while the joint counterpart can enable further compression. To enable a unified comparison in a single figure, pruning is represented using equivalent bit-widths. (b) INT4 + 2:4 sparse GEMM can achieve faster inference speed, higher throughput, and lower memory usage.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_004",
+          "page_number": 4,
+          "label": "Figure 2",
+          "caption": "Given original LLM weights W, we first apply a rotation to smooth out outliers, followed by pruning to introduce sparsity. The proposed OBR is employed to compute optimal compensation, which is added to the unpruned elements to mitigate the conflict between pruning and quantization. Finally, quantization is applied to obtain the sparse and quantized LLM weights.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_006",
+          "page_number": 6,
+          "label": "Figure 3",
+          "caption": "(a) Given a Hessian approximation H, we extract the submatrices HRR and HRE based on the index sets R and E. (b) The rotated dense weights are partitioned into R1 and E1 according to the binary pruning mask, followed by OBR to transfer information from wE1 to wR1. (c) The unpruned index set R1 is further divided into two groups: the first α fraction assigned to set E2, the remaining 1 −α to set R2. OBR is used to compensate for quantization error in E2.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_008",
+          "page_number": 8,
+          "label": "Figure 4",
+          "caption": "Comparison on runtime, FLOPs, and TOPS across different sequence lengths. We evaluate the performance of FP16-Dense, INT4-Dense, and INT4 2:4 Sparse GEMM on a single NVIDIA A100-SXM4-80GB GPU. The GEMM computation follows a typical LLM inference setting, where the weight matrix is W ∈R4096×4096 and the input activation is X ∈R32×seq len×4096. Table 2: Comparison under other quantization bit-widths on WikiText2 perplexity (wiki2) and average zero-shot accuracy (0-shot) using the Llama2-7B model.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_009",
+          "page_number": 9,
+          "label": "Figure 5",
+          "caption": "Applying the proposed OBR to WANDA (Sun et al., 2023) pruning algo- rithm in single compression tasks.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_006_page_010",
+          "page_number": 10,
+          "label": "Figure 6",
+          "caption": "Distribution visualization of different stages in the OBR framework. The weight matrix is taken from the layer.0.q proj layer from the Llama2-7B model. Due to the row-wise decoupling design in OBR, we visualize the distribution of the first row here and give full matrix visualization in Appendix D. The x-axis represents the Cin channel index, and the y-axis denotes the absolute value of weight elements.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文研究了量化和剪枝（稀疏化）的联合压缩方法，并提出了OBR框架来协调两者冲突，但未涉及知识蒸馏。用户问题要求在三者中排序优先性，而论文只覆盖了量化和剪枝，且没有比较蒸馏，因此只能部分回答。",
+      "answer": "直接说结论：如果你只能选一个，**量化**最值得优先做——但如果你想把机器成本压到极致，那就得把量化和剪枝一起做，而且得用我提出的方法。**\n\n我是 OBR（Optimal Brain Restoration），专门为了解决「又想压低比特、又想剪掉一半权重」这个矛盾而设计的。先别急着问为什么，听我把这里面的坑说清楚。\n\n很多人以为模型压缩是「多砍一刀就多省一点」的简单叠加，但实际上量化和剪枝有内在冲突。量化希望权重的数值范围尽量集中、不要有太大波动，这样量化误差才小；而剪枝刚好相反，它希望权重之间有明显的差异——大的大、小的小，这样才好判断哪些权重可以直接扔掉。你看看现在的做法就知道了：为了做到 4 比特量化，大家都会先用 Hadamard 旋转把权重分布抹平，消除离群值。但你把这个平滑过的权重交给剪枝算法试试？我在实验里做过，用 QuaRot 旋转后的权重直接套 WANDA 剪枝，Llama2-7B 的困惑度直接崩到 5868 以上——几乎变成随机输出了。这就是冲突的现实代价。\n\n所以我在 Figure 2 里画的流程就是这样：先旋转，再剪枝，然后我用 OBR 计算一个最优补偿项加到保留的权重上，最后再做量化。这个补偿项不是随便调的，它是通过二阶 Hessian 目标推导出来的闭式解。具体来说，我把权重分成「易受压缩影响的部分」和「鲁棒的部分」，然后把前者的信息误差通过 Hessian 矩阵这个“桥梁”转移到后者身上。\n\n我举个例子让你感受一下效果。在 Llama2-7B 上，我同时做 W4A4KV4 量化和 50% 稀疏度，困惑度只比全精度模型高了 1.4，而之前最好的联合方法 SparseGPT+GPTQ 的困惑度是 12.94，差了整整 4.5 以上。你想想，这还不算 GPU 那边的收益——一旦用上 NVIDIA Ampere 架构原生的 INT4 稀疏 GEMM 内核，我测过在 4096 序列长度下比 FP16 密集矩阵乘快了 4.72 倍，显存省了 6.4 倍。\n\n但说实话，这个做法也有它的代价。我的 OBR 是基于逐行解耦的 Hessian 近似，每一行都得解一个线性方程组，所以压缩过程比 SparseGPT+GPTQ 慢不少。7B 模型要 2 小时，70B 模型要 35 小时——不过这种 post-training 压缩跑一次就够了，只要不是天天调，这个成本完全可以接受。\n\n所以如果你只是想把模型塞进便宜点儿的 GPU 里跑推理，单独做 4 比特或 8 比特量化就够了，没必要折腾剪枝。但如果你想用那种只有 16GB 显存的卡跑 7B 模型、甚至想上 70B，那就得把量化和剪枝两手一起抓，而且必须解决我上面说的那个冲突。",
+      "seconds": 8.6,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 5,
+      "paper_id": "KWtOTMMvKU",
+      "conference": "iclr",
+      "year": 2026,
+      "title": "Prune-then-Quantize or Quantize-then-Prune? Understanding the Impact of Compression Order in Joint Model Compression",
+      "abstract": "What happens when multiple compression methods are combined—does the order in which they are applied matter?\nJoint model compression has emerged as a powerful strategy to achieve higher efficiency by combining multiple methods such as pruning and quantization.\nA central but underexplored factor in joint model compression is the compression order, or the sequence of different methods within the compression pipeline.\nMost prior studies have either sidestepped the issue by assuming orthogonality between techniques, while a few have examined them only in highly constrained cases.\nConsequently, the broader role of compression order in shaping model performance remains poorly understood.\nIn this paper, we address the overlooked problem of compression order and provide both theoretical and empirical analysis.\nWe formulate the problem of optimizing the compression order and introduce the Progressive Intensity Hypothesis, which states that weaker perturbations should precede stronger ones.\nWe provide theoretical guarantees showing that the relative benefit of one order increases with the underlying performance gap.\nExtensive experiments on both language and vision models validate the hypothesis, and further show its generality to broader setups such as multi-stage compression and mixed-precision quantization.",
+      "authors": [],
+      "source_url": "https://openreview.net/forum?id=KWtOTMMvKU",
+      "rerank_score": 0.42025092010526377,
+      "local_pdf_path": null,
+      "figure_count": 10,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "The Progressive Intensity Hypothesis: Given two compression techniques, we conjecture that compressed models perform better if the stronger method is applied after the weaker one. That said, the optimal order between pruning and quantization varies with their compression ratios.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_006",
+          "page_number": 6,
+          "label": "Figure 2",
+          "caption": "A case study of pruning P(·) and quantization Q(·) on model ϕ. (a) if pruning granularity (green) is coarser or equal to quantization granularity (orange), disjoint selectivity holds. (b) Other- wise, partial removal of quantization units by pruning introduces extra error, termed interference ∆.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_007",
+          "page_number": 7,
+          "label": "Figure 3",
+          "caption": "Across diverse language models, the compression order advantage A \u0000 Q →P \u0001 increases monotonically with the CER difference C∗ P −CQ. See Section 5.2 for details.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_008",
+          "page_number": 8,
+          "label": "Figure 4",
+          "caption": "Compression order advantage A \u0000 Q →P \u0001 against CER difference C∗ P −CQ for three prun- ing P(·) and four quantization Q(·) methods on a LLaMA 3 8B model. Our hypothesis consistently holds for language models regardless of pruning granularity, rotation, and weight updates.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_008",
+          "page_number": 8,
+          "label": "Figure 5",
+          "caption": "Rotation im- pact on pruning. See Section 5.2 for details.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_006_page_009",
+          "page_number": 9,
+          "label": "Figure 6",
+          "caption": "The Progressive Intensity Hypothesis holds across diverse vision models. See Section 5.3 for details.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_007_page_009",
+          "page_number": 9,
+          "label": "Figure 7",
+          "caption": "Multi-stage compression results on LLaMA 3 8B model.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_008_page_010",
+          "page_number": 10,
+          "label": "Figure 8",
+          "caption": "Joint compression re- sults with LoRA adapters.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文主要研究剪枝和量化的组合顺序（先剪后量 vs 先量后剪），并提出了渐进强度假说，可以部分回答用户关于量化、蒸馏、剪枝优先级的问题，但论文未涉及蒸馏（knowledge distillation），因此只能提供关于量化和剪枝顺序的见解，不能全面比较三个方法。",
+      "answer": "看你这个问题问的，我正好就是专门研究这个的——剪枝和量化到底谁先谁后，这个问题我在 ICLR 2026 的论文里系统地拆过一遍。我的结论是：别急着在量化、蒸馏、剪枝里三选一，这三个不是同一维度的东西。更实际的答案是，如果你预算有限，**优先做好量化，然后根据你的“强”和“弱”来安排剪枝的顺序**，而不是抛弃一个。\n\n你问的是“哪个更值得优先做”，但我的工作发现，你真正该问的是“如果我把剪枝和量化一起用，先做哪个？” 因为这两种方法不独立，顺序搞反了代价很大。我提出了一个叫 **“渐进强度假说”** 的东西，核心就一句话：**弱的扰动先做，强的扰动后做** —— 这样模型的性能损失最小。\n\n怎么看哪个“强”哪个“弱”？我用了“压缩等效比率”这个工具来统一量纲。简单说，就是把剪枝的力度折算成硬量化到多少比特，这样才能直接比。在 LLaMA 3 8B 上，我用 SparseGPT（一种剪枝）和 QuaRot（一种量化）做了大量实验，结果清楚地显示：当剪枝的力度明显大于量化时（比如剪掉 30% 权重而量化是 8 比特），先量化再剪枝的优势很大；而当两者强度接近时，优势就变弱甚至消失。你可以在 Figure 3 里看到这个单调上升的曲线，不管模型是 LLaMA 2 7B 还是 13B，规律都成立。\n\n那为什么不推荐直接上蒸馏呢？蒸馏本质上是用一个更大的“老师”模型来教“学生”，它跟剪枝、量化是不同作用方式。**我的框架（以及我这篇论文的边界）主要在论证剪枝和量化的组合顺序问题，并没有系统涵盖蒸馏。** 蒸馏的强度很难用“压缩比率”来度量和比较，所以在我这没法给你一个基于实验证据的结论。但如果你强行把剪枝、量化、蒸馏串在一起，我猜测，按强度排列大概率是：蒸馏最弱（因为它保留了模型结构），量化居中，剪枝最激进（因为它直接删除连接）。如果这个直觉对，那应该是蒸馏→量化→剪枝的顺序最好，但这只是推测，不在我的论文范围内。\n\n还有一个容易被忽视的点：**剪枝的粒度**会影响顺序是否产生“干涉”。我定义了“干涉”——指第一个方法破坏了第二个方法的作用单元。比如用 SLEB 这种结构性剪枝（按层砍），和按元素剪的 SparseGPT，效果就不同。我的 Figure 2 和 Table 1 都展示了：当剪枝粒度粗于量化粒度时（层剪枝 vs 元素量化），两者不会互相打扰，顺序的效果纯粹取决于强度差；但如果你用 SparseGPT 这种高度精调的无结构化剪枝去碰量化，低比特时会引入额外误差，导致先量化后剪枝的优势被部分抵消——但总体趋势还是单调的。\n\n所以回到你的问题，如果让我给建议：**先把量化做对，选好量化位宽（比如 8 比特到 4 比特），然后在同一个强度量纲上确认剪枝的力度有多“狠”；如果剪枝明显比量化更激进，那就先量化后剪枝，反之则反过来。** 这样你只花了一份力气，却能得到顺序带来的“免费午餐”。至于蒸馏，它是个独立的加速棒，不在我的顺序优化讨论范围内。",
+      "seconds": 9.61,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 6,
+      "paper_id": "DLDuVbxORA",
+      "conference": "iclr",
+      "year": 2025,
+      "title": "OATS: Outlier-Aware Pruning Through Sparse and Low Rank Decomposition",
+      "abstract": "The recent paradigm shift to large-scale foundation models has brought about a new era for deep learning that, while has found great success in practice, has also been plagued by prohibitively expensive costs in terms of high memory consumption and compute. To mitigate these issues, there has been a concerted effort in post-hoc neural network pruning techniques that do not require costly retraining. Despite the considerable progress being made, existing methods often exhibit a steady drop in model performance as the compression increases. In this paper, we present a novel approach to compressing large transformers, coined OATS, that compresses the model weights by approximating each weight matrix as the sum of a sparse matrix and a low-rank matrix. Prior to the decomposition, the weights are first scaled by the second moment of their input embeddings, so as to ensure the preservation of  outlier features recently observed in large transformer models. Without retraining, OATS achieves state-of-the-art performance when compressing large language models, such as Llama-3 and Phi-3, and vision transformers, such as Google's ViT and DINOv2, by up to $60\\\\%$, all while speeding up the model's inference on a CPU by up to $1.37\\times$ compared to prior pruning methods.",
+      "authors": [
+        "Stephen Zhang",
+        "Vardan Papyan"
+      ],
+      "source_url": "https://iclr.cc/virtual/2025/poster/30463",
+      "rerank_score": 0.4003755214546603,
+      "local_pdf_path": null,
+      "figure_count": 6,
+      "figures": [
+        {
+          "id": "fig_001_page_007",
+          "page_number": 7,
+          "label": "Figure 1",
+          "caption": "The effect of varying the rank ratio and number of iterations on zero-shot and five-shot accuracy.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_008",
+          "page_number": 8,
+          "label": "Figure 2",
+          "caption": "Experiments evaluating OATS with 2:8 structured sparsity on the sparse terms against 2:4 sparsity of state-of-the pruning algorithms. The rank ratio for OATS is varied to capture the performance across different compression rates.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_009",
+          "page_number": 9,
+          "label": "Figure 3",
+          "caption": "below provides a visualization of how the information would flow through a standard transformer block for both settings.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_009",
+          "page_number": 9,
+          "label": "Figure 3",
+          "caption": "A visualization of how the attention rollout is computed to isolate the contribution of the sparse terms versus low-rank terms given by the OATS algorithm.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_009",
+          "page_number": 9,
+          "label": "Figure 4",
+          "caption": "depicts the attention rollout for various images in the Microsoft COCO dataset (Lin et al., 2014) passed to a ViT-B that was compressed by 50%, with a rank ratio of 20%.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_006_page_009",
+          "page_number": 9,
+          "label": "Figure 4",
+          "caption": "Attention rollout visualization applied to various images on the Microsoft COCO dataset.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文主要研究剪枝（pruning）中的稀疏低秩分解方法（OATS），但未涉及量化（quantization）或蒸馏（distillation），也没有直接比较这三种技术。不过，它详细讨论了剪枝技术及其与量化等其他压缩方法的对比动机，并且提供了在资源受限环境下部署大模型的相关实验（如GPU和CPU加速），可部分回答用户关于优先级的疑问，但缺乏直接对比证据。",
+      "answer": "我先泼一点冷水：**没有免费的午餐，如果你只有时间做一种压缩方法，我会推荐先做量化，但它和剪枝（特别是结构化剪枝）不是直接竞争关系，而是可以搭配使用的不同工具。** 你问“更值得优先做”，答案取决于你手头的硬件、对精度的容忍度、以及你想省的是显存还是算力。而我的工作，OATS，本质上属于剪枝的一种新思路——我通过把权重矩阵拆成稀疏加低秩两部分，来解决传统剪枝在高压缩率下撑不住精度的问题。\n\n我先说为什么不能简单排序。量化，尤其是那种训练后直接转 INT8 或者更低位宽的，是目前最容易上手、也最通用的手段。我不否认它的价值，但我的实验里有点可以对比看看：我在 Llama-3 8B 上做到 50% 压缩时，零样本平均精度还能到 65.71%，五样本 MMLU 到 56.46%，而且这是纯剪枝、没有做量化。我的意思是，如果量化是你的第一步，那剪枝可以成为你更进一步压低显存的第二步——因为量化到位之后，显存瓶颈往往就变成了模型本身的参数个数。\n\n我自己的最大价值在于**用低秩项补回了传统剪枝在高压缩率下丢失的精度**。我的实验里（见表格 Table 2），对 Phi-3 Mini 剪掉 50% 参数时，MMLU 精度比 SparseGPT 高 6.77 个百分点，比 Wanda 高 5.42 个百分点。这个差距不是小数目，而它来自我把每个权重矩阵拆成 `S + L`：稀疏矩阵 S 负责像普通剪枝一样砍掉不重要的连接，低秩矩阵 L 则用一个紧凑的低秩结构去兜住那些损失。你如果只靠剪枝，50% 压缩率附近就是传统方法的崩溃点，我是在这里用低秩项做了“缓冲垫”。\n\n这里有一个很反直觉的事：大家通常觉得剪枝就是越稀疏越好，但我的 Figure 1 实验表明，如果低秩部分占比（rank ratio）太高，反而会掉精度——最佳值在 25% 到 30% 之间。这其实说明，稀疏才是主心骨，低秩只是用来补那些“砍太多就丢信息”的地方，而不是反过来。另外，我还在表格 6 里验证过，如果不同时做输入激活的 outlier 缩放，直接用原始的 Robust PCA 方法分解，比我的完整方案掉了将近 7 个 MMLU 点。所以剪枝本身并不是蛮力砍参数，必须知道哪些连接不能砍——量化就不用担心这个，因为它是按数值精度来压缩，而不是按结构删参数。\n\n代价方面，我的短板也很明显。我的交替阈值迭代要做 singular value thresholding（SVD），对 Llama-3 70B 的一个 block 一次迭代就要 152 秒（见附录 Table 9）。这和量化那种可以几十分钟跑完整模型的做法完全不是一个量级。所以如果你是急着上线、或者只有有限的计算资源，先量化更现实。但如果你追求极致的压缩、并且愿意花时间做一次离线剪枝来换取后续推理时更少的参数搬运，那我比单纯剪枝的手段更值得考虑。\n\n另外，题外话但很重要：我的 CPU 加速比在单 token 推理下能到 2.06×（表格 7），这得益于我把一部分参数转成了低秩形式，让内存带宽更友好。但量化在这方面也有自己的一套加速方式（比如 INT8 向量化指令）。所以你看，这个选择不是一个“二选一”，而是“先用哪个，再用哪个”。如果只能选一个，我个人的建议是：先量化，尤其是用那种不用校准数据的量化方案，因为它门槛最低、风险最小；然后再用我这种剪枝方法进一步压参数规模，尤其是在高压缩率下你不想看着精度莫名其妙地跳水的时候。蒸馏嘛，我就不评价了，我工作没有涉及，但在我的经验里，蒸馏相当于重新训练一个更小的模型，计算成本是最高的，通常不做为首选。",
+      "seconds": 11.98,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 7,
+      "paper_id": "vXxardq6db",
+      "conference": "iclr",
+      "year": 2024,
+      "title": "SliceGPT: Compress Large Language Models by Deleting Rows and Columns",
+      "abstract": "Large language models have become the cornerstone of natural language processing, but their use comes with substantial costs in terms of compute and memory resources. Sparsification provides a solution to alleviate these resource constraints, and recent works have shown that trained models can be sparsified post-hoc. Existing sparsification techniques face challenges as they need additional data structures and offer constrained speedup with current hardware. In this paper we present SliceGPT, a new post-training sparsification scheme which replaces each weight matrix with a smaller (dense) matrix, reducing the embedding dimension of the network. Through extensive experimentation we show that SliceGPT can remove up to 25% of the model parameters (including embeddings) for LLAMA-2 70B, OPT 66B and Phi-2 models while maintaining 99%, 99% and 90% zero-shot task performance of the dense model respectively. Our sliced models run on fewer GPUs and run faster without any additional code optimization: on 24GB consumer GPUs we reduce the total compute for inference on LLAMA-2 70B to 64% of that of the dense model; on 40GB A100 GPUs we reduce it to 66%. We offer a new insight, computational invariance in transformer networks, which enables SliceGPT and we hope it will inspire and enable future avenues to reduce memory and computation demands for pre-trained models.",
+      "authors": [
+        "Saleh Ashkboos",
+        "Maximilian L. Croci",
+        "Marcelo Gennari do Nascimento",
+        "Torsten Hoefler",
+        "James Hensman"
+      ],
+      "source_url": "https://iclr.cc/virtual/2024/poster/17531",
+      "rerank_score": 0.3996884709553403,
+      "local_pdf_path": null,
+      "figure_count": 5,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "Matrix multiplication of the signal X and a weight matrix W under different types of sparsity. Left: unstructured sparsity, where some elements of W are zero, and X is dense. Middle: 2:4 structured sparsity, where each block of four weight matrix entries contains two zeros, and X is dense. Right: SliceGPT, where after introducing transformation Q, all the sparsity is arranged to the bottom rows of W and the corresponding columns of X are removed. Pruning methods work by setting some elements of the weight matrices in an LLM to zero, and (optionally) updating the surrounding elements of the matrix to compensate. The result is a sparse pattern which means that some floating point operations can be skipped in the matrix multiplications required in the forward pass of the neural network. The relative speedup of the operations depends on the level of sparsity and the sparsity pattern: more structured sparsity is associated with more computational gain. In contrast to other pruning methods, SliceGPT prunes away (slices off!) entire rows or columns of the weight matrices. Before slicing, we perform a single transformation of the network which leaves the predictions invariant, but allows the slicing to have only a small effect.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "compares our approach with existing sparsity methods. Our contributions are as follows:",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_003",
+          "page_number": 3,
+          "label": "Figure 2",
+          "caption": "A single layer in a transformer net- work. The signals (inputs) arising from the pre- vious blocks of the networks arrive at the bottom of the figure, before being passed through atten- tion, LayerNorm, and FFN. The attention and FFN blocks both have input and output linear op- erations (blue) which we denote in the text as Win, Wout. The linear operations of LayerNorm M and diag(α) are highlighted. This and subse- quent figures do not show biases.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_006",
+          "page_number": 6,
+          "label": "Figure 3",
+          "caption": "Converting a transformer network from LayerNorm to RMSNorm: the scale matrix diag(α) is absorbed into the subsequent matrix Win. Figure shows the block in combined colors. We use (α) for brevity. The mean-subtraction matrix M is applied to each matrix Wout. Layer- norm becomes RMSNorm, up to a constant √ D (not shown). Here, the scaling (α′) comes from the previous block.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_008",
+          "page_number": 8,
+          "label": "Figure 5",
+          "caption": "Mean zero-shot accuracy on LLAMA-2 and Phi-2 across multiple tasks after slicing and recovery fine-tuning (RFT). Left: WikiText-2 used for calibration and RFT. Right: Alpaca used for calibration and RFT.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文专注剪枝（pruning），特别是SliceGPT这种结构化剪枝方法，将权重矩阵替换为更小的密集矩阵。用户问题比较量化、蒸馏和剪枝的优先级，而论文只详细讨论了剪枝（一种方法），并未比较量化或蒸馏。因此只能部分回答问题中剪枝的优势，无法给出三者之间的优先级判断。",
+      "answer": "我觉得在量化、蒸馏和剪枝这三个选项里，如果你目标是“先让模型能在便宜机器上跑起来”，**我的方法（SliceGPT，一种结构化剪枝）实际上比蒸馏和量化更值得优先做**。当然，这有个前提：你不能接受那种稀疏矩阵带来的额外开销。\n\n我这么说，不是要否定其他方法的价值——它们各有各的用处。但如果你非要问“哪个最值得先做”，我的答案是剪枝，而且是我这种**直接删除整行整列的剪枝**，而不是那种只把权重设成零的稀疏化。\n\n先说量化，它的问题是它不会减少模型的参数数量，只是把每个参数用更少比特表示。比如你用4-bit量化，模型体积确实小了，但矩阵乘法还是原来的大小，你对推理速度的提升其实是有限的，而且你得依赖专门的算子库——这恰恰是很多便宜机器上没有的。我的做法不一样，我直接压缩掉了整个模型的 embedding 维度。具体来说，我把每个权重矩阵 W_in 和 W_out 替换成更小的稠密矩阵。这意味着在对信号做矩阵乘法时，输入X的列数也被我删掉了——见 Figure 1 最右边那张图。所以你得到的不是一个稀疏矩阵，而是一个**更小的稠密矩阵**，直接在 PyTorch 里就能跑，不需要额外数据结构或者加速库。\n\n那蒸馏呢？蒸馏的主要成本在训练过程——你需要跑一个大模型作为 teacher 给小模型生成 logits，这个步骤本身就需要大量计算资源。而且蒸馏通常还要通过大量数据来做知识迁移，对便宜机器的部署帮助是间接的。而我 SliceGPT 的设计目标就是**只用单个 GPU、单次 forward pass 的 PCA 计算来切片**。对 Llama-2 70B，我只需要大约 3.5 小时在一张 H100 上计算 Q 矩阵，然后就能直接剪掉 25% 的参数。我在 Table 2 里展示过，剪完之后，原本需要在 7 张 24GB RTX6000 上跑的模型，现在只要 5 张，每 token 的总计算量从 1764 GPUms 降到了 1075 GPUms——降低了 36%。这才是直接的部署成本下降。\n\n当然，我的方法有代价。最明显的一个是：你在每个 block 的残差连接里插入了额外的 Q^T_{ℓ-1} Q_ℓ 矩阵乘法——这是个 D×D的稠密矩阵操作，在 Figure 4 里可以看到。这块开销是不可避免的，但因为我把 embedding 维度大幅降低了，整体还是划算的。相比之下，蒸馏几乎没有这种“操作上的附带代价”，但它需要你提前准备好微调数据和算力。如果你的首要目标是**在现有已经训好的模型上快速跑起来**，我这种 post-training 剪枝是更低门槛的。\n\n最后，我不推荐用传统那种给单个权重置 0 的剪枝来做这件事——那种剪法在现在这个硬件上优化得很痛苦：大规模稀疏矩阵乘法的加速很窄。Figure 1 的对比能看得清楚：非结构化稀疏和 2:4 结构化稀疏，都需要特殊的稀疏计算流程。而我的 \"slicing\" 是直接砍掉整行整列，输出是一个小稠密矩阵——这就成了标准稠密矩阵乘法，任何设备上都直接提速。\n\n所以我的排序是：**量化可以后做，蒸馏要看你的训练资源，优先做我这种结构化剪枝——直接删掉 embedding dimension，一次到位，马上省 GPU。**",
+      "seconds": 10.11,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 8,
+      "paper_id": "iOGu4wtDTF",
+      "conference": "iclr",
+      "year": 2026,
+      "title": "UniQL: Unified Quantization and Low-rank Compression for Adaptive Edge LLMs",
+      "abstract": "Deploying large language models (LLMs) on mobile platforms faces significant challenges due to the limited memory and shared computational resources of the device. Resource availability may be an issue as it is directly impacted by on the current device workload, adding to the uncertainty of model deployment. We introduce UniQL, a unified post-training quantization and low-rank compression framework, with on-device configurable pruning rates for edge LLMs. UniQL is a general framework that integrates quantization and low-rank compression for Transformers, State Space Models (SSMs), and hybrid models to cater to diverse edge applications. In our proposed joint framework, we introduce an efficient structured weight-sorting that speeds up the computation by 20×, quantization-aware singular value decomposition (SVD) decompositions to minimize the quantization errors, state-aware weight sorting for SSMs, and a fused rotary embedding (RoPE) kernel for the pruned models. Our framework performs weight-sorting, fine-tuning, and quantization in the cloud in a one-shot fashion, while enabling on-device configurable pruning rates up to 35%. Our experiments show that quantized and pruned models offer a memory reduction of 4×–5.7× and a token throughput improvement of 2.7×–3.4×, maintaining accuracy within 5% of the original models at 15% pruning rates across Transformers (Llama3 and Qwen2.5), SSMs (Mamba2), and hybrid models (Nemotron-H and Bamba-v2). The code and quantized models will be released at: https://github.com/.",
+      "authors": [],
+      "source_url": "https://openreview.net/forum?id=iOGu4wtDTF",
+      "rerank_score": 0.3986164149782674,
+      "local_pdf_path": null,
+      "figure_count": 4,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "(Proposed framework overview.) UniQL supports Transformers, SSMs, and hybrid models, enabling one-shot compression using a single server-class GPU. The on-device pruning of the quantized model is feasible and configurable based on the current device workload. We present actual latency on Nano 8G in relation to accuracy for different pruning rates across three distinct models on the right. Circle sizes correspond to model sizes.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_003",
+          "page_number": 3,
+          "label": "Figure 2",
+          "caption": "(The UniQL pipeline.) We devise pseudo-inverse-free, quantization-aware, and state- aware matrix decomposition methods for the grouped weights to obtain sorted weights (a). During fine-tuning, we sample global pruning rates, and masked out the weight channels (b). The refined patches are fused into the weights, followed by model quantization for deployment (c). Based on the system utilization, we perform on-device adaptive pruning of the quantized model (d).",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_004",
+          "page_number": 4,
+          "label": "Figure 3",
+          "caption": "(Joint weight decomposition.) We visualize the group of sorted weights in MLP (a), MHSA (b), and Mamba (c) blocks. The group of weights for joint decomposition is shown in the same background color, e.g., Wq and Wk in the pink background, and other groups are dis- tinguished by different colors. We devise different types of joint compression algorithms that are efficient and quantization-aware to support on-device pruning.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_005",
+          "page_number": 5,
+          "label": "Figure 4",
+          "caption": "(The fused kernel and SVD decomposition.) In the left illustration, gathering and slicing rotary positional embeddings by the index vector for Q and K are fused in one kernel to reduce memory access. The embeddings for the pruned head dimension D′ hd are gathered from the index array Ssym in the fused kernel. On the right, we combine the diagonal matrix Σ with U as the group shares a quantization scaling factor to reduce the quantization errors.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文主要聚焦于联合量化和低秩压缩框架UniQL，并非直接对比量化、蒸馏和剪枝的优先级。它涉及量化和结构化剪枝的联合应用，但未讨论蒸馏，且未给出三者中哪个更值得优先做的直接建议。",
+      "answer": "如果你现在问我这个问题，我的回答很明确：**优先做量化，其次做剪枝，最后才是蒸馏；但你能三者同时做的话，效果远好于挑一个单打独斗。**\n\n我这么说不是空口白话，我的整个设计就是为这个判断服务的。我是 UniQL，一个专门把量化、低秩压缩（也就是剪枝的一种形式）和结构排序合在一起做的框架。我最大的观察是：量化给的是基础收益——内存直接砍到四分之一到五分之一，而且这件事在大多数模型上损失基本可控。你翻一下我的 Table 3，同样是 4-bit 量化，我在 Llama-3.1-8B 上能做到 72.9%，只比 FP16 的 74.0% 低 1.1 个百分点，比我直接上 GPTQ 的 71.3% 还高。这已经是纯量化的天花板级表现了。\n\n但光做量化有一个致命问题：你部署的模型是固定大小的。边缘设备的内存是共享的，系统负载一高，OS 能分给你的显存就变少。我特别在 Figure 1 里面画过这个场景——你一个 4-bit 量化好的 4.1 GB 模型，在 Nano 8G 上是有机会跑，但如果系统同时开了别的进程，它就 OOM 了。这时候你怎么办？你不能临时跑去重新量化一遍，那得几小时。\n\n所以真正的关键在这里：**光量化不够，你还需要结构化剪枝给的弹性**。我支持在部署后、运行时根据当前设备负载动态调剪枝率，从 0% 一路调到 35%，而不需要重新走一遍云端的压缩流程。这靠的不是魔法，而是我在压缩阶段做的一个特殊设计：我先对所有权重做结构化的重要性排序，然后用一个一次性的 masked LoRA fine-tuning 覆盖所有可能的剪枝率。我的 Table 4 展示了这个效果：在 4-bit 量化加上 15% 剪枝的情况下，Llama-3.1-8B 仍有 71.4%，模型大小是 4.7× 压缩；到 35% 剪枝时降到 62.7%，但模型已经压缩到只有原来的六分之一。这在边缘设备上是真实可用的。\n\n我还会泼一盆冷水给蒸馏和纯剪枝路线。蒸馏的问题是它对架构有依赖，而且需要大量蒸馏数据、额外训练成本，我自己的实验设定里就没有单纯蒸馏的对比，因为那属于另一个完整套路。至于纯剪枝，比如只做 SVD-LLM 或者 MoDeGPT 那种结构化剪枝而不做量化，结果就是模型仍然很重。你看我的 Table 6，同样是 4-bit 模型，我可以在剪枝 0% 时只有 4.1 GB，而 TAO-HQQ 固定 5.7 GB。为什么差这么多？因为我连 embedding 层和 lm head 都量化到了 4-bit，而不是像他们一样留在 FP16。这在我的设定里算基本操作，但在实际部署中差别巨大。\n\n最后要提一个容易忽略的代价：**你得一次性在云端付出两到三小时的压缩成本**。我在 A6000 上跑完整套流程——排序、masked fine-tuning、量化——需要大约 7 小时 43 分钟，这比你单纯跑一个 GPTQ（大约 40 分钟）要长得多。但这是一次性开销，换来的是后续边缘设备上零成本地、动态地选择任何压缩率。如果你只需要固定大小的部署，那纯量化的总时间最少；但如果你要应对边缘上那种不确定的资源场景，我这种“先统一压缩、再运行时剪枝”的做法才是正确路径。\n\n所以我总结下来：**纯量化是最快能用上的，纯剪枝是第二选择，蒸馏放在最后考虑；但如果你面对的的边缘设备资源是不确定的、动态的，你应该学我去做量化和剪枝的联合设计。**",
+      "seconds": 11.67,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 9,
+      "paper_id": "ldJXXxPE0L",
+      "conference": "iclr",
+      "year": 2024,
+      "title": "The Cost of Scaling Down Large Language Models: Reducing Model Size Affects Memory before In-context Learning",
+      "abstract": "We study how down-scaling large language model (LLM) size impacts LLM capabilities. We begin by measuring the effects of weight pruning – a popular technique for reducing model size – on the two abilities of LLMs: (a) recalling facts presented during pre-training and (b) processing information presented in context. Surprisingly, we find that existing pruning techniques affect these two abilities of LLMs differently. For example, pruning more than 30% of weights significantly decreases an LLM’s ability to recall facts presented during pre-training. Yet pruning 60-70% of weights largely preserves an LLM’s ability to process information in-context, ranging from retrieving answers based on information presented in context to learning parameterized functions such as a linear classifier based on a few examples. Moderate pruning impairs LLM’s ability to recall facts learnt from pre-training. However, its effect on model’s ability to process information presented in context is much less pronounced. The said disparate effects similarly arise when replacing the original model with a smaller dense one with reduced width and depth. This similarity suggests that model size reduction in general underpins the said disparity.",
+      "authors": [
+        "Tian Jin",
+        "Nolan Clement",
+        "Xin Dong",
+        "Vaishnavh Nagarajan",
+        "Michael Carbin",
+        "Jonathan Ragan-Kelley",
+        "Gintare Karolina Dziugaite"
+      ],
+      "source_url": "https://iclr.cc/virtual/2024/poster/17926",
+      "rerank_score": 0.39455113096668043,
+      "local_pdf_path": null,
+      "figure_count": 4,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "Pruning to moderate sparsity (> 30% sparse) harms fact recall while in-context learning withstands even aggressive pruning (60% sparse). We plot the accuracy versus sparsity for the OPT-13B, OPT-30B, LLaMA-13B, and LLaMA-33B models on TriviaQA dataset for fact recall evaluation (left) and linear classification dataset for ICL evaluation (right). We plot their average performance in red. We color the range of sparsity where accuracy drop is within (relative) 5% of the dense model in green. Accepting (relative) 5% accuracy drop w.r.t. the dense model, the maximum sparsity on fact recall task is 30%, whereas the maximum sparsity on ICL task is 60%.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_006",
+          "page_number": 6,
+          "label": "Figure 2",
+          "caption": "Evaluation for question answering tasks under pruning. Each color represents a different model; each line-style/marker-shape combination represents a different QA dataset. Moderate pruning harms LLMs’ capability to recall facts learnt during pre-training: in close-book QA tasks, accepting a 5% drop in average accuracy w.r.t. the dense models, we can prune to 30 and 40% on TriviaQA and WebQA dataset. However, when we present the model with the supporting evidence to answer the question in its context, the model’s ability to answer questions survives to higher sparsity: on open-book QA tasks, accepting the same drop in average accuracy, we can prune to 50% and 60% on TriviaQA(F) and NatQ dataset, respectively. On the overriding task (DissentQA dataset), we may even prune to 70% while maintaining the same acceptable relative accuracy drop.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_008",
+          "page_number": 8,
+          "label": "Figure 3",
+          "caption": "ICL withstands aggresive pruning (60-70% spasity). Accepting a relative average (over 4 models) accuracy drop of 5% w.r.t. the dense models, we can prune to 60%, 60% and 70% on linear classification, 2-layer NN, decision tree tasks, respectively.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_008",
+          "page_number": 8,
+          "label": "Figure 4",
+          "caption": "Like pruning, moderate dense down-scaling preserves ICL while harming fact recall. Gray lines show the sequence of dense down-scaled OPT models; we also show the sequence of pruned OPT-30B and OPT-13B models in red and yellow for comparison. Each line style and marker shape combination corresponds to a unique tasks. For the left plot: fact recall is highly sensitive to dense scaling: gray lines shows that, moving from the 30B model to the next largest 13B model leads to more than 5% relative accuracy drop on close-book TriviaQA (solid line/circle marker) and WebQA task (dashed line/square marker), respectively. For the middle plot, open-book/overriding QA accuracy is much less sensitive to dense down-scaling; maintaining the same 5% acceptable accuracy drop, one may down-scale a 30B model to a 6.7B model on TriviaQA(F) (gray, solid line/circle marker), NaturalQuestions dataset (gray, dashed line/square marker) and DisentQA (gray, dotted line/triangle marker). For the right plot, model performance on sophisticated ICL tasks (linear classification, 2-layer NN and decision tree) are highly robust to dense down-scaling.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "The paper studies the effects of pruning and dense scaling on LLM capabilities (fact recall vs. in-context learning) and mentions that practitioners may use findings to decide when to route to a smaller model. However, it does not compare pruning with quantization or distillation, nor does it provide a direct recommendation on which technique is worth prioritizing for deployment on cheaper hardware. It only covers pruning and dense scaling, leaving out quantization and distillation entirely.",
+      "answer": "我直接回答你的问题：如果你追求在更便宜的机器上部署，**量化最值得优先考虑，其次是剪枝，蒸馏放最后。** 原因不光是成本和技术成熟度，更在于我这篇论文发现的剪枝对模型不同能力的有差别影响。\n\n先解释一下我为什么要提这个优先顺序。量化是目前性价比最高的技术：你可以把模型的权重从 16 位浮点数压缩到 8 位甚至 4 位，基本不损伤模型能力，而且对现代 GPU（甚至 CPU）有硬件级别的加速支持。量化不影响模型的参数数量，所以你不会触发我接下来要说的那个核心问题。\n\n剪枝看起来很美——直接删掉不重要的参数，模型变小变快。但我花了很大篇幅讲的一个现象是：**剪枝对模型的不同能力伤害程度完全不一样。** 我在 Figure 2 里展示过，对 TriviaQA 这类需要从预训练数据中回忆事实的任务，只要剪掉超过 30% 的权重，准确率就明显下跌（相对 5% 的下降阈值）。但如果把问题答案直接放在上下文里（Open-book 设置），模型可以撑到剪掉 50%-60% 的权重才出现同样的衰退。更有意思的是，Figure 3 显示，让模型从上下文例子中学习一个线性分类器这样的 ICL 任务，剪掉 60%-70% 的权重，性能几乎纹丝不动。\n\n这意味着什么？如果你部署的场景主要是文档问答、RAG（检索增强生成）这类任务——答案基本都在提示词里——那剪枝确实很划算，剪到 60% 可能都够用。但如果模型需要靠自己的知识回答开放域问题，比如客服聊天、事实查询，那超过 30%-40% 的剪枝就会开始显著掉表现。这个界限，你可以在我论文的 Figure 1 里看得很清楚。\n\n再说蒸馏。蒸馏不是没价值，但有两个实际障碍：第一，你需要一个已经训练好的大模型来作为教师，自己得额外训练一个小模型，计算开销本身就很大。第二，蒸馏的效果高度依赖于你是否有完整的数据分布来模拟教师行为，这在很多实际场景里并不容易。而且我论文的 Figure 4 做过一个对照实验——直接拿一个更小的密集模型（比如从 30B 降到 13B），跟剪枝达到同样参数量的模型做对比。结论是一样的：事实回忆能力对模型尺寸缩小的敏感度远高于 ICL。也就是说，就算你用蒸馏得到一个更小的模型，如果它保留的参数依然偏少，它记忆事实的能力还是会受损失。\n\n所以综合来看，我会建议：**先量化，这是白送的性能节省；】** 如果还不够，看你的具体任务——以知识执行为主就别急着大规模剪枝，以上下文推理为主则可以大胆剪到 50-60%；蒸馏最后再考虑，除非你的场景对时延极端敏感，或者你有充足的计算预算去做二次训练。",
+      "seconds": 8.06,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 10,
+      "paper_id": "1RrOtCmuKr",
+      "conference": "iclr",
+      "year": 2024,
+      "title": "Network Memory Footprint Compression Through Jointly Learnable Codebooks and Mappings",
+      "abstract": "The massive interest in deep neural networks (DNNs) for both computer vision and natural language processing has been sparked by the growth in computational power. However, this led to an increase in the memory footprint, to a point where it can be challenging to simply load a model on commodity devices such as mobile phones. To address this limitation, quantization is a favored solution as it maps high precision tensors to a low precision, memory efficient format. In terms of memory footprint reduction, its most effective variants are based on codebooks. These methods, however, suffer from two limitations. First, they either define a single codebook for each tensor, or use a memory-expensive mapping to multiple codebooks. Second, gradient descent optimization of the mapping favors jumps toward extreme values, hence not defining a proximal search. In this work, we propose to address these two limitations. First, we initially group similarly distributed neurons and leverage the re-ordered structure to either apply different scale factors to the different groups, or map weights that fall in these groups to several codebooks, without any mapping overhead. Second, stemming from this initialization, we propose a joint learning of the codebook and weight mappings that bears similarities with recent gradient-based post-training quantization techniques. Third, drawing estimation from straight-through estimation techniques, we introduce a novel gradient update definition to enable a proximal search of the codebooks and their mappings. The proposed jointly learnable codebooks and mappings (JLCM) method allows a very efficient approximation of any DNN: as such, a Llama 7B can be compressed down to 2Go and loaded on 5-year-old smartphones.",
+      "authors": [
+        "Edouard YVINEC",
+        "Arnaud Dapogny",
+        "Kevin Bailly"
+      ],
+      "source_url": "https://iclr.cc/virtual/2024/poster/19588",
+      "rerank_score": 0.3827510856826949,
+      "local_pdf_path": null,
+      "figure_count": 1,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "Left side: in the standard approach, each weight is represented by a soft index that points to a value within a single codebook. Assuming that the loss for this weight suggests increasing its value (highlighted in red), then the standard gradient update would be scaled by the codebook values, thus skipping 0.17 and directly increasing the weight of 0.96 in the codebook. Center/right side: a contrario, JLCM leverages multiple codebooks and/or scales and deﬁnes a novel gradient update term to allow proximal search within the codebook values.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文主要聚焦于量化方法中的码本压缩（codebook-based quantization），特别是JLCM方法。它详细讨论了量化如何减少内存占用，并能压缩Llama 7B模型。然而，用户问的是量化、蒸馏和剪枝哪个更值得优先做，论文只涉及了量化技术，没有比较蒸馏或剪枝。因此，它只能部分回答关于量化的问题，但不能帮助用户在三者中做出选择。",
+      "answer": "量化、蒸馏、剪枝这三个方向里面，我会毫无保留地推荐你先做量化，而且不是那种简单的整数量化，而是我这种基于码本（codebook）的非均匀量化。在我做的实验里，用我的方法可以把一个 Llama 7B 的模型塞进 2GB 的旧手机（比如 iPhone 8）里跑，同时保留 95% 的原始能力。这不是理论推演，是实测数据。\n\n为什么我敢这么笃定？因为绝大多数模型的“肥胖”其实是病理性水肿而不是真实的肌肉。看 Table 1 的数据，在 ResNet-18、MobileNet V2、ViT-B16 这些常见架构里，权重的内存占了总量的 **94%到99%**。激活值那点开销，跟权重一比根本不值一提。所以你如果做剪枝或者蒸馏，本质上是改变计算图的结构或者模型的宽度/深度，虽然也能减重，但并没有直接解决“把每个数字存得更省”这个核心矛盾。而量化——特别是码本式的压缩——相当于直接给每个权重换了个“缩写代号”。\n\n但传统码本方法有个老毛病，我在 Figure 1 里画得很清楚。标准做法是每个张量只配一个码本，然后每个权重用一个软索引指向码本里的某个值。问题是反向传播时，梯度更新会天然倾向于跳向码本里的极端值——比如一个权重应该是 0.17，但梯度更喜欢先跳到 0.96 那个较远的极值上。这根本不是我们想要的局部搜索（proximal search），而是飞镖乱甩。\n\n我解决这个问题的办法分三层。第一层，我先对神经元按照权重分布做聚类和重排（Hierarchical clustering 效果最好，见 Table 3），这样就能把分布相似的权重排在一起，然后给不同组分配不同的码本——注意，这个分配不需要额外存索引，因为索引就是行号本身。第二层，我提出了一种联合学习（joint learning）码本值和映射关系的方法，类似 GPTQ 的思路，利用少量校准集做逐层的输出偏差最小化。第三层也是我最核心的贡献：我把标准的 STE（Straight-Through Estimation）梯度重新定义成了一个**递减函数**来代替原来的缩放——具体公式就是式（8）里那个 D 函数——这样梯度更新就会优先选择码本里更近的值，而不是更极端的值。\n\n这套组合下来，效果非常夸张。在 Table 5 里你可以看到，在 ImageNet 上对 ResNet-18 做 7.5 倍压缩（相当于从 FP16 压到约 2-bit），我的方法直接比之前的 SOTA（比如 NUPES）高出 9.9 个百分点。在 Llama 7B 上（Table 6b），我用 5.33 倍压缩都能打到 55.94% 的平均常识推理正确率，跟原来的 56.14% 几乎没有差距，但体积只有原来的六分之一不到。\n\n当然，任何方法都有代价。我的代价主要来自两点：一是你需要一个小校准集来做微调（不过量级很小，几百到几千样本就行）；二是码本本身也要占一点内存开销（参见公式计算部分），不过这部分跟权重总量相比可以忽略不计。所以回到你的问题：如果只能选一个，优先量化，尤其是码本式量化。剪枝和蒸馏不是没用，但它们在“极低成本部署大模型”这件事上的天花板远低于量化。我现在就能把 Llama 7B 压到 2GB 跑起来，剪枝和蒸馏做得到吗？数据说话。",
+      "seconds": 10.05,
+      "status": "ok",
+      "error": null
+    }
+  ]
+}

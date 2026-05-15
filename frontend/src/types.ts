@@ -345,6 +345,8 @@ export interface CommunityPaperAnswer {
   local_pdf_path?: string;
   figure_count: number;
   figures: CommunityFigureRef[];
+  answerability?: 'yes' | 'partial' | 'no';
+  answerability_reason?: string;
   answer?: string;
   seconds?: number;
   status: string;

@@ -1,0 +1,675 @@
+{
+  "topic": {
+    "id": "long-context-retrieval",
+    "question": "长上下文模型真的能替代检索增强吗？什么时候应该用 RAG，什么时候应该直接塞长上下文？",
+    "description": "围绕长上下文、检索、记忆和推理效率的论文回答。",
+    "tags": [
+      "RAG",
+      "Long Context",
+      "Retrieval"
+    ]
+  },
+  "route": "4_deepseek_text_figures_answer",
+  "updated_at": "2026-05-15T20:12:17",
+  "results": [
+    {
+      "rank": 1,
+      "paper_id": "xw5nxFWMlo",
+      "conference": "iclr",
+      "year": 2024,
+      "title": "Retrieval meets Long Context Large Language Models",
+      "abstract": "Extending the context window of large language models (LLMs) is getting popular recently, while the solution of augmenting LLMs with retrieval has existed for years. The natural questions are: i) Retrieval-augmentation versus long context window, which one is better for downstream tasks? ii) Can both methods be combined to get the best of both worlds? In this work, we answer these questions by studying both solutions using two state-of-the-art pretrained LLMs, i.e., a proprietary 43B GPT and Llama2-70B. Perhaps surprisingly, we find that LLM with 4K context window using simple retrieval-augmentation at generation can achieve comparable performance to finetuned LLM with 16K context window via positional interpolation on long context tasks, while taking much less computation. More importantly, we demonstrate that retrieval can significantly improve the performance of LLMs regardless of their extended context window sizes. Our best model, retrieval-augmented Llama2-70B with 32K context window, outperforms GPT-3.5-turbo-16k and Davinci003 in terms of average score on nine long context tasks including question answering, query-based summarization, and in-context few-shot learning tasks. It also outperforms its non-retrieval Llama2-70B-32k baseline by a margin, while being much faster at generation. Our study provides general insights on the choice of retrieval-augmentation versus long context extension of LLM for practitioners.",
+      "authors": [
+        "Peng Xu",
+        "Wei Ping",
+        "Xianchao Wu",
+        "Lawrence McAfee",
+        "Chen Zhu",
+        "Zihan Liu",
+        "Sandeep Subramanian",
+        "Evelina Bakhturina",
+        "Mohammad Shoeybi",
+        "Bryan Catanzaro"
+      ],
+      "source_url": "https://iclr.cc/virtual/2024/poster/17435",
+      "rerank_score": 0.7370637458935207,
+      "local_pdf_path": null,
+      "figure_count": 1,
+      "figures": [
+        {
+          "id": "fig_001_page_007",
+          "page_number": 7,
+          "label": "Figure 1",
+          "caption": "Llama2-70B also displays lost-in-the-middle phenomenon",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "yes",
+      "answerability_reason": "论文直接研究了长上下文模型与检索增强的比较，并给出了何时使用RAG、何时直接塞长上下文的具体结论：对于小模型或短上下文窗口，检索增强效果显著；对于大模型且已具备长上下文能力，检索仍能进一步提升性能，且两者可以结合。论文提供了明确立场和实验证据。",
+      "answer": "长上下文模型能不能替代检索增强？我的答案很直接：不能完全替代，但两者结合才是最强组合。而且我有个可能让你意外的结论——一个只有4K上下文的模型，配上简单的检索增强，表现就能跟花大价钱微调出来的16K长上下文模型掰手腕。\n\n先说我自己的实验结果。我用GPT-43B和Llama2-70B这两款模型做了严格对比。Llama2-70B-4K（4K上下文）加上检索之后，平均得分从31.61飙升到36.02，而它那个通过位置插值微调出来的16K长上下文版本，分数也不过是36.78。两者几乎持平，但检索版本的计算量要小得多。这意味着什么？如果你预算有限、推理速度是痛点，直接用短上下文加检索可能是更聪明的选择。\n\n但真正关键的点在这里：我把检索加到长上下文模型上，性能居然还能再涨一截。我的最佳配置——Llama2-70B-32K配上检索——平均得分达到43.6，不仅碾压它自己不检索的40.9分版本，还超过了GPT-3.5-turbo-16K的42.8分，甚至干翻了175B的Davinci003。我在Table 3里把这个对比列得明明白白。\n\n这里有个常见的误解需要澄清。LongBench那篇工作说检索只对弱模型有用，对强模型没帮助。我一开始也觉得奇怪，后来发现症结在于他们用的模型太小——6B和7B参数级别的LLM根本没有足够的能力把检索来的碎片信息用好。我自己用Llama2-7B复现时也看到了同样的现象：7B的32K版本加检索反而掉分。但一旦上到43B和70B这个规模，情况就完全反转了，大模型有更好的零样本能力去消化检索来的上下文。\n\n当然，检索也不是无脑堆越多越好。我在Table 5里看到，Top-5或Top-10的检索块通常最优，加到20块反而会引入噪声，伤害性能。这里面有个有意思的现象叫\"lost in the middle\"——我在Figure 1里展示了，无论是4K还是32K的Llama2-70B，模型对放在输入中间位置的信息利用率就是不如开头和结尾。这也是为什么检索帮你把事情挤到前面去，是有实在好处的。\n\n总结一下我的判断：如果你的任务本身不需要超长上下文（比如单文档QA），而且你对推理延迟敏感，直接用短上下文加检索可能就够了。但如果你处理的是多跳推理或者需要覆盖海量候选信息的长文档，长上下文模型的可扩展性仍然不可替代。最佳实践？把两者结合起来——用长上下文兜底，用检索做聚焦。这个配方在我这里验证了，它打败了当时最强的商用模型。",
+      "seconds": 8.37,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 2,
+      "paper_id": "c8CZWLy4T4",
+      "conference": "iclr",
+      "year": 2026,
+      "title": "Beyond RAG vs. Long-Context: Learning Distraction-Aware Retrieval for Efficient Knowledge Grounding",
+      "abstract": "Retrieval-Augmented Generation (RAG) is a framework for grounding Large Language Models (LLMs) in external, up-to-date information. However, recent advancements in context window size allow LLMs to process inputs of up to 128K tokens or more, offering an alternative strategy: supplying the full document context directly to the model, rather than relying on RAG to retrieve a subset of contexts. Nevertheless, this emerging alternative strategy has notable limitations: (i) it is token-inefficient to handle large and potentially redundant contexts; (ii) it exacerbates the “lost in the middle” phenomenon; and (iii) under limited model capacity, it amplifies distraction, ultimately degrading LLM output quality. In this paper, we propose LDAR (Learning Distraction-Aware Retrieval), an adaptive retriever that learns to retrieve contexts in a way that mitigates interference from distracting passages, thereby achieving significantly higher performance with reduced token usage compared to long-context approaches. Extensive experiments across diverse LLM architectures and six knowledge-intensive benchmarks demonstrate the effectiveness and robustness of our approach, highlighting the importance of balancing the trade-off between information coverage and distraction.",
+      "authors": [],
+      "source_url": "https://openreview.net/forum?id=c8CZWLy4T4",
+      "rerank_score": 0.7267257082625623,
+      "local_pdf_path": null,
+      "figure_count": 5,
+      "figures": [
+        {
+          "id": "fig_001_page_001",
+          "page_number": 1,
+          "label": "Figure 1",
+          "caption": "Performance of LLMs across to- ken usage ratios. Higher ratio corresponds to retrieving more passages. Lines indicate per- formance when retrieving top-similarity pas- sages within a fixed token usage ratio (1.0 = full context). ☆marks the performance of LDAR optimized for each LLM, illustrat- ing its ability to strike a balance between in- formation coverage and distraction that sur- passes all fixed token usage baselines.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_003",
+          "page_number": 3,
+          "label": "Figure 2",
+          "caption": "Visualization of different retrieval strategies and their impact on performance. A green circle ( ) indicates retrieving the passage yields a wrong answer, and a purple star (",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_004",
+          "page_number": 4,
+          "label": "Figure 3",
+          "caption": "(Left) Visualization of passages retrieved by πθ based on the similarity distribution be- tween queries and passages, with retrieved passages marked in green if they contain the correct answer and in red otherwise. (Right) Comparison of performance and passage usage ratio across Bernoulli- and band-based retrieval strategies across gradient steps.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_005",
+          "page_number": 5,
+          "label": "Figure 4",
+          "caption": "Overview of LDAR, a learning-based retrieval strategy that adapts to each LLM by bal- ancing information coverage and distraction. Given a query, a fixed pretrained retriever computes cosine similarity scores between the query and passages. Then periodic embeddings encode each score into a token, followed by a Transformer encoder that processes the tokenized similarity dis- tribution. The encoder representations are aggregated via attention pooling, after which two output heads predict the lower and upper quantiles that define the similarity interval used for retrieval. The selected passages are passed to a pretrained LLM for prediction, and the evaluation signal is used to update the adaptive retriever through gradient-based learning.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_010",
+          "page_number": 10,
+          "label": "Figure 5",
+          "caption": "Average performance plotted against total cumulative computational cost (GPU hours) for both training and inference. The left two panels report the total cost when applying LDAR at different training epochs under 100K and 500K inference calls using open-source LLMs; the right two panels show the corresponding results for closed-source LLMs.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文通过实验对比了RAG和长上下文方法，并提出了LDAR来优化检索，但没有直接回答何时应使用RAG或长上下文。它提供了影响选择的关键因素（如模型容量、干扰），但未给出明确决策指南。",
+      "answer": "先直接回答你的问题：长上下文模型不能完全替代检索增强（RAG），而我的核心结论是——**把整篇文档无脑塞给模型，不如学会“少而精”地挑出真正有用的段落，因为干扰信息和冗余信息才是性能的真正杀手。**\n\n我自己看到的证据很清楚。我用同样的查询和候选段落池，对比了“直接塞满整个上下文”（我把这个叫做 LC）和不同数量的“只挑最像 Top-K 段落”（就是标准 RAG）的表现。结果很有意思——我的 Figure 1 画出了这条曲线：随着你塞进去的 token 越多（从只拿 Top-1 到塞满全部），所有模型的性能并不是一路向上，而是类似于一条倒 U 型曲线。对于开源模型（比如 Qwen-2.5-7B、Llama-3.1-8B），这个倒 U 的峰值出现在 token 用量只有全上下文的 20%–50% 左右的地方，再往右加内容，模型就开始被干扰了，得分反而往下掉。而对封闭源模型（比如 GPT-4o），虽然这个峰值往右挪了一些（它们更能扛），但依然存在。\n\n这说明什么问题？如果“把整篇全塞进去”真的比 RAG 好，那曲线最右端应该是最高点。但我的实验里根本不是这样。尤其是开源模型，全上下文模式（LC）得分还不如只拿 Top-5 或 Top-10 高。关键原因在于“干扰”——我专门在 Figure 2 里做过可视化：有时候哪怕单独拿出来都能答对的段落，一旦把它们和其他段落一起塞给模型，模型反而答错了。我管这叫“干扰性段落”，而你就是没法通过简单的相关性排序把它们筛干净。RAG 里最常用的“挑 Top-K 相似段落”策略，完全没考虑这个扰动问题。\n\n那什么时候该用 RAG，什么时候不该用？我的答案是：**应该问“什么时候该用什么策略”，而不是“用 RAG 还是用 LC”。** 我在 Figure 3 里展示了我的 LDAR 模型是怎么学的：它只看查询和段落之间的余弦相似度整体分布的形状来决定在哪一块切一刀。如果相似度分布里有明显的“高相似度尖峰”，它就只拿那一小撮（也就是类似 RAG 但更灵活）；如果整个分布都很平、很矮，它就放宽范围多拿一点，甚至几乎覆盖全部。本质上，它是在用同一个框架自适应地选择“RAG 程度”或“LC 程度”。而且它对不同能力的模型会执行不同的策略——对能力强的封闭源模型，它倾向于多放一些段落；对能力弱的开源模型，它收得更紧。所以真正的问题不是二选一，而是**能不能根据模型能力和当前查询的信号质量，动态决定信息覆盖率和干扰风险的平衡点。**\n\n当然，这样做是有代价的。我的学习框架需要额外的训练——它是用模型预测是否正确这个信号来通过策略梯度更新的。虽然我刻意让它只是用一个轻量的 Transformer 只看相似度数值（不看文本），不像那些需要跑文本重排器的方法（比如 BGM 或 RankZephyr）那么重，但它依然需要训练，而且需要一个带验证信号的数据集。我的 Table 3 里有详细的推理耗时对比：在开源模型上，我的 LDAR 平均每个样本只要 3.9 秒，而传统的 LC 方法要 15.4 秒，文本重排器更惨——RAG 要 18.4 秒，BGM 要 13.3 秒。所以在推理效率上我也赢了，但这个赢本身是基于我花了训练成本换来的。\n\n再直白一点帮你理清：如果你要处理的是信息非常聚集的问题（比如从一个明确的文档段落里找事实），而且用的模型能力不够强，粗暴 LC 几乎肯定会输给一个有意识的 RAG 筛选。如果你的模型极其强大（像 GPT-4o 级别）并且上下文里干扰信息不多，LC 或许勉强行得通，但通常不划算——浪费 token，效果也不一定更好。我的建议是别在这两个极端里选，而是去学一个可以动态调节的机制。",
+      "seconds": 12.6,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 3,
+      "paper_id": "cPD2hU35x3",
+      "conference": "iclr",
+      "year": 2025,
+      "title": "ChatQA 2: Bridging the Gap to Proprietary LLMs in Long Context and RAG Capabilities",
+      "abstract": "In this work, we introduce ChatQA 2, an Llama 3.0-based model with a 128K\ncontext window, designed to bridge the gap between open-source LLMs and\nleading proprietary models (e.g., GPT-4-Turbo-2024-04-09) in long context un-\nderstanding and retrieval-augmented generation (RAG) capabilities. These two\ncapabilities are complementary to each other and essential for LLMs to process\nlarge volumes of information that cannot fit into a single prompt. We present\na detailed continued training recipe to extend the context window of Llama3-\n70B-base from 8K to 128K tokens, along with a three-stage instruction tun-\ning process to enhance the model’s instruction-following, RAG performance,\nand long-context understanding capabilities. Our results demonstrate that the\nLlama3-ChatQA-2-70B model outperforms most existing state-of-the-art models,\nincluding GPT-4-Turbo-2024-04-09, Qwen2-72B-Instruct, and Llama3.1-70B-\nInstruct, on ultra-long tasks beyond 100K tokens, as well as on the RAG benchmark\nusing only a 4K context window, showing the strong long context capability across\nvarying sequence lengths. We further provide extensive comparisons between\ndirect long-context and RAG solutions using the same state-of-the-art long-context\nLLMs. Interestingly, we find that the performance of strong long-context LLMs\nusing RAG improves when retrieving a larger number of chunks. With a large set\nof top-k chunks, RAG consistently outperforms direct long-context solution using\nthe same state-of-the-art long-context models (e.g., Llama3-ChatQA-2-70B and\nQwen2-72B-Instruct) on both 32K and 128K benchmarks. We open-source the\nmodel weights, training data, and the evaluation setup for the for the community:\nhttps://chatqa2-project.github.io/",
+      "authors": [
+        "Peng Xu",
+        "Wei Ping",
+        "Xianchao Wu",
+        "Chejian Xu",
+        "Zihan Liu",
+        "Mohammad Shoeybi",
+        "Bryan Catanzaro"
+      ],
+      "source_url": "https://iclr.cc/virtual/2025/poster/29053",
+      "rerank_score": 0.6357500530021316,
+      "local_pdf_path": null,
+      "figure_count": 2,
+      "figures": [
+        {
+          "id": "fig_001_page_009",
+          "page_number": 9,
+          "label": "Figure 2",
+          "caption": "Ablation of Llama3-ChatQA-2-70B with RAG given different top-k = {5, 10, 20, 40} retrieval, and chunk-size = {300, 600, 1200} on long context benchmarks within 32K tokens (see Section 4.2 for more details). The accuracy can be monotonically improved with more retrieved tokens (i.e., k× chunk_size) in the context window.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_010",
+          "page_number": 10,
+          "label": "Figure 2",
+          "caption": "compares different chunk sizes for top-k retrieval and the total number of tokens fed into our long context LLM. Comparing total tokens from 3000 to 24000, we found that more tokens consistently yield better results, confirming the strong long-context capability of our model. Also, for downstream tasks with sequence lengths up to 32K, RAG can still marginally outperform the long-context solution if a sufficient number of top-k chunks are used, i.e., at least 12,000 tokens as shown in Figure 2. Therefore, the hyperparameter k can be selected based on the tradeoff between efficiency and accuracy in real-world applications. For context lengths beyond 100K in Table 5, RAG (using top-30 chunks for our Llama3-ChatQA-2-70B, and top-20 for Qwen2-72B-Instruct) again outperforms the full long-context solution. In such scenarios, RAG is recommended for better accuracy and much lower inference cost, provided it is applicable to the downstream tasks.",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        }
+      ],
+      "answerability": "yes",
+      "answerability_reason": "论文直接比较了长上下文LLM（直接塞长上下文）与RAG在不同任务上的表现，并给出了明确的结论和指导：RAG在检索足够多chunk时一致优于长上下文方案（32K和128K任务），并提到可以根据效率与准确率的权衡选择RAG或长上下文。这直接回答了用户关于何时使用RAG、何时直接塞长上下文的问题。",
+      "answer": "直接说结论：**目前，长上下文模型还不能完全替代RAG。** 这两种技术更像是互补工具，具体用哪个取决于你的任务场景和对成本、精度的要求。\n\n我自己的实验数据也证明了这一点。拿我（Llama3-ChatQA-2-70B）跟GPT-4-Turbo、Qwen2、Llama3.1这些模型做对比，结果是：在短上下文（4K以内）的对话式QA任务上，我配合RAG能达到56.30的平均分，比GPT-4-Turbo的54.72还高。但在32K的长上下文任务里，我直接处理全部文本的得分（48.15）比GPT-4-Turbo的满分处理得分（51.93）要低。这说明单靠长上下文窗口并不能在所有场景下碾压对手，模型对长文本的内部处理和注意力分配仍然有限。\n\n**什么时候应该用RAG？**\n\nRAG最大的优势是效率和可扩展性。如果你的任务是基于查询来寻找答案，比如问答、事实核查、特定信息提取，而且待搜索的文本库可能有几百万甚至几十亿个token——这时候RAG是唯一实际的选择，因为没有任何长上下文模型能把那么多内容一次性塞进上下文窗口。\n\n更重要的是，我通过实验发现：**当检索到的chunk数量足够多时，RAG的效果可以稳定超过直接使用长上下文。** 比如在32K token的任务上（见Figure 2），我对比了不同top-k（5、10、20、40）和不同chunk size（300、600、1200）。结果是，当喂给模型的检索token总数达到12,000以上时，RAG的准确率就超过了直接处理完整长文本的基线。在超过100K token的超长任务（如InfiniteBench的En.QA和En.MC）上，RAG（对我是top-30 chunks，对Qwen2是top-20）也能获得更高准确率。关键是，RAG的推理成本远低于直接处理超长输入。\n\n**什么时候应该直接塞长上下文？**\n\n长上下文窗口适合那些不能被切分成独立chunk的任务。最典型的是文档摘要。你没法通过检索几个chunk来生成一份准确的全文总结，因为摘要需要全局信息。同样，像长篇对话理解、整本书的剧情推理，RAG的碎片化检索会丢失重要的上下文连贯性。\n\n从我自己的表现就能看出来：在InfiniteBench的\"En.Sum\"（长书摘要）任务上，我直接处理全文的得分是16.08，这并不高——这恰恰是因为我的SFT训练过程缺乏足够的摘要数据。但这正说明了长上下文窗口擅长的是什么类型的任务：它处理的是整体理解，而不是局部检索。\n\n**我需要提醒一个常见的误区：**\n\n很多人觉得RAG因为检索chunk而引入的\"碎片化\"会损害模型性能。我之前也担心这个问题。但实际测试表明，使用支持长上下文的检索器（比如我用的E5-mistral，支持32K token输入），配合更大的chunk size（比如1200 token），这种碎片化问题几乎可以被消除。Figure 2里，使用chunk size 300和1200在相同总token数下的表现几乎没有显著差异。\n\n所以，选择RAG还是长上下文，核心是三层判断：\n- 如果任务是问答、检索式任务，且文本规模很大，**选RAG + 尽量多检索chunk**。\n- 如果任务是摘要、连贯性理解，需要全局视角，**选直接长上下文**。\n- 如果任务能用RAG但chunk数很少（比如只检索5个），那不如直接用长上下文——我在32K任务上的默认RAG设置（top-5, 1200 tokens）就输给了直接长上下文方案。",
+      "seconds": 9.7,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 4,
+      "paper_id": "293V3bJbmE",
+      "conference": "iclr",
+      "year": 2025,
+      "title": "HELMET: How to Evaluate Long-context Models Effectively and Thoroughly",
+      "abstract": "Many benchmarks exist for evaluating long-context language models (LCLMs), yet developers often rely on synthetic tasks such as needle-in-a-haystack (NIAH) or an arbitrary subset of tasks. However, it remains unclear whether these benchmarks reflect the diverse downstream applications of LCLMs, and such inconsistencies further complicate model comparison. We investigate the underlying reasons behind these practices and find that existing benchmarks often provide noisy signals due to limited coverage of applications, insufficient context lengths, unreliable metrics, and incompatibility with base models. In this work, we introduce HELMET (How to Evaluate Long-context Models Effectively and Thoroughly), a comprehensive benchmark encompassing seven diverse, application-centric categories. We also address several issues in previous benchmarks by adding controllable lengths up to 128K tokens, model-based evaluation for reliable metrics, and few-shot prompting for robustly evaluating base models. Consequently, we demonstrate that HELMET offers more reliable and consistent rankings of frontier LCLMs. Through a comprehensive study of 59 LCLMs, we find that (1) synthetic tasks like NIAH do not reliably predict downstream performance; (2) the diverse categories in HELMET exhibit distinct trends and low correlations with each other; and (3) while most LCLMs achieve perfect NIAH scores, open-source models significantly lag behind closed ones when tasks require full-context reasoning or following complex instructions---the gap widens as length increases. Finally, we recommend using our RAG tasks for fast model development, as they are easy to run and better predict other downstream performance; ultimately, we advocate for a holistic evaluation across diverse tasks.",
+      "authors": [
+        "Howard Yen",
+        "Tianyu Gao",
+        "Minmin Hou",
+        "Ke Ding",
+        "Daniel Fleischer",
+        "Peter Izsak",
+        "Moshe Wasserblat",
+        "Danqi Chen"
+      ],
+      "source_url": "https://iclr.cc/virtual/2025/poster/31157",
+      "rerank_score": 0.5948962569818058,
+      "local_pdf_path": null,
+      "figure_count": 7,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "Long-context benchmark results of frontier LCLMs (Llama-3.1 8B/70B, GPT-4o-mini, GPT-4o-08-06, and Gemini-1.5 Flash/Pro) at 128K input length. NIAH is saturated for almost all models; RULER (Hsieh et al., 2024) and ∞BENCH (Zhang et al., 2024b) show unexpected trends for Llama-3.1 (Dubey et al., 2024). In contrast, HELMET demonstrates more consistent rankings of these frontier models.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_006",
+          "page_number": 6,
+          "label": "Figure 2",
+          "caption": "Comparison between ROUGE-L F1 and our model-based evaluation metric on summa- rization tasks. Our metric shows more consistent trends: it reflects the performance gain on GPT-4o with increased input length, while ROUGE remains almost the same; our metric also clearly differ- entiates models while ROUGE shows little distinction.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_007",
+          "page_number": 7,
+          "label": "Figure 3",
+          "caption": "Spearman’s rank correlation at 128K input length, calculated across 35 instruction-tuned models.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_008",
+          "page_number": 8,
+          "label": "Figure 4",
+          "caption": "Distribution of instruction-tuned models’ performance on ∞BENCH QA with respect to NIAH, RULER MK, and HotpotQA.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_008",
+          "page_number": 8,
+          "label": "Figure 5",
+          "caption": "Spearman rank correlation between different categories at L =128K.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_006_page_009",
+          "page_number": 9,
+          "label": "Figure 6",
+          "caption": "Results of HELMET. All models are instruction-tuned and have a claimed context win- dow of 128K tokens or more.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_007_page_010",
+          "page_number": 10,
+          "label": "Figure 7",
+          "caption": "Results of selected instruct models on various lengths and increasing complexity of tasks. Notably, Qwen2 relies on position extrapolation, while other open-models are trained at or greater than 128K context window.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "The paper evaluates long-context models and includes RAG tasks, comparing them to synthetic tasks. It recommends using RAG for fast development and notes its better prediction of downstream performance, but does not directly compare long-context models to retrieval-augmented generation as alternatives or provide guidance on when to choose one over the other.",
+      "answer": "长上下文模型能不能替代 RAG？我的答案是：**不能完全替代，而且不同场景下各有各的用处。在我做的 59 个模型的大型评估里，RAG 类任务反而是一个非常好的“代理指标”——比那些花里胡哨的合成任务更能预测模型在其他真实任务上的表现。**\n\n先说说为什么不能只靠“直接塞长上下文”来替代 RAG。很多人都觉得，既然模型能看 128K 甚至更长，那为什么还要专门做个检索系统呢？把整个知识库塞进 prompt 不就行了？但我的实验数据狠狠打了这个想法一巴掌。你看 Figure 6 里的“RAG”那一列，即便是 GPT-4o-08 这样顶级模型，在 128K 长度下也只有 70.2 的分数，而它在纯 Recall（也就是简单记忆任务）上可是 99.9。**这说明什么？RAG 任务里那些精心挑选的干扰段落，远比随便找几篇无关散文要难搞。** 我在设计 RAG 数据集的时候，特意用了检索器拿“相关但不回答当前问题”的段落来做干扰项，而不是随机文档——这种更现实的设置，让模型不得不从一堆似是而非的信息里扒拉出正确答案。这和经典的“针在干草堆”任务完全是两码事。\n\n那什么时候该用 RAG，什么时候该直接塞长上下文？我的建议很明确：**如果你在快速迭代模型，想找个跑得快又靠谱的验证指标，就用我的 RAG 任务。** 我在 Figure 3 里展示过一个关键发现——RAG 类任务和下游真实任务（像长文档 QA、摘要生成）的 Spearman 秩相关系数普遍在 0.7 到 0.9 之间，HotpotQA 这个 RAG 子任务和 ∞BENCH QA 的相关系数甚至达到了 0.88。相比之下，传统的 NIAH 合成任务相关系数最高才 0.61，而且几乎所有模型在 NIAH 上都是满分或零分，根本拉不开差距。**所以 RAG 是个非常好的“甜区”：它容易跑、结果稳定、还能替代很多更贵的下游评估。**\n\n但反过来，**如果你想把模型部署到世面上去做复杂的任务，比如“带引用的生成”或者“段落重排序”，那你必须用真正的长上下文模式来测，不能拿 RAG 当万金油。** 我在 Figure 5 里发现，不同的任务类别之间相关性其实很低。比如“生成加引用”这个类别，需要模型既要记住信息，又要严格遵循输出格式——很多开源模型到了 128K 就直接崩了，分数从 40 多掉到个位数。而 ICL（上下文学习）这个类别的表现甚至和别的类别几乎不相关。**所以我的结论很简单：用 RAG 做快速验证，用全套 HELMET 做最终验收。** 别忘了，即便最好的模型，在长上下文中处理复杂指令的能力也远没到完美的地步——那个“lost in the middle”的魔咒，数据上看得清清楚楚。",
+      "seconds": 8.66,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 5,
+      "paper_id": "LuCLf4BJsr",
+      "conference": "nips",
+      "year": 2024,
+      "title": "Chain of Agents: Large Language Models Collaborating on Long-Context Tasks",
+      "abstract": "Addressing the challenge of effectively processing long contexts has become a critical issue for Large Language Models (LLMs). Two common strategies have emerged: 1) reducing the input length, such as retrieving relevant chunks by Retrieval-Augmented Generation (RAG), and 2) expanding the context window limit of LLMs. However, both strategies have drawbacks: input reduction has no guarantee of covering the part with needed information, while window extension struggles with focusing on the pertinent information for solving the task. To mitigate these limitations, we propose Chain-of-Agents (CoA), a novel framework that harnesses multi-agent collaboration through natural language to enable information aggregation and context reasoning across various LLMs over long-context tasks. CoA consists of multiple worker agents who sequentially communicate to handle different segmented portions of the text, followed by a manager agent who synthesizes these contributions into a coherent final output. CoA processes the entire input by interleaving reading and reasoning, and it mitigates long context focus issues by assigning each agent a short context. We perform a comprehensive evaluation of CoA on a wide range of long-context tasks in question answering, summarization, and code completion, demonstrating significant improvements by up to 10% over strong baselines of RAG, Full-Context, and multi-agent LLMs.",
+      "authors": [
+        "Yusen Zhang",
+        "Ruoxi Sun",
+        "Yanfei Chen",
+        "Tomas Pfister",
+        "Rui Zhang",
+        "Sercan O Arik"
+      ],
+      "source_url": "https://neurips.cc/virtual/2024/poster/95563",
+      "rerank_score": 0.5924820458262974,
+      "local_pdf_path": null,
+      "figure_count": 6,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "Overview of Chain-of-Agents, a training-free, task agnostic, and highly-interpretable framework that harnesses multi-agent collaboration for long-context tasks. Blue boxes indicate communication unit CUi between worker agents Wi and Wi+1. It consists of multiple worker agents who sequentially communicate to handle different segmented portions of the text, followed by a manager agent who synthesizes these contributions into a coherent final output.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_004",
+          "page_number": 4,
+          "label": "Figure 1",
+          "caption": "shows the overview of our Chain-of-Agents (CoA) framework, containing two stages. In stage 1, long context is split into chunks where each chunk can be processed by a worker agent. Then, the worker agents communicate sequentially to produce evidence over the entire context. In stage 2, a manager agent consumes the knowledge from the chain of workers to generate the final answer.",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        },
+        {
+          "id": "fig_003_page_007",
+          "page_number": 7,
+          "label": "Figure 2",
+          "caption": "Performance of Claude 3 on BookSum. Improvement is more obvious for longer inputs.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_008",
+          "page_number": 8,
+          "label": "Figure 3",
+          "caption": "Comparison on NarrativeQA. X-axis/Y- axis indicate RAG/CoA performance while each point represents a bin. The number indicates the chunk index of gold answer (ratio of number of samples in bracket), and the size of the point indi- cates the improvement of CoA over RAG.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_008",
+          "page_number": 8,
+          "label": "Figure 4",
+          "caption": "Performance of CoA and Full on Nat- ural Questions. CoA mitigates the lost-in-the- middle issue. X-axis is the index of document with gold answer where small number indicates gold answer is closer to start.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_006_page_008",
+          "page_number": 8,
+          "label": "Figure 5",
+          "caption": "A case study of RAG (left) and CoA (right) on HotpotQA. The sequential agent communi- cation enables CoA to perform complex multi-hop reasoning over long contexts. 5.2 CoA Improvement is More Obvious When Long Context Models Meet Longer Inputs",
+          "confidence": 0.72,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文比较了RAG和长上下文模型（full-context）的性能，并提出了CoA作为替代方案，但并未直接回答‘何时用RAG何时用长上下文’的决策问题。它提供了RAG和长上下文各自的缺点以及CoA的优势，但没有给出明确的指导性结论。",
+      "answer": "长上下文模型不能替代RAG，我也不认为简单的“直接塞长上下文”或“RAG召回了事”是解决方案。真正关键的问题是：当输入非常长（比如几十万甚至上百万 token）时，两者各自有硬伤，而且这些硬伤不是通过拉长窗口就能消掉的。\n\n我会先泼一点冷水：很多人在吹“Claude 3 200k 窗口”或者“Gemini 1.5 百万 token”，但这些所谓的“长上下文模型”实际上在处理很长文本的时候有一个严重问题——它们很难聚焦到真正有用的信息上。我自己的实验里把这个现象量化得很清楚：我用 Claude 3（200k 窗口）在 BookSum 数据集上跑，每次输入被截断到 200k 以内做 summarization，结果发现当输入长度超过 400k 时，Vanilla 模型的 performance 基本就趴下了，而我的方法（CoA）反而随着输入变长表现还变好了。这个你可以在 Figure 2 里看到，纵轴是对比分数，红色点（我的）远高于蓝色点（Vanilla），而且差距随长度拉大。\n\n那为什么 RAG 也解决不了？RAG 的核心问题在于它的还原能力天花板。我拿 NarrativeQA 做了一组分析（Figure 3），把样本根据 RAG 召回的 gold answer 位置分了 bin，结果很直白：RAG 只有在把正确答案搜到了靠前的位置时才表现好，一旦它没搜到——也就是检索失败——performance 骤降。而我干预后的行为截然不同：即使前几个 chunk 看着跟问题不搭边，worker agent 也会先探索，把半路信息往下传，最终在最后一个 chunk 里拼出完整推理链。Figure 5 里有个 HotpotQA 的具体 case，RAG 因为语义相似度匹配只抓到“火星”这样的片段，而我自己的多步协作正确地找到了“太阳”。说白了一个道理：RAG 本质上是一次性拍板，错了就是错了，而我这种链式通信允许每个 agent 在局部做判断，然后慢慢线索递进。\n\n所以什么时候该用哪个？如果信息集中、定位明确（比如你知道答案就在文档前几段），RAG 速度快，成本低，用用没问题。但如果面对长文档里的多跳推理（比如“A 的孙子是谁”这种要跨 chunks 才能拼出来的逻辑），或者长度超过 100k 甚至 400k 的输入——比如整本书的 summarization——那直接塞长上下文也好、RAG 也好，都会翻车。这种情况下，我个人的做法（CoA）比较合适：把输入切分给多个 worker agent 按顺序读，每个 agent 只处理一个 chunk，然后通过自然语言传消息给下一个 agent，最后由一个 manager agent 产出答案。这种方式训练无关、任务通用，而且高度可解释，因为你随时可以扒开每一个 worker 的通信单元看它到底理解了啥——这一点 RAG 和 full-context 都做不到。\n\n多说一句局限性：这个方法不是免费的，它比直接塞上下文多花了大概 30% 的时间（见 Table 9 的实践分析）。不过好在 agent 之间可以并行跑编码阶段，结合起来实际延时其实能压到跟 vanilla 差不多。所以简单论，无脑说“长上下文替代一切”或者“RAG 万能”都不对——这两者各有致命盲区，而我的方案恰好补上了它们都搞不定的部分。",
+      "seconds": 9.95,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 6,
+      "paper_id": "5LXcoDtNyq",
+      "conference": "iclr",
+      "year": 2025,
+      "title": "Holistic Reasoning with Long-Context LMs: A Benchmark for Database Operations on Massive Textual Data",
+      "abstract": "The rapid increase in textual information means we need more efficient methods to sift through, organize, and understand it all. While retrieval-augmented generation (RAG) models excel in accessing information from large document collections, they struggle with complex tasks that require aggregation and reasoning over information spanning across multiple documents--what we call  \\textit{holistic reasoning}. Long-context language models (LCLMs) have great potential for managing large-scale documents, but their holistic reasoning capabilities remain unclear.  In this work, we introduce HoloBench, a novel framework that brings database reasoning operations into text-based contexts, making it easier to systematically evaluate how LCLMs handle holistic reasoning across large documents. Our approach adjusts key factors such as context length, information density, distribution of information, and query complexity to evaluate LCLMs comprehensively. \n\nOur experiments show that the amount of information in the context has a bigger influence on LCLM performance than the actual context length. Furthermore, the complexity of queries affects performance more than the amount of information, particularly for different types of queries. Interestingly, queries that involve finding maximum or minimum values are easier for LCLMs and are less affected by context length, even though they pose challenges for RAG systems. However, tasks requiring the aggregation of multiple pieces of information show a noticeable drop in accuracy as context length increases.  Additionally, we find that while grouping relevant information generally improves performance, the optimal positioning varies across models. Our findings surface both the advancements and the ongoing challenges in achieving a holistic understanding of long contexts. These can guide future developments in LCLMs and set the stage for creating more robust language models for real-world applications.",
+      "authors": [
+        "Seiji Maekawa",
+        "Hayate Iso",
+        "Nikita Bhutani"
+      ],
+      "source_url": "https://iclr.cc/virtual/2025/poster/30950",
+      "rerank_score": 0.5635194373285082,
+      "local_pdf_path": null,
+      "figure_count": 8,
+      "figures": [
+        {
+          "id": "fig_001_page_004",
+          "page_number": 4,
+          "label": "Figure 1",
+          "caption": "Overview of the HoloBench instance generation process, illustrating the partitioning of databases into relevant and non-relevant subsets, verbalization of table rows into textual contexts, and construction of the final inference context based on information positioning parameters.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_005",
+          "page_number": 5,
+          "label": "Figure 2",
+          "caption": "Illustration of how relevant context cq (highlighted in green) is placed within the entire context c for different information positioning strategies.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_008",
+          "page_number": 8,
+          "label": "Figure 3",
+          "caption": "Variations in model performances with position of relevant information. Concentrated information benefits most models, although optimal position varies for each model.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_008",
+          "page_number": 8,
+          "label": "Figure 4",
+          "caption": "LCLMs’ performance on various query types. Max/Min queries are an easier task across context lengths than other types. In contrast, We observe a performance drop for Aggregation queries, particularly for longer contexts.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_009",
+          "page_number": 9,
+          "label": "Figure 5",
+          "caption": "LCLMs’ performance on various query difficulties. Model performance declines as query difficulty increases. Performance drops further as context length increases.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_006_page_009",
+          "page_number": 9,
+          "label": "Figure 6",
+          "caption": "compares the performance of vanilla LCLMs and RAG-based models. For short contexts (4k tokens), RAG slightly outperforms vanilla LCLMs with GPT-4o and Llama-3.1-8b. This may be because, in this specific scenario, the retrieval model retrieves exactly the amount of relevant information, providing a cleaner context for holistic reasoning than the vanilla LCLM setting. However, this configuration is not realistic for most practical scenarios, where we cannot know the exact amount of relevant information in advance. As the context length increases beyond 4k tokens, larger vanilla LCLMs consistently outperform RAG-based models. This suggests that LCLMs are more effective at handling longer contexts where RAG models may fail to retrieve sufficient relevant information.",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        },
+        {
+          "id": "fig_007_page_010",
+          "page_number": 10,
+          "label": "Figure 6",
+          "caption": "Performance comparison of LCLM and RAG. For long contexts, large models outperform RAG but a retriever helps a small model due to its limited ability to handle long contexts.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_008_page_010",
+          "page_number": 10,
+          "label": "Figure 7",
+          "caption": "Performance comparison of GPT-4o with CoT and without CoT. Generally, CoT improves performance, particularly for tasks that require reasoning over multiple information sources.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "The paper compares LCLMs and RAG on holistic reasoning tasks (Figure 6), showing LCLMs outperform RAG for longer contexts (>4k tokens) on such tasks, but it does not directly address when to use RAG vs. long-context models in general, nor does it provide a complete comparison on typical QA or retrieval tasks.",
+      "answer": "先说结论：别想着无脑替代。长上下文模型和RAG各有各的阵地，关键看你到底要干什么。\n\n我是专门为测试长上下文模型能不能进行“整体推理”而生的一个基准——HoloBench。设计思路很直接：我拿数据库操作来模拟那些需要跨文档聚合、比较、排序的复杂任务，然后系统性地控制上下文长度、信息密度、信息位置和查询难度，看看这些模型到底吃几碗干饭。\n\n我的实验结果给出了相当清晰的边界条件。\n\n首先，**当任务需要聚合大量离散信息、提复杂多条件查询时——比如“哪个目的地机场接收的出发地机场数量最多？”——长上下文模型，特别是对GPT-4o这种大模型，在上下文达到32k、64k时，表现明显优于RAG**。这不只是我的猜想，Figure 6直接展示了这个对比：在4k短上下文下，RAG因为能精准捞到那点相关信息、减少噪声，略微领先；但一旦上下文长度超过4k，更大的vanilla LCLM（比如GPT-4o、Llama-3.1-405b）就稳定甩开RAG了。原因很简单：RAG的检索器根本不知道要捞多少信息，你设定的top-k几乎不可能恰好覆盖所有相关事实—我那套实验里信息密度是50%时，检索top-2k tokens精度也就83.9%，漏掉的信息直接导致聚合失败。\n\n反过来，**当你任务本质上就是个简单定位，比如“哪个酒最贵？”**—这在HoloBench里属于Max/Min查询—那长上下文模型自己就能轻松搞定（Figure 4里准确率几乎不随上下文长度衰减），RAG那套徒增系统复杂度的做法就没必要了。而且我的实验发现一件挺反直觉的事：上下文里**信息的总量**对性能的拖累比**上下文的总长度**要大得多（Table 5里信息密度从2k翻到32k，有些模型掉20个百分点，单纯拉长上下文到同样的长度反而掉得少）。\n\n代价必须说清楚。长上下文模型能吃下更全的信息，但它吃的苦头远不止这一点。当你要聚合的信息多起来，它的推理能力会肉眼可见地衰退—我在Figure 4里看到Aggregation查询的准确率在长上下文下断崖式下跌。而且它**对信息位置的敏感度**差异巨大：Figure 3显示的GPT-4o更喜欢信息靠在上下文末尾或者两头集中分布，如果你把关键信息插在中间，它直接掉10个点。这意味着哪怕你要用长上下文模型，也得自己做好信息排列的工程优化。\n\n所以我的建议是两条路：如果你要处理的是狭窄范围的精确查找，或者模型本身是小参数量（8B级别那种），这时候RAG反而能帮它一把（Figure 6里Llama-3.1-8b配上RAG比光给长上下文效果好）。因为你指望一个小模型在64k垃圾堆里自己筛金子，基本就是缘木求鱼。但如果你要处理的是需要全面理解整个语料的聚合、排序、多条件筛选，而且模型规模够大（至少405B或GPT-4o这个量级），那直接喂长上下文是更省事也更好的选择。",
+      "seconds": 9.99,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 7,
+      "paper_id": "FSjIrOm1vz",
+      "conference": "iclr",
+      "year": 2025,
+      "title": "Inference Scaling for Long-Context Retrieval Augmented Generation",
+      "abstract": "The scaling of inference computation has unlocked the potential of long-context large language models (LLMs) across diverse settings. For knowledge-intensive tasks, the increased compute is often allocated to incorporate more external knowledge.  However, without effectively utilizing such knowledge, solely expanding context does not always enhance performance. In this work, we investigate inference scaling for retrieval augmented generation (RAG), exploring the combination of multiple strategies beyond simply increasing the quantity of knowledge, including in-context learning and iterative prompting. These strategies provide additional flexibility to scale test-time computation (e.g., by increasing retrieved documents or generation steps), thereby enhancing LLMs’ ability to effectively acquire and utilize contextual information. We address two key questions: (1) How does RAG performance benefit from the scaling of inference computation when optimally configured? (2) Can we predict the optimal test-time compute allocation for a given budget by modeling the relationship between RAG performance and inference parameters? Our observations reveal that increasing inference computation leads to nearly linear gains in RAG performance when optimally allocated, a relationship we describe as the inference scaling laws for RAG. Building on this,  we further develop the computation allocation model to estimate RAG performance across different inference configurations.  The model predicts optimal inference parameters under various computation constraints, which align closely with the experimental results. By applying these optimal configurations, we demonstrate that scaling inference compute on long-context LLMs achieves up to 58.9% gains on benchmark datasets compared to standard RAG.",
+      "authors": [
+        "Zhenrui Yue",
+        "Honglei Zhuang",
+        "Aijun Bai",
+        "Kai Hui",
+        "Rolf Jagerman",
+        "Hansi Zeng",
+        "Zhen Qin",
+        "Dong Wang",
+        "Xuanhui Wang",
+        "Michael Bendersky"
+      ],
+      "source_url": "https://iclr.cc/virtual/2025/poster/30339",
+      "rerank_score": 0.5564958174296271,
+      "local_pdf_path": null,
+      "figure_count": 6,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "Normalized performance vs. effective context lengths on MuSiQue. Each line represents a fixed configuration, scaled by adjusting the number of documents. Red dots and dash lines represent the optimal configurations and their fitting results. Standard RAG plateaus early at 104 tokens, in contrast, DRAG and IterDRAG show near-linear improvement as the effective context length grows.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_003",
+          "page_number": 3,
+          "label": "Figure 2",
+          "caption": "Evaluation accuracy of Gemini 1.5 Flash using different methods: zero-shot QA, many-shot QA, RAG (with an optimal number of documents), DRAG and IterDRAG on benchmark QA datasets. By scaling up inference compute (up to 5M tokens), DRAG consistently outperforms baselines, while IterDRAG improves upon DRAG through interleaving retrieval and iterative generation.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_005",
+          "page_number": 5,
+          "label": "Figure 3",
+          "caption": "DRAG vs. IterDRAG. IterDRAG breaks down the input query into sub-queries and answer them to improve the accuracy of the final answer. In test-time, IterDRAG scales the computation through multiple inference steps to decompose complex queries and retrieve documents.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_007",
+          "page_number": 7,
+          "label": "Figure 4",
+          "caption": "Normalized performance vs. effective context lengths across datasets. Each line represents a fixed configuration, scaled by varying the number of documents. Red dots indicate the optimal configurations, with the dashed line showing the fitting results. The observed optimal performance can be approximated by a linear relationship with the effective context lengths.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_008",
+          "page_number": 8,
+          "label": "Figure 5",
+          "caption": "RAG performance changes with varying number of documents and in-context examples. 5a reports the averaged metric values across datasets, whereas in 5b and 5c, each line represents the normalized performance of a consistent configuration with progressively increasing documents / shots. 4.4 PARAMETER-SPECIFIC SCALING",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_006_page_009",
+          "page_number": 9,
+          "label": "Figure 6",
+          "caption": "The estimated performance using the proposed observational scaling laws vs. actual metric values in DRAG. The subplots represent different datasets, where each line corresponds to a fixed number of documents, we scale the context length by increasing the number of shots. maximum iterations n within θ, namely θ := (k, m, n)T . To account for the variance across methods and tasks, we introduce i := (idoc, ishot, 0)T . idoc and ishot measure the informativeness of documents and in-context examples respectively. While technically we can also define an iiter to measure the informativeness of additional generation steps, applying iiter does not yield improved accuracy, so we leave it as 0 in our experiments. We formulate the computation allocation model as2:",
+          "confidence": 0.72,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文聚焦于RAG和长上下文的推理扩展，研究了在长上下文模型中如何结合RAG策略提升性能，并对比了不同配置。它部分涉及了“什么时候用RAG，什么时候直接塞长上下文”的问题，通过实验表明在长上下文预算下，迭代DRAG等RAG策略优于简单的上下文扩展，但并未直接回答“替代”问题或给出明确的决策边界。",
+      "answer": "先说结论：不能替代，而且我也不建议你抱着“替代”这种二元思维去看这件事。我更希望你理解成——长上下文模型和 RAG 是两种可以互补的“计算预算分配方式”，在不同尺度下各有优劣。我自己的实验数据直接证明了这一点：在有效上下文长度小于 128k 时，我的**演示式 RAG（DRAG）** 通常表现最好；但一旦预算超过 128k，**迭代式 RAG（IterDRAG）** 就反超了。所以问题根本不是“要不要检索”，而是“在你的预算范围内，怎么分配检索、示例演示和迭代步数才能最赚钱”。\n\n先解释一下为什么“纯长上下文”这条路走不远。很多人觉得，模型能看 1M tokens 了，直接把整个知识库塞进 prompt 不就完了吗？但我的实验很清楚地打了这个脸。在 Figure 1 里你看得很清楚，传统的标准 RAG——就是只塞文档不塞示例的那种——在有效上下文长度刚到 10^4 tokens 左右就平台了，性能几乎不再增长。为什么？因为文档越多，噪声越大，模型反而更容易分心。我专门做了检索质量分析，你去看看附录 B 里的 Figure 7：随着文档数量增加到 1000 份，Recall 确实快接近满分了，但 NDCG 和 MRR 在几百份文档时就早早停滞了。这意味着你多塞进去的那些文档，大部分是噪声，对最终答案质量几乎没有正向贡献。所以，单纯把上下文边长是不够的。\n\n那么我做的 DRAG 和 IterDRAG 到底有什么不一样？关键不是“多塞”，而是“教它怎么用”。DRAG 的巧思在于：我不止给你一份长文档列表，我还给你几个完整的 Q&A 示例（包括文档、问题和答案）。这就相当于我在 prompt 里内置了“怎么从这一堆文字里挖答案”的 few-shot 教学。结果如 Figure 2 所示，在 1M 预算下，DRAG 碾压了纯 RAG 和纯 many-shot QA。而 IterDRAG 更进一步：它学会了把复杂问题拆成子问题，每拆一步就检索一次、生成一次中间答案，最后再综合。像 2WikiMultiHopQA 这种需要多跳推理的数据集，IterDRAG 在 5M 预算下把 Accuracy 从标准 RAG 的 48.4% 直接推到了 76.9%——这接近 60% 的 gains，Table 1 里有完整数据。\n\n这背后其实有一条近乎线性的规律，我管它叫**RAG 的推理缩放定律**。见 Figure 4 的灰色虚线，当我把测试时计算量（也就是有效上下文长度）以数量级的方式增加时，最优性能几乎是线性增长的。这个线性关系在 Bamboogle 和 MuSiQue 上尤为明显，虽然 HotpotQA 在超过 1M 后增长变缓、呈现出 S 形曲线，但整体趋势是成立的。这意味着，给定一个计算预算，存在一组最优的（文档数 k、示例数 m、迭代步数 n）配置。我基于这个规律推导了一个计算分配模型（公式 2），而且验证了它的泛化能力：用它从其他数据集学到的参数，来预测一个未见数据集的最优配置，能达到 Oracle 最优结果的 96.6%（见 Table 3）。\n\n所以什么时候用谁？我的建议很直接：如果你的预算在 128k tokens 以下（绝大多数实际场景），用 DRAG——把预算花在检索高质量文档和配上十几个演示例子上，效果又快又稳。如果你面对的是复杂多跳问题、且上下文预算能堆到 128k 甚至 1M 以上，那 IterDRAG 才是正解，通过迭代拆解和检索来补上推理链的缺口。至于想完全扔掉检索端靠纯长上下文硬扛——我只能说，目前条件下这是一个性价比极低的选择，我的数据不支持它。",
+      "seconds": 10.96,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 8,
+      "paper_id": "u7m2CG84BQ",
+      "conference": "nips",
+      "year": 2024,
+      "title": "BABILong: Testing the Limits of LLMs with Long Context Reasoning-in-a-Haystack",
+      "abstract": "In recent years, the input context sizes of large language models (LLMs) have increased dramatically. However, existing evaluation methods have not kept pace, failing to comprehensively assess the efficiency of models in handling long contexts. To bridge this gap, we introduce the BABILong benchmark, designed to test language models' ability to reason across facts distributed in extremely long documents. BABILong includes a diverse set of 20 reasoning tasks, including fact chaining, simple induction, deduction, counting, and handling lists/sets. These tasks are challenging on their own, and even more demanding when the required facts are scattered across long natural text. Our evaluations show that popular LLMs effectively utilize only 10-20% of the context and their performance declines sharply with increased reasoning complexity. Among alternatives to in-context reasoning, Retrieval-Augmented Generation methods achieve a modest 60% accuracy on single-fact question answering, independent of context length. Among context extension methods, the highest performance is demonstrated by recurrent memory transformers after fine-tuning, enabling the processing of lengths up to 50 million tokens. The BABILong benchmark is extendable to any length to support the evaluation of new upcoming models with increased capabilities, and we provide splits up to 10 million token lengths.",
+      "authors": [
+        "Yuri Kuratov",
+        "Aydar Bulatov",
+        "Petr Anokhin",
+        "Ivan Rodkin",
+        "Dmitry Igorevich Sorokin",
+        "Artyom Sorokin",
+        "Mikhail Burtsev"
+      ],
+      "source_url": "https://neurips.cc/virtual/2024/poster/97462",
+      "rerank_score": 0.4990217426342362,
+      "local_pdf_path": null,
+      "figure_count": 4,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "a) Generation of BABILong dataset. Facts relevant for the question are hidden inside a larger background texts from PG19. b) Recurrent transformers answer questions about facts from very long texts when retrieval augmented generation fails. Common RAG method fails to answer questions because order of facts matters. GPT-4 effectively uses only about 10% of the full 128K window. Gemini 1.5 Pro shows strong performance up to 64K tokens. Small LMs, ARMT & RMT with GPT-2 (137M) and Mamba (130M) fine-tuned for the task are able to solve it, with recurrent memory transformers scoring well up to record 50 000 000 tokens. Here we show the best results obtained by models.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_005",
+          "page_number": 5,
+          "label": "Figure 2",
+          "caption": "LLMs struggle to answer questions about facts in texts larger than 10,000 tokens. The plots demonstrate how the performance of selected leading models deteriorates with increasing context size. For single supporting fact questions (QA1), the majority of models perform well up to 4,000 tokens. However, when a correct response requires two (QA2) or three (QA3) facts, LLMs fail to achieve satisfactory accuracy.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_006",
+          "page_number": 6,
+          "label": "Figure 3",
+          "caption": "Fine-tuning but not RAG solves BABILong. a) RAG on QA1 task. Retrieval by chunks with size 512 tokens (RAG-C) fails to improve GPT-4 and Llama-3 performance on long-context tasks. RAG-S, which retrieves by sentences achieves better results, but further increasing the number of retrieved sentences from top-5 to top-20 does not help. b) Task specific fine-tuning. Finetuned Mamba achieves the best overall results, greatly outperforming RAG models. However, processing sequences longer than 128k is extremely slow due to technical limitations. On the other hand, RMT shines on extremely long sequences, managing to keep high accuracy up to 10M tokens.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_008",
+          "page_number": 8,
+          "label": "Figure 4",
+          "caption": "BABILong is similar to MMLU (Hendrycks et al., 2020) on short lengths and captures differences in models behavior for longer contexts. MMLU is a relatively short benchmark, with samples up to 1k tokens in length. BABILong has a higher correlation with MMLU on short contexts (0K) than RULER (Hsieh et al., 2024). However, RULER maintains a high correlation regardless of task length, with an even higher correlation at 64K, while BABILong’s correlation with MMLU decreases with length. This may indicate that BABILong is better at capturing differences in models behavior at different context lengths.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "The paper evaluates whether long-context models or RAG perform better on BABILong tasks, showing that RAG achieves only ~60% accuracy on single-fact QA and fails on multi-hop reasoning, while fine-tuned recurrent models perform better. It provides evidence that RAG is not yet a substitute for long-context reasoning, but does not directly advise when to use which method in real-world applications. It addresses a key side of the user question.",
+      "answer": "长上下文模型不可能完全替代检索增强（RAG），它们解决的是不同层面的问题。我的实验结论非常明确：**当你只需要回答一个简单事实，且检索系统能100%准确找到它时，RAG完全可以胜任；但当任务涉及多跳推理、事实排序或对事实间关系的理解时，直接把整个长上下文塞给模型，效果反而比RAG更差，而用小型微调的递归模型甚至能做得比两者都好。**\n\n先说说RAG为什么不行。很多人觉得RAG是“银弹”，能解决一切长文本问题，但我在BABILong上对GPT-4和Llama-3做RAG评估时发现了它的致命缺陷——**它无法处理事实的顺序和多跳依赖关系**。比如在QA2和QA3任务中，要求模型根据“Mary先拿到了牛奶，然后去了走廊”来回答“牛奶在哪里”，RAG在句子级别的检索（RAG-S）下还能勉强维持60%的准确率，但当需要检索两个或三个连续事实时，准确率直接跌到随机猜测水平以下。我在Figure 3a里展示过这个现象：无论你检索top-5还是top-20个句子，都无法解决问题，因为关键事实“Mary去了走廊”和问题“牛奶在哪里”在语义上相似度很低，检索器根本不会把它捞出来。\n\n那直接塞长上下文呢？更惨。我评估了30多个主流模型（包括GPT-4和Gemini 1.5 Pro），发现它们对上下文的利用率极低。以GPT-4为例，在单事实问答（QA1）上，它能有效利用的上文大约只有128K窗口的10%，超过4K tokens后性能就开始下滑。Figure 2的数据很清楚：当任务从单事实变成双事实，所有模型在4000 tokens处就跌破了85%的可用性阈值。Gemini 1.5 Pro稍好一些，但也在64K处开始崩溃。这些模型声称支持128K甚至更长的上下文，但实际能力完全跟不上——因为所谓的“长上下文”能力，本质上把问题塞进去了，不等于模型真的会去读。\n\n有意思的是，**小型微调模型反而是最能打的**。我用参数量仅137M的Recurrent Memory Transformer（RMT）和130M的Mamba模型，在BABILong任务上取得了惊人的成绩。RMT经过微调后，在单事实问答上能处理多达5000万token的序列，而且准确率相当稳定——这在Figure 1b里有直观展示。相比之下，GPT-4在128K处就快不行了。不过Mamba有个硬伤：它处理超过128K的序列时推理速度极慢，因为技术限制导致无法高效计算。\n\n那我什么时候该用哪个？我的建议是：\n\n- **用RAG**：当你只需要回答孤立的事实性问时，比如“拿破仑死于哪一年？”这种问题，而且你的检索器能高质量召回相关段落。RAG独立于上下文长度，始终能保持50-60%的准确率——虽然不高，但至少稳定。\n\n- **直接塞长上下文**：如果模型足够强（比如最新版Qwen或Llama-3.1），且任务复杂度低（单事实、位置固定），可以在4K-16K范围内获得不错的效果。但别指望它能处理超过这个范围的多跳推理。\n\n- **考虑微调小型递归模型**：如果你的任务结构固定且推理链条明确（比如我测试的bAbI类任务），RMT这种递归架构能碾压所有大模型。代价是必须针对特定任务微调，且初始训练较为耗时。但一旦训练完成，它能处理的长度远超Transformer。\n\n说到底，RAG和长上下文模型目前都只是权宜之计。RAG的瓶颈在检索能力，大模型的瓶颈在注意力机制的低效。递归架构虽然近期表现亮眼，但也有自己的天花板——比如RMT的存储容量是有限的。我认为未来真正的解决方案，会是某种融合检索与递归的长上下文推理机制——不过那就是另一篇论文的故事了。",
+      "seconds": 11.65,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 9,
+      "paper_id": "i9q9xDMjG7",
+      "conference": "iclr",
+      "year": 2026,
+      "title": "When to use Graphs in RAG: A Comprehensive Analysis for Graph Retrieval-Augmented Generation",
+      "abstract": "Graph retrieval-augmented generation (GraphRAG) has emerged as a powerful paradigm for enhancing large language models (LLMs) with external knowledge. It leverages graphs to model the hierarchical structure between specific concepts, enabling more coherent and effective knowledge retrieval for accurate reasoning. Despite its conceptual promise, recent studies report that GraphRAG frequently underperforms vanilla RAG on many real-world tasks. This raises a critical question: Is GraphRAG really effective, and in which scenarios do graph structures provide measurable benefits for RAG systems? To address this, we propose GraphRAG-Bench, a comprehensive benchmark designed to evaluate GraphRAG models on both hierarchical knowledge retrieval and deep contextual reasoning. GraphRAG-Bench features a comprehensive dataset with tasks of increasing difficulty, covering fact retrieval, complex reasoning, contextual summarize, and creative generation, and a systematic evaluation across the entire pipeline, from graph construction and knowledge retrieval to final generation. Leveraging this novel benchmark, we systematically investigate the conditions when GraphRAG surpasses traditional RAG and the underlying reasons for its success, offering guidelines for its practical application. All related resources and analysis are collected for the community at https://anonymous.4open.science/r/GraphRAG-Benchmark-CE8D/.",
+      "authors": [],
+      "source_url": "https://openreview.net/forum?id=i9q9xDMjG7",
+      "rerank_score": 0.49793121279802866,
+      "local_pdf_path": null,
+      "figure_count": 5,
+      "figures": [
+        {
+          "id": "fig_001_page_003",
+          "page_number": 3,
+          "label": "Figure 1",
+          "caption": "RAG vs. GraphRAG. The pipelines of RAG and GraphRAG and their characteristics. the absence of corpora with varying information densities, ranging from tightly structured domain knowledge to loosely organized real-world documents, further restricts the evaluation of graph structures’ scalability and adaptability.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_004",
+          "page_number": 4,
+          "label": "Figure 2",
+          "caption": "Distribution of question difficulty levels.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_005",
+          "page_number": 5,
+          "label": "Figure 3",
+          "caption": "The overall framework of GraphRAG-Bench. It consists of three key components: (i) pipeline of benchmark construction (left), (ii) task classification by difficulty (upper right), and (iii) a multi-stage evaluation framework covering indexing, retrieval, and generation (lower right).",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_007",
+          "page_number": 7,
+          "label": "Figure 4",
+          "caption": "Retrieval and generation performance of RAG and GraphRAG across four different tasks.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_009",
+          "page_number": 9,
+          "label": "Figure 5",
+          "caption": "The relational structure of different methods. Table 5: The Graph statistics across RAG methods.",
+          "confidence": 0.72,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文比较了GraphRAG和vanilla RAG在不同任务上的表现，但研究的是GraphRAG（使用图结构）与vanilla RAG（无图结构）的对比，并非长上下文模型（如直接塞长上下文）与RAG的对比。用户问题涉及长上下文模型替代RAG的时机，而论文讨论的是图增强RAG的适用场景，仅部分相关（同样是RAG变体的对比），但研究对象不符，不能直接回答用户问题。",
+      "answer": "长上下文和RAG不是替代关系，它们是两种应对不同信息密度的策略。直接回答你的问题：**能用长上下文解决的场景，说明问题本身信息密度低、证据集中；而RAG（尤其是GraphRAG）的价值恰恰体现在信息分散、需要多层次推理的场景里。** 认为长上下文能“替代”RAG，基本是把一个简单检索问题当成了所有问题的模板。\n\n我先泼一点冷水。很多讨论把长上下文模型神话了，觉得“窗口够大就不需要检索”。但我在我的实验里发现一个很扎心的现象：在简单的事实检索任务（比如“Mont St. Michel在法国哪个地区”）上，最基础的RAG（不加reranker）在小说数据集上准确率是58.76%，而微软的GraphRAG只有49.29%。你可能会觉得“那直接扔长上下文不就完了？”问题是，真实世界的问题很少是这种一个段落就能解决的。在我的Complex Reasoning和Contextual Summarize任务上，GraphRAG全面反超——HippoRAG2的Complex Reasoning准确率53.38%，比RAG的42.93%高了十个百分点。这背后的逻辑很直接：简单问题需要的证据通常就躺在同一个段落里，RAG用向量相似度一抓一个准，长上下文模型直接读完全文也能找到。但一旦问题需要跨段落、跨文档拼接逻辑链——比如“Hinze与Felicia的协议和英国统治者的认知有什么关联”——RAG的向量检索就会把相关但散落的片段割裂开，而GraphRAG通过图遍历能把“协议—财务联系—政治影响”这条隐式链条串起来。\n\n真正值得深入说的一点是，我的数据还揭示了一个经常被忽视的trade-off：**GraphRAG在召回率上往往吊打RAG，但在上下文相关性上经常翻车**。你看表4，在小说数据集的Complex Reasoning任务里，HippoRAG的Evidence Recall高达87.91%，但Context Relevance只有58.75%；反过来，RAG reranker的Recall只有64.47%，Relevance却有82.08%。这意味着什么？GraphRAG确实把相关的东西都捞上来了，但同时捞了一大堆逻辑上相关但实际上冗余的信息——就像你问“张三为什么离婚”，它不光把张三的离婚官司信息拉进来，还把张三同事的婚姻状况、张三前妻的购物记录都丢进prompt里。这种冗余直接推高了token成本：我测过MS-GraphRAG的全局模式，一个简单问题的prompt就能胀到33万token，而RAG只要879个token。**长上下文模型如果直接吞这种膨胀后的prompt，反而会因为噪声干扰而降低回答质量。**\n\n那到底什么时候用什么？我从我的实验里总结出一个很实用的判断标准：**问题的答案是否需要在不同“知识孤岛”之间搭桥。** 如果答案是“不需要”——比如查一个单一事实、总结一篇文档——RAG甚至直接塞长上下文就够了，又快又准。但如果答案是“需要”——比如医疗诊断里的“症状A→检查B→禁忌药物C→替代方案D”这条推理链——那就该用GraphRAG。我的Medical数据集上，HippoRAG2的Complex Reasoning准确率61.98%，比RAG的58.64%高，更重要的是它的Faithfulness在Creative Generation任务上达到68.05%，远好于RAG的35.88%。因为图结构天然能约束生成模型沿着正确的依赖关系走，而不是自由发挥。\n\n最后提醒一句代价：GraphRAG不是免费的午餐。除了我前面提的token膨胀，图构建本身也贵——HippoRAG构建一个知识图平均要177961个token的输入输出，LightRAG更是要474172个。你需要在离线阶段就砸这比本钱。如果知识库频繁更新，你需要考虑增量建图的成本，否则每次重构图都会让长上下文的“低成本”假设失效。**所以在实际架构选型时，先问自己三个问题：我当前任务的信息是集中还是分散？我需要多少推理深度？我承受得了离线建图的固定成本吗？** 这三个问题回答了，选型自然就清楚了。",
+      "seconds": 13.07,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 10,
+      "paper_id": "S1fc92uemC",
+      "conference": "nips",
+      "year": 2024,
+      "title": "RankRAG: Unifying Context Ranking with Retrieval-Augmented Generation in LLMs",
+      "abstract": "Large language models (LLMs) typically utilize the top-k contexts from a retriever in retrieval-augmented generation (RAG).  In this work, we propose a novel method called RankRAG, which instruction-tunes a single LLM for both context ranking and answer generation in RAG.  In particular, the instruction-tuned LLMs work surprisingly well by adding a small fraction of ranking data into the training blend, and outperform existing expert ranking models, including the same LLM exclusively fine-tuned on a large amount of ranking data.  For generation, we compare our model with many strong baselines, including ChatQA-1.5, an open-sourced model with the state-of-the-art performance on RAG benchmarks.  Specifically,  our Llama3-RankRAG-8B and Llama3-RankRAG-70B significantly outperform Llama3-ChatQA-1.5-8B and Llama3-ChatQA-1.5-70B, respectively, on nine general knowledge-intensive benchmarks for RAG. In addition, it also performs comparably to GPT-4 on five RAG benchmarks in the biomedical domain without instruction fine-tuning on biomedical data, demonstrating its superb capability for generalization to new domains.",
+      "authors": [
+        "Yue Yu",
+        "Wei Ping",
+        "Zihan Liu",
+        "Boxin Wang",
+        "Jiaxuan You",
+        "Chao Zhang",
+        "Mohammad Shoeybi",
+        "Bryan Catanzaro"
+      ],
+      "source_url": "https://neurips.cc/virtual/2024/poster/95135",
+      "rerank_score": 0.4888392273088408,
+      "local_pdf_path": null,
+      "figure_count": 3,
+      "figures": [
+        {
+          "id": "fig_001_page_003",
+          "page_number": 3,
+          "label": "Figure 1",
+          "caption": "Performance of ChatQA-1.5, one of the strongest RAG models, on different context size k. We observe a trade-off of selecting top-k contexts: a smaller k compromises the recall, while a larger k could introduce irrelevant or noisy context and mislead the LLM generation.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_008",
+          "page_number": 8,
+          "label": "Figure 3",
+          "caption": "Performance with different retrievers. The performance of Recall is in Appendix E.1.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_010",
+          "page_number": 10,
+          "label": "Figure 4",
+          "caption": "Performance w.r.t. # Ranking Data",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文RankRAG专注于通过检索增强生成中引入重排序步骤来提升性能，并未直接讨论长上下文模型与检索增强的替代关系，也未提供何时使用RAG或直接塞长上下文的决策指南。但论文通过实验展示了在RAG中重排序的效果以及上下文数量对性能的影响（如Figure 1），间接回应了问题中的一个侧面：即当引入不相关上下文时，长上下文模型性能可能饱和甚至下降，因此RAG在筛选相关上下文方面仍具价值。",
+      "answer": "直接说结论：长上下文模型不能完全替代检索增强（RAG），在实际工程里，这两者更多是配合使用的互补关系——你该用RAG的时候，往往是需要强相关、高质量上下文，而直接塞长上下文反而会引入噪声、反倒拉低效果。\n\n我要先泼一点冷水。很多人觉得“反正模型窗口大了，我把所有搜到的100段文本全塞进去就行”，但我在论文里做了一个很直接的实验（Figure 1），看看当时最强的RAG模型ChatQA-1.5在不同上下文数量k下的表现。结果很清楚：k=10左右效果最好，再往上走，比如调到20或40段，准确率不仅不会涨，还会跌。为什么？因为大k虽然提高了召回率，但同时也带进去大量无关或弱相关的段落，这些“视觉噪声”会干扰LLM生成答案。像NQ上，从10段扩到20段，Exact Match直接掉了两三个点；TriviaQA和PopQA上类似。所以，长上下文不等于高质量的“有用上下文”。\n\n但话又说回来，RAG系统的核心痛点其实不在生成阶段，而在检索阶段。现有的稠密检索模型（像DPR、Contriever）能力有限——它们把问题和文档独立编码、算余弦相似度，缺乏跨编码的精细对齐。用我论文里的说法，这种双编码器架构对文本相关性的估计能力存在“天花板”。你靠它拉回Top-5或Top-10，很可能漏掉真正相关的段落，比如在PopQA这种长尾知识场景下，初始检索的Recall@5只有43.6%。单纯拉长上下文长度解决不了这个漏检问题。\n\n那什么时候用RAG？我站在RankRAG的立场认为，如果你面对的知识场景要求**高精确度、强相关、少干扰**（比如多跳QA、长尾知识、事实核查），就必须在检索之后加一个重排序（reranking）步骤。我的做法是用同一个LLM同时做排序和生成——先在Top-N里通过排序踢掉不相关的，只留下Top-5最靠谱的，然后再用这5段生成。我在论文Table 6里展示过，只用了约5万条排序数据，RankRAG在Recall上就能打过用50万条数据专门训练的MonoT5、RankBERT，甚至能接近GPT-4的重排序效果。而且即使检索器很弱（比如用DPR），RankRAG靠重排序也能把答案准确率提升10个百分点以上——我在Figure 3里画过这个对比。\n\n至于什么时候可以直接塞长上下文？我认为比较简单、单跳、检索本身足够好、噪声可控的场景可以省掉排序步骤。但要注意，我在论文Table 3的消融实验中做过对比：去掉reranking后，9个数据集平均掉了将近3个点。也就是说，简洁场景下你可以牺牲一点精度换速度，但在信息“又杂又重要”的时候，我省不了这一步。\n\n代价当然也有。重排序一步增加了推理延迟。我在Figure 5里算过，从N=20做到N=100，延迟增加大约0.9x到6.0x，但对于纯检索来说几乎是线性的增长。70B模型做排序时，我一般只Top-30做排序，可以控制额外开销在可接受范围。你如果对延迟很敏感，可以用小Top-N（比如20）先做一次轻量过滤，效果依然好过直接塞100段长上下文。\n\n所以简单来说：长上下文模型解决的是“能装多少”，RAG解决的是“真正装什么”。后者质量优先，前者容量优先。真正的工程决策要看你对答案正确率的容忍度、延迟预算、以及数据是否容易产生强干扰。如果你想省排序那一步，那请确保你的检索模型足够强；否则，我建议我的方案——同一个模型先排序、先生成。",
+      "seconds": 12.62,
+      "status": "ok",
+      "error": null
+    }
+  ]
+}

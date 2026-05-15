@@ -1,0 +1,653 @@
+{
+  "topic": {
+    "id": "post-training",
+    "question": "大模型后训练最关键的环节是什么：SFT、RLHF、DPO，还是数据筛选？",
+    "description": "比较不同后训练路线对能力、对齐和泛化的影响。",
+    "tags": [
+      "Post-training",
+      "RLHF",
+      "DPO"
+    ]
+  },
+  "route": "4_deepseek_text_figures_answer",
+  "updated_at": "2026-05-15T20:30:58",
+  "results": [
+    {
+      "rank": 1,
+      "paper_id": "R2ZJSjLDJC",
+      "conference": "nips",
+      "year": 2025,
+      "title": "Less is More: Improving LLM Alignment via Preference Data Selection",
+      "abstract": "Direct Preference Optimization (DPO) has emerged as a promising approach for aligning large language models with human preferences. While prior work mainly extends DPO from the aspect of the objective function, we instead improve DPO from the largely overlooked but critical aspect of data selection. Specifically, we address the issue of parameter shrinkage caused by noisy data by proposing a novel margin-maximization principle for dataset curation in DPO training. To further mitigate the noise in different reward models, we propose a Bayesian Aggregation approach that unifies multiple margin sources (external and implicit) into a single preference probability.  Extensive experiments in diverse settings demonstrate the consistently high data efficiency of our approach. Remarkably, by using just 10\\% of the Ultrafeedback dataset, our approach achieves 3\\% to 8\\% improvements across various Llama, Mistral, and Qwen models on the AlpacaEval2 benchmark.  Furthermore, our approach seamlessly extends to iterative DPO, yielding a roughly 3\\% improvement with 25\\% online data, revealing the high redundancy in this presumed high-quality data construction manner. These results highlight the potential of data selection strategies for advancing preference optimization.",
+      "authors": [
+        "Xun Deng",
+        "Han Zhong",
+        "Rui Ai",
+        "Fuli Feng",
+        "Zheng Wang",
+        "Xiangnan He"
+      ],
+      "source_url": "https://openreview.net/forum?id=R2ZJSjLDJC",
+      "rerank_score": 0.6956524196342422,
+      "local_pdf_path": null,
+      "figure_count": 5,
+      "figures": [
+        {
+          "id": "fig_001_page_003",
+          "page_number": 3,
+          "label": "Figure 1",
+          "caption": "The workflow of the BeeS method.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_005",
+          "page_number": 5,
+          "label": "Figure 2",
+          "caption": "Visualization of joint margin distribution on UltraFeedback. (Left) Joint distribution of external and implicit reward margin values. (Middle) Joint distribution of implicit reward margins computed using models of 1B and 3B scales. (Right) Joint distribution of two different external reward margin values on online-generated data. examine two distinct types of reward margin calculations: external reward margin and implicit reward margin. The external reward margin is provided by an external reward function, while the implicit reward margin is derived from the implicit reward log πθ",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_008",
+          "page_number": 8,
+          "label": "Figure 3",
+          "caption": "DPO training loss and margin of Llama-3.2-3B Base (Left) and Llama-3-8B Base (Middle and Right) on UltraFeedback datasets. semantic relationships, and models benefit when the underlying preferences in the data are explicit and well-defined.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_009",
+          "page_number": 9,
+          "label": "Figure 4",
+          "caption": "AlpacaEval 2.0 results for on-policy datasets: (Left) Iterative DPO results across three DPO training iterations using UltraFeedback prompts. (Right) DPO on Llama-UltraFeedback subsets of varying sizes, selected by BeeS. Results of DPO-variants trained on fullset are also compared. generation per iteration, and our online version uses BeeS to reserve only 5k samples per iteration. The results are in the left panel of Figure 4.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_010",
+          "page_number": 10,
+          "label": "Figure 5",
+          "caption": "Ablation Study: (Left) different model choices (Mistral-7B-Instruct-v-0.2, Qwen-2.5- Instruct-7B and Qwen-2.5-Instruct-14B). BeeS selects a 6k-sample subset for training. (Right) variants of DPO: win rate comparison on IPO, KTO, and SLiC algorithms. UltraFeedback is used for the preference learning on Llama-3-8B (Base) model. Rand and BeeS select a 6k-sample subset. Notably, it achieves large improvements in raw/LC win rates — over 12% for the IPO algorithm. This advantage is maintained even across these preference learning algorithms with varying data efficiency (as measured by the performance gap between randomly selected 6,000 samples and the full dataset). These findings highlight the significant value of sample filtering for other preference learning. Additional results related to Instruct model training can be found in Appendix C.3.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文聚焦于偏好数据选择（特别是DPO训练中的margin-based数据选择），强调数据筛选的重要性。用户问题问的是大模型后训练最关键的环节，论文没有直接比较SFT、RLHF、DPO、数据筛选的相对重要性，而是深入探讨了数据筛选如何提升DPO效果。因此，论文只回答了问题中的一个重要侧面（数据筛选），而非给出全面定性。",
+      "answer": "直接说结论：最关键的环节是**数据筛选**，这比纠结SFT、RLHF还是DPO那种损失函数形式重要得多。我知道现在圈里很多人都在折腾DPO的各种变体，改损失函数、调beta、加正则化，但我的整个实验清楚地表明——即使你用最简单的DPO损失，只要能把训练数据里的“垃圾”筛掉，效果就能吊打那些在完整数据集上硬训的复杂变体。\n\n我先说说为什么数据筛选这么容易被忽视。大家一谈到后训练，本能反应就是“用什么算法”：SFT打底，然后上RLHF或者DPO，最近又冒出个DPO。很少有人真的停下来问一句：我喂给模型的数据到底是不是干净的？我在理论部分证明了一个现象叫**参数收缩**——当偏好数据里有噪音，比如标注模型给错了偏好方向，那模型的参数就会往零缩，相当于白训。而解决这个问题最直接的办法不是改损失函数，是选出那些“偏好明显”的数据，也就是margin大的样本，让参数往正确的方向膨胀回来。\n\n我在Figure 2里展示过一个特别有意思的现象：外部奖励模型（比如Skywork-Reward）给出的margin，和DPO隐含奖励模型算出来的margin，两者几乎不相关。一个样本在外部奖励看来是清晰的正偏好，在隐含奖励那边可能margin是负的。这说明单靠一个奖励源来做筛选是很危险的——你有可能把有用的数据丢掉，反而留下噪音。所以我搞了一个叫**BeeS**的贝叶斯聚合策略，把多个margin源的信息统一成一个偏好概率，只要有一个来源觉得这个样本有风险，就降低它的优先级。\n\n那数据筛选到底能省多少？我用UltraFeedback数据集做了测试，只挑出其中10%的数据来训，结果在AlpacaEval 2.0上比用全部数据训的模型高出3%到8%的胜率，横跨Llama、Mistral、Qwen好几个模型族。这不是个别现象，我在迭代DPO的场景里也验证了——每轮只保留25%的在线生成数据，效果反而比全量强3%左右。说白了，哪怕是公认高质量的数据构建流程（比如用强奖励模型在线采样），里面还是有大量冗余和噪音。\n\n当然，我不是说SFT和RLHF/DPO不重要。SFT是基座能力的基础，DPO提供了高效的偏好学习框架。但如果你拿着最好的DPO损失，喂进去的数据里一半都是偏好模糊甚至标注错的样本，那再怎么调beta也是白搭。我在Figure 3里展示过训练动态：那些margin接近零的“Z”样本，loss下降极慢，而正margin的“P”样本和负margin的“N”样本反而学得很快。这揭示了一个反直觉的事实——模型学“坏偏好”和学好偏好的速度一样快，所以一旦数据里有毒样本，模型照样能学会。\n\n最后说一个代价问题。我的筛选方法需要先用一个小模型（比如3B参数）在少量种子数据上做预训练，再用它算全量数据的隐含margin，再加上外部奖励模型的margin。这比直接随机采样多了一步计算开销。但考虑到只用10%的数据就能达到甚至超越全量训练的效果，省下来的GPU时间完全值得。我在附录C.2里算过，训8B参数模型两个epoch要9小时，而筛选步骤可以并行跑，整体反而是省时间的。如果你的目标是上线一个高质量的对话模型，我真心建议你把主要精力放在怎么筛数据上，而不是纠结要不要换个DPO变体。",
+      "seconds": 11.42,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 2,
+      "paper_id": "q5EZ7gKcnW",
+      "conference": "iclr",
+      "year": 2025,
+      "title": "Iterative Label Refinement Matters More than Preference Optimization under Weak Supervision",
+      "abstract": "Language model (LM) post-training relies on two stages of human supervision: task demonstrations for supervised finetuning (SFT), followed by preference comparisons for reinforcement learning from human feedback (RLHF). As LMs become more capable, the tasks they are given become harder to supervise. Will post-training remain effective under unreliable supervision? To test this, we simulate unreliable demonstrations and comparison feedback using small LMs and time-constrained humans. We find that in the presence of unreliable supervision, SFT still retains some effectiveness, but DPO (a common RLHF algorithm) fails to improve the model beyond SFT. To address this, we propose *iterative label refinement* (ILR) as an alternative to RLHF. ILR improves the SFT data by using comparison feedback to decide whether human demonstrations should be replaced by model-generated alternatives, then retrains the model via SFT on the updated data. SFT+ILR outperforms SFT+DPO on several tasks with unreliable supervision (math, coding, and safe instruction-following). Our findings suggest that as LMs are used for complex tasks where human supervision is unreliable, RLHF may no longer be the best use of human comparison feedback; instead, it is better to direct feedback towards improving the training *data* rather than continually training the *model*. Our code and data are available at https://github.com/helloelwin/iterative-label-refinement.",
+      "authors": [
+        "Yaowen Ye",
+        "Cassidy Laidlaw",
+        "Jacob Steinhardt"
+      ],
+      "source_url": "https://iclr.cc/virtual/2025/poster/28265",
+      "rerank_score": 0.6848384431500896,
+      "local_pdf_path": null,
+      "figure_count": 7,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "(a) In contrast to RLHF, which iteratively updates the SFT model, ILR directs comparison feedback towards improving the SFT dataset. (b) With reliable supervision, DPO effectively improves the SFT model and ILR is unnecessary. However, DPO becomes less effective with unreliable demonstrations and breaks down completely when comparison feedback is also unreliable. In contrast, ILR consistently improves on the initial SFT model with unreliable supervision, even in the most extreme case.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_005",
+          "page_number": 5,
+          "label": "Figure 2",
+          "caption": "Models finetuned on unreliable demonstrations generated by a smaller supervisor model show higher accuracy than the supervisor, demonstrating SFT’s robustness to unreliable supervision. However, SFT models’ full capability is only partially recovered with unreliable demonstrations. A →B denotes using demonstrations generated by the model with size A to finetune the model with size B.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_005",
+          "page_number": 5,
+          "label": "Figure 3",
+          "caption": "DPO struggles to avoid overoptimization of noisy preferences while also updating the initial suboptimal SFT model sufficiently to improve performance.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_006",
+          "page_number": 6,
+          "label": "Figure 4",
+          "caption": "ILR consistently provides more improvements for the SFT model than DPO in four settings with LM-simulated unreliable demonstrations and comparison feedback. Round 0 represents accuracy of bp SFT. 4.1 DPO WITH UNRELIABLE FEEDBACK EXHIBITS OVEROPTIMIZATION",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_008",
+          "page_number": 8,
+          "label": "Figure 5",
+          "caption": "SFT label accuracy increases across rounds during ILR. With high-quality feedback, ILR can lead to labels that approach or even surpass the accuracy of the model trained on ground truth (pSFT).",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_006_page_009",
+          "page_number": 9,
+          "label": "Figure 6",
+          "caption": "(a) Distribution of word count of human written demonstrations compared to GPT4-generated answers collected by (Peng et al., 2023). (b) In both ILR rounds, participants are at least moderately confident in choosing newly proposed labels over original human demonstrations 20% of the time, but they tend to update less in later rounds. Participants also show higher overall confidence when choosing human demonstrations. These suggest that W2SG is not effective enough to consistently produce better outputs or that AI outputs are becoming more complex for time-constrained participants to evaluate. (In the second round, we only count preference pairs with at least one human-written label when calculating the frequencies) (c) ILR enables more improvements on top of the initial SFT model, while DPO plateaus similar to what is observed in LM-simulated settings.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_007_page_009",
+          "page_number": 9,
+          "label": "Figure 7",
+          "caption": "Example of lable refinement in ILR: When instructed to explain \"random forest,\" an inaccurate human demonstration misinterpreted it as a natural forest. Human workers then chose to replace this with a more accurate model-generated explanation, improving the SFT dataset quality.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文比较了SFT、DPO（RLHF的一种）和ILR（一种数据筛选方法）在弱监督下的效果，并直接指出ILR比DPO更有效，但没有明确比较所有提问的环节（SFT、RLHF、DPO、数据筛选）并给出哪个最关键的直接结论。论文认为数据筛选（ILR）在弱监督下比偏好优化（DPO）更重要，但未涉及正常监督场景或直接比较SFT和RLHF的相对重要性。因此只能部分回答问题。",
+      "answer": "大模型后训练最关键的环节，在监督不可靠的前提下，既不是RLHF也不是DPO，而是数据筛选——准确地说，是用人类偏好比较来迭代改善SFT数据集的那个环节。\n\n我这个结论可能会让不少人意外，毕竟行业里最主流的叙事一直是RLHF/DPO才是拉满模型性能的\"深加工\"环节，SFT不过是给模型“学个格式”。但我对不同规模和不同类型任务（数学、SQL代码、安全指令遵循）做了系统的模拟实验，发现真相恰恰相反。我模拟了“用弱小的语言模型来充当不靠谱的标注员”和“在时间压力下干活的人类”，这两种场景下的不可靠监督。\n\n先说说我看到的SFT本身：就算监督信号很烂，比如让一个2B的小模型写答案去训练7B的大模型，SFT训出来的模型在其输出上仍然明显超过了那个小模型——这就是弱到强泛化现象。我在Figure 2里展示过这个现象。但是，这个效果有很大天花板：和用真实准确答案训出来的模型比，靠烂数据SFT出来的模型差距很大。所以理论上，后面的DPO环节应该能把这个缺口补上。\n\n然而，DPO让我失望了。当SFT数据和偏好比较数据都不可靠时（这其实是现实世界中越来越常见的情况，因为我们要教的模型越来越强，任务越来越难，人类自己都犯怵），DPO在多个任务上基本没有能改善SFT模型。我在Figure 4展示了四组设置下的对比，DPO的曲线几乎是平的。原因不复杂：DPO面对不可靠的偏好反馈时，严重依赖KL散度的正则化来阻止过优化，但它要纠正SFT阶段学到的那些系统性错误，又恰恰需要模型有大的更新幅度——这俩要求是矛盾的。你在Figure 3里能看到这个矛盾有多尖锐：不可靠反馈下，小正则化马上导致性能崩盘，大正则化又让模型动弹不得，几乎没有中间地带。\n\n所以我提出了一种截然不同的思路，叫作迭代标签精炼。我的核心判断是：与其拿人类的偏好比较去反复训练模型本身、试图修正它的权重，不如拿这些比较反馈去改善SFT数据里的那些烂标签，然后用改善后的数据重新SFT一个模型。打个比方，咱不修车了，直接把报废轮胎换成新的，再重新把车造一遍。在ILR里，我用两个模型分别在一个子集上训练，再互相给对方的数据生成替代答案，然后用人类或小语言模型的比较来决定是否替换原始标签。每次迭代我只允许最多15%的数据被替换更新，保持稳定性。\n\n结果如何？ILR在全部四个LM模拟的设置下都显著胜过SFT+DPO（再次看Figure 4）。更重要的是，它突破了我前面说的那个困境：因为ILR每轮都是重新SFT一个模型，它能实现非常大的模型更新，同时又没有被DPO那种KL惩罚限制住。Figure 3b的散点图说明了一切，在相同的反馈数据量下，ILR的模型更新幅度和性能增益明显高于DPO。另外我在Figure 5a中展示了，即便反馈是不可靠的，ILR也能每轮稳定提高SFT数据的标签准确率。\n\n我还在时间压力的人类标注员场景下重复了这些发现（Figure 6）。参与者在两轮ILR中有超过20%的情况下至少中等置信地选择了AI生成的答案来替换自己最初写的答案，比如有人把“随机森林”解释成“自然界里没被地图记录过的森林”，被AI更准确的机器学习解释取代了（Figure 7的实例）。这条替代路径的效果直接反映在模型性能曲线上：ILR持续上升，而DPO无论如何调β都很快触顶。\n\n所以我的回答是：监督不可靠时，最关键的环节是把有限的反馈资源投到数据质量上，而不是投到模型参数更新上。RLHF那一整套机制对信号质量很挑剔，很容易在烂数据上过优化；而数据筛选——一种更简单的“先数据清洗、再重训练”的循环——反而更扎实有效。至于SFT本身，只是基础，质量不行DPO也救不回来。如果你只能做好一件事，那就做好你的SFT数据筛选，ILR是我给你推荐的路径。",
+      "seconds": 13.46,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 3,
+      "paper_id": "FZQYfmsmX9",
+      "conference": "nips",
+      "year": 2024,
+      "title": "A Critical Evaluation of AI Feedback for Aligning Large Language Models",
+      "abstract": "Learning from AI feedback (LAIF) is a popular paradigm for improving the instruction-following abilities of powerful pre-trained language models. LAIF first performs supervised fine-tuning (SFT) using demonstrations from a teacher model and then further fine-tunes the model with reinforcement learning (RL) or direct preference optimization (DPO), using feedback from a critic model. While recent popular open-source models have demonstrated substantial improvements in performance from the RL step, in this paper we question whether the complexity of this RL step is truly warranted for AI feedback. We show that the improvements of the RL step are virtually entirely due to the widespread practice of using a weaker teacher model (e.g. GPT-3.5) for SFT data collection than the critic (e.g., GPT-4) used for AI feedback generation. Specifically, we show that simple supervised fine-tuning with GPT-4 as the teacher outperforms existing LAIF pipelines. More generally, we find that the gains from LAIF vary substantially across base model families, test-time evaluation protocols, and critic models. Finally, we provide a mechanistic explanation for when SFT may outperform the full two-step LAIF pipeline as well as suggestions for making LAIF maximally useful in practice.",
+      "authors": [
+        "Archit Sharma",
+        "Sedrick Keh",
+        "Eric Mitchell",
+        "Chelsea Finn",
+        "Kushal Arora",
+        "Thomas Kollar"
+      ],
+      "source_url": "https://neurips.cc/virtual/2024/poster/95962",
+      "rerank_score": 0.5836579455750464,
+      "local_pdf_path": null,
+      "figure_count": 5,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "Supervised fine-tuning (SFT) on strong teachers can accounts for improvements from learn- ing from AI feedback (LAIF). LAIF from strong mod- els such as GPT-4 can result in substantially better instruction-following LLMs than supervised SFT alone on popular datasets such as ShareGPT [Chiang et al., 2023] constructed using GPT-3.5 completions (GPT- 3.5 SFT + GPT-4 AIF). However, simply performing SFT on completions from GPT-4 can result in a better model (GPT-4 SFT), suggesting that improvement in performance from LAIF is partly because the default ShareGPT completions are from a weak teacher (GPT- 3.5). Furthermore, LAIF (GPT-4 SFT + GPT-4 AIF) does not result in a significantly better model compared to GPT-4 SFT alone.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_005",
+          "page_number": 5,
+          "label": "Figure 2",
+          "caption": "SFT can perform comparably or better than LAIF across various model sizes and classes. The same set of prompts are used for all three settings and for each model, and the oracle LLM either generates a completion (for SFT) or a preference label on two completions (for LAIF). For LAIF, SFT is an important precursor, so we SFT on 10% of the total prompts, and LAIF is done on the remaining 90%. For the other settings, the full set of prompts are used for SFT. While LAIF improves the performance compared to SFT on the default ShareGPT completions, SFT on GPT-4 completions consistently matches or outperforms LAIF.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_006",
+          "page_number": 6,
+          "label": "Figure 3",
+          "caption": "We make a similar observation that SFT performs comparably to LAIF when Claude as is used as an oracle. LAIF with AI feedback from does not significantly outperform SFT on Claude comple- tions, and the performance improvement from LAIF is explained by the use of a weaker SFT target distribution (GPT-3.5). The results for effectiveness of SFT may apply more generally to strong LLMs beyond GPT-4.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_006",
+          "page_number": 6,
+          "label": "Figure 4",
+          "caption": "SFT on strong distribution minimizes any improvements from LAIF. We consider LAIF starting with GPT-4 completions as the target distribution for SFT in the first step, and also to generate preference la- bels for RL. We find surprisingly minimal improvements in performance when compared to SFT on completions sampled from GPT-4 for all prompts. This experiment suggests that SFT on the target completions from the strong critic can minimize any further gains from LAIF.",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_008",
+          "page_number": 8,
+          "label": "Figure 5",
+          "caption": "Fine-tuning a weak student with LAIF underperforms relative to SFT on a strong teacher in a synthetic bandit problem with 100 possible actions. We assume the completions from the teacher (black) rank relatively highly (centered around 80th percentile). The improvements in LAIF (yellow) are limited because the actions sampled for labeling preferences are tied to the initial student distribution (blue). In this scenario, where the teacher distribution is sufficiently stronger than the student distribution, simple SFT on the teacher’s samples (red) may be more effective than LAIF on samples from a weak student. The actions are sorted by their true reward, which is used to generate a teacher labeled preference dataset over samples from the student.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文直接比较了SFT、DPO（作为RLHF/LAIF的一部分）和数据筛选（体现在使用更强教师进行SFT的效果），并指出在特定条件下SFT可能优于LAIF/DPO，但未直接比较所有选项（如RLHF与DPO的差异），且主要结论是‘简单的SFT使用强教师可能比完整的LAIF管道更有效’，因此只能部分回答用户问题。",
+      "answer": "我的答案是：**数据筛选的重要性远超大多数人想象，但这里的关键不是“筛选”本身，而是你筛选的是哪种数据——以及你忽略了一个更致命的变量：教师模型的能力差距。**\n\n让我把这个结论讲清楚。最近很多开源模型都在吹RLHF、DPO那一套，说有了AI反馈（LAIF）之后模型能力提升巨大。但我做了一系列控制实验之后发现，事情没那么简单。我在Figure 2和Figure 3里展示过一个非常直接的实验：我拿Mistral、Llama、Yi这些基座模型，分别测试了三条路——第一条是标准的ShareGPT数据（GPT-3.5生成）做SFT然后加DPO，第二条是直接用GPT-4生成的数据做SFT，第三条是GPT-4 SFT再加GPT-4的DPO。结果呢？**简单用GPT-4数据做SFT，就已经全面碾压了先用弱教师SFT再用强教师DPO的整条流水线。**\n\n这其实暴露了当前开源社区一个很尴尬的事实：很多人做的所谓“后训练”对比，本质上是在拿弱数据做SFT、强数据做RL，然后惊呼RL好厉害。但如果你把SFT那一步也换成强数据，RL带来的增益几乎就消失了。我在Figure 4里更扎心地演示了这一点——当你用GPT-4做SFT教师、再用GPT-4做DPO批评者时，最终模型跟单纯GPT-4 SFT几乎没有区别。\n\n那我顺便解释一下为什么会这样。我在论文里用了一个简化的bandit问题（Figure 5）来模拟这个现象。假设一个强教师模型的回答质量排在第80百分位，弱学生模型的回答排在第40百分位。你用DPO做偏好优化时，是在学生模型的输出分布上采样然后让人打标签——也就是说，你根本就没机会看到那些高质量的第80百分位的回答，因为学生压根儿没生成出来。而SFT直接模仿强教师的输出反而能吃满这些高质量样本。**问题的根源是exploration不足——偏好数据集里没有好东西让你去学。**\n\n当然我得承认，这个结论有适用范围。我的实验里，这种“SFT打平甚至超过LAIF”的现象在Llama 7B上就不太成立——它的绝对性能本来就差，AI反馈改善也很有限。我额外做了一组交叉实验（Table 1）发现，这个问题出在基座模型本身的表征能力上，跟偏好数据来自谁关系不大。所以**基座模型的质量才是后训练的隐形天花板**——如果你的预训练阶段没给够能力，后面再怎么RL也救不回来。\n\n最后说一句大实话：现在很多号称用RLHF/DPO做对齐的工作，真正提升的来源其实是**把SFT数据的教师从GPT-3.5偷偷换成了GPT-4**，只不过他们把这个功劳算在了RL步骤头上。如果你要做后训练，第一步先把SFT数据质量拉满——这比你在DPO上纠结β值要管用得多。",
+      "seconds": 9.67,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 4,
+      "paper_id": "MzHNftnAM1",
+      "conference": "iclr",
+      "year": 2025,
+      "title": "Style Outweighs Substance: Failure Modes of LLM Judges in Alignment Benchmarking",
+      "abstract": "The release of ChatGPT in November 2022 sparked an explosion of interest in post-training and an avalanche of new preference optimization (PO) methods. These methods claim superior alignment by virtue of better correspondence with human pairwise preferences, often measured by LLM-judges. In this work, we attempt to answer the following question -- do LLM-judge preferences translate to progress on other, more concrete metrics for alignment, and if not, why not? We define a concrete metric for alignment, and introduce SOS-Bench (Substance Outweighs Style Benchmark), the largest standardized, reproducible LLM meta-benchmark to date. We find that (1) LLM-judge preferences do not correlate with concrete measures of safety, world knowledge, and instruction following; (2) LLM-judges have powerful implicit biases, prioritizing style over factuality and safety; and (3) the supervised fine-tuning (SFT) stage of post-training has a large impact on alignment, with data scaling and prompt diversity as the driving factors.",
+      "authors": [
+        "Benjamin Feuer",
+        "Micah Goldblum",
+        "Teresa Datta",
+        "Sanjana Nambiar",
+        "Raz Besaleli",
+        "Samuel Dooley",
+        "Max Cembalest",
+        "John P Dickerson"
+      ],
+      "source_url": "https://iclr.cc/virtual/2025/poster/29906",
+      "rerank_score": 0.5508877294119475,
+      "local_pdf_path": null,
+      "figure_count": 3,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "The LLM-judge pipeline introduces new potential confounds in evaluation, compared to standard benchmarks. We diagram the LLM-judge pipeline for alignment benchmarking and observe that it is more complex than that of most standard benchmarks; (a) it replaces an explainable, deterministic metric with an opaque LLM-judge. (b) it does not attempt to establish any verifiable ground truth. (c) it contains a relatively small number of questions covering an very wide range of topics, resulting in limited coverage of any particular knowledge domain. (d) it introduces novel confounds in the form of the judging template (explicit bias) and the judge’s unstated internal pref- erences (implicit bias).",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_005",
+          "page_number": 5,
+          "label": "Figure 2",
+          "caption": "Judges implicitly reweight explicit criteria. When asked to render an overall judgment using a set of explicit criteria, models will implicitly weight some of those criteria more than others. We report the LLM’s overall judgment as Arena-Hard Score, alongside independent LLM judgments of five key factors in the response. Style is perfectly correlated with the overall score (Pearson’s R).",
+          "confidence": 0.72,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_008",
+          "page_number": 8,
+          "label": "Figure 3",
+          "caption": "More is more in alignment. In the SFT stage of post-training, the size of the dataset, rather than the method used to curate the data, is the strongest predictor of alignment. We report average normalized accuracy on the y axis, and dataset size (in 1000s) on the X axis. The shaded region represents 95% confidence intervals.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文主要研究LLM评委的偏好是否与对齐的客观指标相关，并比较了SFT和PO阶段的影响。它发现SFT阶段的数据规模是提升对齐的最重要因素，但没有直接比较SFT、RLHF、DPO和数据筛选哪个最关键。因此只能部分回答用户问题。",
+      "answer": "大模型后训练最关键的环节是**SFT阶段的数据规模与多样性**，而非偏好优化（RLHF/DPO）那套花哨的东西。\n\n我直接亮结论吧：我花了大力气建了一个有ground truth的元基准SOS-Bench（152,380个测试点，迄今最大规模的标准化LLM元基准），反复测下来，最让人清醒的发现是——LLM法官的偏好跟你关心的安全性、世界知识、指令遵循这些实质能力几乎不相关。而SFT阶段，决定模型对齐水平的核心因素是训练数据的规模和prompt的多样性，不是你用什么神仙方法去背数据。\n\n为什么会有这个结论？我在Figure 3里就展示过这个现象：数据规模的对数与对齐水平的相关系数，在世界知识上达到R²=0.93，指令遵循上0.85，安全性上0.76。但有个例外——Arena-Hard这种LLM法官基准的R²只有0.28。也就是说，你用LLM法官来评价，数据规模基本解释不了什么，这说明这评价本身就有问题。\n\n那偏好优化（PO）阶段呢？我在论文里做了大规模对照实验，结果相当尴尬：PO确实能提升LLM法官得分，但在客观指标上提升极其有限，而且往往会以牺牲世界知识为代价。比如我用Magpie+SFT得到的基础模型，加上DPO后世界知识下降1.8%，安全性提升5%，指令遵循提升1.9%。更关键的是，我对比了ORPO、KTO、RDPO、DPO、IPO等几乎所有主流方法，发现没有一种能在所有维度上稳定超越基线。换句话说，如果你只盯着LLM法官分数看，会高估这些方法的真实进步。\n\n说到这里我必须揭露一个我论文中最惊人的发现：LLM法官打分时，本质上是一个\"风格优先\"的机器。我在Figure 2里做了实验，让法官同时给出对完整性、简洁性、风格、安全性和正确性的独立评分。猜怎么着？风格分数与最终总体分数的相关度是完美的1.0（Pearson's R）。我换了一组不同法官做同样实验，稳定性极高，标准差几乎为零。而安全性评分之间的差异几乎可以忽略不计。更可怕的是，我故意往模型回答里掺错误的事实，法官只扣了13%的分数；但我把语气改成讽刺风格，直接扣了96%。这说明LLM法官根本不在乎你说错话，它只在乎说话方式够不够\"得体好看\"。\n\n那我的建议是什么？首先，别拿LLM法官当齐平评价的唯一标准，它更适合做辅助。我建SOS-Bench的目的就是提供一个有ground truth的对照体系，把世界知识、指令遵循、安全性用19个公开基准分维度测量。其次，做后训练时，老老实实把SFT数据搞大、搞多样，比花时间微调RLHF/DPO的损失函数有效得多。我在Table 4里对比了通用型SFT（如Llama-3-Instruct用300万条数据）和那些专精型SFT（如Code-Llama-3用80万条代码数据、MetaMath用40万条数学数据）。结果很明显，通用型不仅在全局占优，甚至在代码和数学这些专精领域也反超了专精模型。数据多样性的价值远被低估了。",
+      "seconds": 9.62,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 5,
+      "paper_id": "E6ZdfjtoiX",
+      "conference": "nips",
+      "year": 2025,
+      "title": "Efficient Data Selection at Scale via Influence Distillation",
+      "abstract": "Effective data selection is critical for efficient training of modern Large Language Models (LLMs). This paper introduces Influence Distillation, a novel, mathematically-justified framework for data selection that employs second-order information to optimally weight training samples. By distilling each sample's influence on a target distribution, our method assigns model-specific weights that are used to select training data for LLM fine-tuning, guiding it toward strong performance on the target domain. We derive these optimal weights for both Gradient Descent and Adam optimizers. To ensure scalability and reduce computational cost, we propose a $\\textit{landmark-based approximation}$: influence is precisely computed for a small subset of \"landmark\" samples and then efficiently propagated to all other samples to determine their weights. We validate Influence Distillation by applying it to instruction tuning on the Tulu V2 dataset, targeting a range of tasks including GSM8k, SQuAD, and MMLU, across several models from the Llama and Qwen families. Experiments show that Influence Distillation matches or outperforms state-of-the-art performance while achieving up to $3.5\\times$ faster selection.",
+      "authors": [
+        "Mahdi Nikdan",
+        "Vincent Cohen-Addad",
+        "Dan Alistarh",
+        "Vahab Mirrokni"
+      ],
+      "source_url": "https://openreview.net/forum?id=E6ZdfjtoiX",
+      "rerank_score": 0.5503986680189098,
+      "local_pdf_path": null,
+      "figure_count": 3,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "Average improvement over uniform sam- pling across six tasks vs. runtime. The model used is Llama2-7B [Touvron et al., 2023], and the training dataset is Tulu V2 [Ivison et al., 2023]. The annotation “M/N” indicates that the method selected M samples from a pool of size N. Further details are provided in Section 5.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_004",
+          "page_number": 4,
+          "label": "Figure 2",
+          "caption": "(Left) Distribution of unconstrained weights, (Middle) Distribution of robust weights for λ = 0.02, and (Right) validation loss during training with different variants in the running experiment setting. Robust weights are found by minimizing Objective 7 using the SLSQP algorithm [Kraft, 1988] implemented in the SciPy library [Virtanen et al., 2020].",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_010",
+          "page_number": 10,
+          "label": "Figure 3",
+          "caption": "(Left) Effect of the number of landmarks on the performance of Influence Distillation across six tasks using Llama2-7B. (Right) MMLU accuracy of Influence Distillation on Llama2-7B across different pool sizes and number of selected samples.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文专注于数据筛选（data selection）方法，不直接比较SFT、RLHF、DPO或数据筛选等后训练环节的整体关键性。但它详细讨论了数据筛选的重要性，并提出了Influence Distillation方法，可视为对数据筛选这一环节的深入支持，因此部分回答问题的一个侧面。",
+      "answer": "说实话，我觉得这四个选项里，没有一个能单独拎出来说是“最关键”的——但如果你非要我选一个最被低估、也最有技术嚼头的，**我会投“数据筛选”一票**。**SFT、RLHF、DPO本质上都是训练方法和目标函数的差异，而数据筛选决定的是你喂给这些方法的原料质量。** 没有好的数据，什么“后训练”都是白搭。不过，传统的筛选方法基本靠拍脑袋——什么困惑度过滤啦、用固定特征算相似度啦——都没真正回答一个问题：**这块数据对我当前这个模型、在这个时刻、到底有没有用？**\n\n我的做法叫 Influence Distillation，核心思路很简单但挺硬的：用一阶或二阶信息算清楚，每个训练样本如果真被拿来做一步梯度更新，到底会帮我提高多少在目标任务上的表现。我在 Figure 1 里展示过，把这套方法用在 Llama2-7B 上，从 20 万条 Tulu V2 数据里选出 1 万条，最终跑出来的平均收益比随机均匀采样高不少，而且还比当时最强的 RDS+ 方法在计算成本上快了 2.9 到 3.5 倍。注意，这里的计算成本不光是你选数据的成本，我把嵌入、挑选和训练的总开销都算进去了——图里那条帕累托前沿线，我的点全在上面，说明不是我“硬挤”出来的效果。\n\n当然，这玩意不是没有代价。最大的开销是算每条的梯度。我当时想了个招：先挑一小撮“地标”样本，精确算它们的梯度，然后通过一种我发明的贾可比向量积嵌入，把地标的梯度影响力“蒸馏”给其他所有样本。理论上我证明过（Theorem 4.1）：只要这个近似是偏差为零的、且向量维度够高，算出来的权重误差就能被控制住。我在 Figure 3（左）里也验证了，地标越多，效果提升越稳。\n\n那其它几个选项呢？SFT 和 DPO 其实都可以用我的数据筛选结果去训练——我在实验里就是这样做的，选了数据之后不用额外加权重，直接选出来训就行。RLHF 我没在论文里直接做，但从方法论上说，你完全可以把那个奖励模型的打分作为“目标分布”，用我的框架去筛选比直接瞎采样的偏好数据有意义得多。不过我坦诚一点：我这里没有覆盖预训练阶段，因为预训练梯度变化大，静态筛选一次可能不够；另外如果没有任何目标数据集，我的方法也直接跪了——这是我在 Limitations 里明确提了的。\n\n所以总结下来：**别在“用什么后训练方法”上内卷，真正决定天花板的是你选了什么数据去训。**",
+      "seconds": 8.58,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 6,
+      "paper_id": "JMBWTlazjW",
+      "conference": "nips",
+      "year": 2024,
+      "title": "Unpacking DPO and PPO: Disentangling Best Practices for Learning from Preference Feedback",
+      "abstract": "Learning from preference feedback has emerged as an essential step for improving the generation quality and performance of modern language models (LMs). Despite its widespread use, the way preference-based learning is applied varies wildly, with differing data, learning algorithms, and evaluations used, making disentangling the impact of each aspect difficult. In this work, we identify four core aspects of preference-based learning: preference data, learning algorithm, reward model, and policy training prompts, systematically investigate the impact of these components on downstream model performance, and suggest a recipe for strong learning for preference feedback. Our findings indicate that all aspects are important for performance, with better preference data leading to the largest improvements, followed by the choice of learning algorithm, the use of improved reward models, and finally the use of additional unlabeled prompts for policy training. Notably, PPO outperforms DPO by up to 2.5% in math and 1.2% in general domains. High-quality preference data leads to improvements of up to 8% in instruction following and truthfulness. Despite significant gains of up to 5% in mathematical evaluation when scaling up reward models, we surprisingly observe marginal improvements in other categories.",
+      "authors": [
+        "Hamish Ivison",
+        "Yizhong Wang",
+        "Jiacheng Liu",
+        "Zeqiu Wu",
+        "Valentina Pyatkin",
+        "Nathan Lambert",
+        "Noah A. Smith",
+        "Yejin Choi",
+        "Hannaneh Hajishirzi"
+      ],
+      "source_url": "https://neurips.cc/virtual/2024/poster/95717",
+      "rerank_score": 0.4861639253661592,
+      "local_pdf_path": null,
+      "figure_count": 3,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "Performance improvements resulted by changing different components in the preference training of TÜLU. Left: Accuracy on GSM [9], for testing math capabilities. Right: Overall performance, aggregated over the 11 benchmarks described in §2.2.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_003",
+          "page_number": 3,
+          "label": "Figure 2",
+          "caption": "The core aspects of learning from preference feedback. For DPO (solid line), preference data is directly used to train a policy model. For PPO (dashed line), preference data is used to train a reward model, which is then used to score model-generated responses during PPO training.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_008",
+          "page_number": 8,
+          "label": "Figure 3",
+          "caption": "Policy training prompt math evalu- ation: Performance of models trained on 20K prompts from varying sources using PPO and evaluated on GSM. Training with larger RMs trained on more data benefits more from in- domain prompts (i.e., prompts directly from the GSM train set), while weaker RMs struggle to generalize beyond their training prompts.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "yes",
+      "answerability_reason": "论文系统地比较了SFT、DPO和PPO等后训练方法的效果，并明确指出高质量偏好数据是提升性能最关键的因素，直接回答了用户问题中提到的几种环节的相对重要性。",
+      "answer": "如果非要把大模型后训练的环节排个优先级，我会直接说：**最重要的不是算法，而是你喂给算法的偏好数据**。数据质量的影响最大，其次是算法选择（PPO vs DPO），再用上更强的奖励模型，最后才是政策训练时多塞点没标注的提示。\n\n我先泼一点冷水。很多人喜欢争论 SFT（监督微调）、RLHF（人类反馈强化学习）、DPO（直接偏好优化）哪个更厉害，觉得选对了算法就万事大吉。但我的实验很清楚地说了一件事：**高质量偏好数据能带来高达 8% 的提升**，尤其是在指令遵循和真实性上，这个幅度大于单纯换算法。我测了 14 个公开数据集，从人工标注的（HH-RLHF、HelpSteer）到网页抓取的（SHP-2、StackExchange），再到合成生成的（UltraFeedback、Nectar），最后发现合成数据效果最好，尤其是用了细粒度评分（逐方面打分）的 UltraFeedback，能直接把 SFT 模型（监督微调模型）在指令遵循上从 44.2 拉到 52.8。相比之下，算法切换带来的提升平均才 0.7 个百分点。\n\n这点我在 Figure 1 里展示过——数据质量那条线对整体性能的提升最陡。而具体到算法，PPO 确实比 DPO 强，尤其在数学和编程上能分别多拿 2.5% 和 1.2% 的分数，不过在真实相关性上会平均掉 2.5 分。但这里真正关键的是：PPO 的优势不是凭空来的，它要配合一个好的奖励模型才能发挥作用。而奖励模型的效果，我做了个挺让人意外的实验——把奖励模型从 13B 规模扎堆怼到 70B，配合四倍大的训练数据，结果 RewardBench 上分数涨了快 20 分，Best-of-N 评测也好了很多，可到了下游 PPO 训练，整体性能几乎没怎么动。唯一的例外是数学——用 70B 奖励模型在 GSM 上冲高了 5 个点，但其他能力像编码、安全性基本原地踏步。所以我对“越大越好”这个说法是存疑的，奖励模型改进带来的好处很难传到底层模型上去。\n\n数据筛选这事儿，我得分开说。如果只是从现有池子里挑“看起来更好”的样本，那我的实验表明，**合成数据加上细粒度偏好标注是最香的**。UltraFeedback 那种每对回答都从多个维度打分（帮助性、准确性等），比只问“总体哪个好”要靠谱得多。即使把 UltraFeedback 按生成回答的模型强弱拆开（GPT-4 vs 弱小模型），只要标注是对齐的，最终效果差不大（57.3 vs 57.3 左右）。这说明偏好本身的标注质量比生成样本的绝对实力更重要。\n\n至于 SFT，我这里没有对比过它对后训练的直接影响——我的起点就是已经做很强的 SFT 模型 TÜLU 2 13B。事实上，SFT 本身已经贡献了很大一块，后训练是在这个地基上做打磨。所以如果非要把 SFT 也摆进来，我会说它是根基，但单论“后训练最关键的环节”，我认为数据筛选和标注策略（尤其是细粒度偏好）才是真正的龙头。\n\n当然，这套配方有代价。PPO 比 DPO 慢太多——一次 PPO 训练要 3 天在 256 核 TPU 上跑，而 DPO 只要 9 小时。而且你得额外训一个奖励模型，也得监督 KL 惩罚系数别再弄崩了。所以我这篇不止告诉你“什么最好”，也摆明了“你要付什么代价”。如果你想省算力或只想速成一个通用模型，DPO 配上 UltraFeedback 其实已经是一个很实用的选择了。",
+      "seconds": 9.99,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 7,
+      "paper_id": "sH0ZwzDJZn",
+      "conference": "nips",
+      "year": 2025,
+      "title": "UFO-RL: Uncertainty-Focused Optimization for Efficient Reinforcement Learning Data Selection",
+      "abstract": "A primary impediment to scaling reinforcement learning (RL) for large language model (LLM) training is the substantial computational cost, predominantly arising from the necessity of multi-sampling for policy optimization and evaluation. This underscores the critical yet challenging nature of efficient training data selection. Drawing inspiration from the Zone of Proximal Development (ZPD) theory, which posits that learners acquire knowledge more effectively from tasks of intermediate difficulty, we hypothesize that LLMs exhibit optimal learning from data they have not yet mastered but demonstrate the potential to comprehend. Conventional methodologies for assessing data difficulty or informativeness typically rely on computationally intensive multi-sampling or iterative procedures. To address this limitation, we introduce UFO-RL (**U**ncertainty-**F**ocused **O**ptimization for **R**einforcement **L**earning), a novel framework that employs a computationally efficient single-pass uncertainty estimation technique to identify informative training instances. This method, requiring only a single forward pass and obviating the need for iterative next-token computation, achieves a significant acceleration (up to 185$\\times$) in data evaluation compared to multi-sampling approaches. UFO-RL leverages this efficient metric to select data within the model's estimated ZPD for training. Extensive experimentation across diverse LLMs and mathematical benchmarks demonstrates that training with a mere 10\\% of the data, carefully selected by UFO-RL, yields performance comparable to or even surpassing that of full-data training. Furthermore, this targeted data selection results in up to a 16$\\times$ reduction in overall training time, concurrently enhancing training stability and improving generalization capabilities. Thus, UFO-RL presents a practical and highly efficient strategy for scaling RL fine-tuning of LLMs by focusing learning efforts on the most informative and valuable data, thereby mitigating the computational bottlenecks associated with traditional RL training.",
+      "authors": [
+        "Yang Zhao",
+        "Kai Xiong",
+        "Xiao Ding",
+        "Li Du",
+        "YangouOuyang",
+        "Zhouhao Sun",
+        "Jiannan Guan",
+        "Wenbin Zhang",
+        "Bin Liu",
+        "Dong Hu",
+        "Bing Qin",
+        "Ting Liu"
+      ],
+      "source_url": "https://openreview.net/forum?id=sH0ZwzDJZn",
+      "rerank_score": 0.46353748156442237,
+      "local_pdf_path": null,
+      "figure_count": 2,
+      "figures": [
+        {
+          "id": "fig_001_page_004",
+          "page_number": 4,
+          "label": "Figure 1",
+          "caption": "presents the learning effectiveness when training on data subsets corresponding to each sampling accuracy bin. The experiment demonstrates a clear non-monotonic relationship between inferred example difficulty (as proxied by sampling accuracy) and learning outcomes. Performance is generally lowest when training on the easiest data (highest accuracy bins), improves significantly when training on data of intermediate difficulty, and then declines again when training on the hardest data (lowest accuracy bins). This strongly supports the hypothesis that data points within the model’s ZPD provide the most effective learning signal during RL fine-tuning. Intermediate sampling accuracy serves as a preliminary proxy for this optimal difficulty level.Analysis across models of varying scales further suggests that the optimal difficulty level for learning can be model-dependent, with larger models showing more robustness when trained on harder examples compared to smaller models.",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        },
+        {
+          "id": "fig_002_page_005",
+          "page_number": 5,
+          "label": "Figure 1",
+          "caption": "Impact of Sampling Accuracy-Based Data Subset Training on Model Learning Efficiency. Evaluation across Qwen2.5 (0.5B-7B), Llama3.1-8B, and Mistral 7B. GSM8K training data was divided into 10 bins by accuracy. Lines represent RL performance from exclusive training on each bin (lowest to highest accuracy), showing the relationship between inferred difficulty and learning efficiency.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文聚焦于后训练中的数据选择方法（UFO-RL），提出基于不确定性的中间难度数据最有效，但并未直接比较SFT、RLHF、DPO或数据筛选哪个环节最关键，只涉及数据筛选这一侧面。",
+      "answer": "直接说结论：大模型后训练最关键的环节，不是 SFT，不是 RLHF/DPO 的形式之争，而是**数据筛选**。更具体一点，是你能不能持续地从当前模型的“最近发展区”选出那 10% 最有价值的数据来喂给它。\n\n我得先泼一点冷水。很多人把精力花在折腾奖励模型怎么训、PPO 和 DPO 哪个更稳定上，这当然重要，但它们都是在固定的数据池里做文章。等到 RL 真正跑起来，你才会发现真正的瓶颈在哪——为了算一个稳定的策略梯度，你得对每个问题反复采样六次、八次甚至更多次，整个训练过程大部分的计算和显存都耗在了这些重复推理上。更严重的是，你其实是在用全量数据平均用力，其中大量模型已经会做的“简单题”和死都做不会的“送命题”，几乎不贡献什么学习信号。\n\n我做的第一件事就是验证这个直觉。我用多次采样的准确率作为难度代理指标，把 GSM8K 的训练数据按准确率分成了 10 个档位，然后用每一档的数据单独去跑 RL 训练。结果特别清楚——你在 Figure 2 里能看到一条非单调的曲线：用最简单的那档数据（高准确率）训练，效果最差；用中等难度的数据，效果最好；再用最难的那档数据，效果又掉下来了。这个概念其实教育心理学里早就有，叫“最近发展区（ZPD）”——最有效的学习材料，是那些你吃力但垫垫脚能够到的东西。\n\n但这里有一个坑：用多次采样来评估难度，本身成本就高得离谱。我自己算过一笔账，对 Qwen2.5-7B 模型，用 16 次采样算一遍整个 GSM8K 训练集的难度标签，要花将近两小时（6827 秒）。这种开销根本不可能放进循环里做动态选择。\n\n所以我换了个思路：用一个单次前向传播就能算的指标——生成序列的平均 log-softmax 作为置信度分数。这个分数和多次采样准确率的相关性高达 0.86（见 Table 2），但计算时间只需要 175 秒，加速了 39 倍。而且它是连续值，不像准确率那样在大量 0% 或 100% 的数据点上失效——比如 Qwen2.5-7B 有 49% 的数据 16 次采样全对，准确率根本没法区分它们的好坏，但置信度可以。\n\n基于这个置信度，我定义了一个“模糊度分数”，专门去挑那些置信度接近数据集中间水平的数据——也就是模型“半懂不懂”的那些题。最终只取 top 10%。结果呢？用这 10% 的数据训练，效果不仅追平了全量数据，在好几个模型上甚至反超了；训练时间直接降到原来的 1/16。Mistral-7B 跑全量要 22955 秒，我用我选的 10% 数据只要 1454 秒，而且 GSM8K 成绩从 53.87 涨到了 56.67（见 Table 5 和 Table 6）。\n\n所以你问我哪个环节最关键？我的答案是：**找到那个能告诉你“现在该练什么”的信号**。SFT 是打基础，RLHF/DPO 是给骨架加肌肉，但如果你不知道肌肉该往哪一处练，再多的训练时间也是白搭。我的做法就是把这个信号变成了一个单次前向传播的置信度，然后只练那 10% 的“最近发展区”。\n\n当然，我这里也有局限。我的实验只做到了 8B 参数和两万条以内的数学题，更大规模的场景我没测过，那还是开放问题。但就目前看到的现象来讲，数据筛选不是锦上添花，它就是这个后训练流程里的**杠杆支点**。",
+      "seconds": 11.0,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 8,
+      "paper_id": "sCL5mSTpKm",
+      "conference": "iclr",
+      "year": 2026,
+      "title": "All Roads Lead to Likelihood: The Value of Reinforcement Learning in Fine-Tuning",
+      "abstract": "From a first-principles perspective, it may seem odd that the strongest results in foundation model fine-tuning (FT) are achieved via a relatively complex, two-stage training procedure. Specifically, one first trains a reward model (RM) on some dataset (e.g., human preferences) before using it to provide *online* feedback as part of a downstream reinforcement learning (RL) procedure, rather than directly optimizing the policy parameters on said dataset via *offline* maximum likelihood estimation. In fact, from an information-theoretic perspective, we can only *lose* information via passing through a reward model and cannot create any new information via on-policy sampling. To explain this discrepancy, we scrutinize several hypotheses on the value of RL in FT through both theoretical and empirical lenses. Of the hypotheses considered, we find the most support for the explanation that on problems with a *generation-verification gap*, *(1)* it is relatively easy to learn the relatively simple RM (*verifier*) from the preference data. Then, *(2)* the downstream RL procedure only returns policies (*generators*) that are optimal for such relatively simple verifiers. Thus, end-to-end, two-stage online FT only has to search over a reduced subset of the full space of policies, requiring less data than offline FT.",
+      "authors": [],
+      "source_url": "https://openreview.net/forum?id=sCL5mSTpKm",
+      "rerank_score": 0.45407111399655536,
+      "local_pdf_path": null,
+      "figure_count": 6,
+      "figures": [
+        {
+          "id": "fig_001_page_002",
+          "page_number": 2,
+          "label": "Figure 1",
+          "caption": "While offline preference fine-tuning (PFT) pro- cedures (e.g., DPO (Rafailov et al., 2023)) directly opti- mize policy parameters via (regularized) maximum likeli- hood estimation (MLE, i.e., ˆπmle ∈Π), online PFT proce- dures (e.g., standard RLHF (Christiano et al., 2017)) first fit a reward model (RM) via MLE before using the RM to provide online feedback for a downstream reinforcement learning (RL) procedure. Empirically, this latter two-stage procedure often works better, despite the loss of informa- tion caused by passing through an RM. We find evidence that for problems with a generation-verification gap, this result may be best explained by viewing the first stage as finding a relatively simple verifier / RM ˆrsim ∈Rsim, with the end-to-end search over generators / policies now simplified to just the subset of policies that are optimal for relatively simple verifiers (i.e., ˆπrlhf ∈Π(Rsim) ⊂Π).",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        },
+        {
+          "id": "fig_002_page_004",
+          "page_number": 4,
+          "label": "Figure 2",
+          "caption": "We can view both offline and offline PFT as solv- ing Eq. 3. Offline methods directly project the preference dataset D onto policy class Π under forward KL (§2.4), while online methods first project from D onto reward class R under forward KL (§2.4), before projecting onto Π under reverse KL (§2.5). A similar characterization of online PFT is made in the concurrent work of Xiao et al. (2025).",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        },
+        {
+          "id": "fig_003_page_008",
+          "page_number": 8,
+          "label": "Figure 4",
+          "caption": "Scaling up re- ward model size doesn’t improve BoN perfor- mance, but scaling up policy size does. Re- sults across 3 seeds.",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        },
+        {
+          "id": "fig_004_page_009",
+          "page_number": 9,
+          "label": "Figure 5",
+          "caption": "On the bandit-like task of two-word summarization (≈ 1 10 of the usual horizon H), we see online PFT provide a minimal at best improvement of ≈1% winrate over offline PFT, unlike all prior results. Results across 3 seeds.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_009",
+          "page_number": 9,
+          "label": "Figure 6",
+          "caption": "When we label data and evaluate com- pletions with the ROUGE-L metric against unob- served reference summaries, we see online PFT provided no improvement over offline PFT, un- like all prior results. Results across 3 seeds.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_006_page_010",
+          "page_number": 10,
+          "label": "Figure 7",
+          "caption": "Consider maze navigation. Reward r just needs to encode the goal, while Q⋆ r needs to encode the distance to the goal from anywhere. Q⋆ r grows more complex with h.",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        }
+      ],
+      "answerability": "yes",
+      "answerability_reason": "论文直接研究了大模型后训练中SFT、RLHF、DPO等方法的比较和核心价值，明确讨论了RLHF（即两阶段在线微调）与DPO（离线）的优劣，并给出了理论解释和实验证据，能回答用户关于关键环节的问题。",
+      "answer": "我从自己的理论推导和实验里挖出了一个反直觉的结论，而且我觉得这个结论能直接把问题说透：**最关键的环节既不是SFT，也不是某种具体的RLHF变体（比如DPO），而是那个让你能从“相对简单的验证器”去做“正确的学习”的两阶段在线训练结构。**  \n\n先别急着说“这等于什么都没说”——我给你解释一下为什么我这么说。  \n\n从信息论角度看，RLHF 其实挺浪费的：你先把人类的偏好数据集拿去训练一个奖励模型（RM），再用这个奖励模型去指导策略（policy）做在线生成和优化。但数据加工不等式告诉我们，经过 RM 这一手，信息只可能损失、不可能增加；而且在线采样也不会凭空创造新的人类偏好。所以理论上，离线方法（比如直接拿 DPO 做最大似然估计）应该也能拿到同样的结果。事实上我在论文的 Theorem 2.2 和 2.3 里严格证明了：在理想条件下——比如策略类 Π 和奖励类 R 是同构的——无论你走哪条路，最终的最优解完全相同。这就是那句“All Roads Lead to Likelihood”的意思。  \n\n既然理论上是等价的，那为什么现实中两阶段在线方法（PPO + 显式 RM）总是赢？我做了大量控制实验，把额外变量都锁死（用相同的 SFT 检查点、相同的数据、甚至相同的 DPO loss 函数），差别只在于“用 RM 重新标注过一轮的在线新数据”还是“原始静态数据”。结果在 tl;dr 摘要任务上，在线 DPO 的 gpt-4o winrate 能比离线 DPO 高出 5–10 个百分点。我试过多种解释——给离线方法双倍的梯度步数、换更大的奖励模型、扩大提示集——效果都没能追平甚至接近在线方法。  \n\n这些实验让我排除了大部分流行解释。“在线数据本身有额外信息”说不通，因为那些新标签全部来自基于老数据训练的 RM，信息没增加。“离线算法对参考策略的 KL 正则化不足”也理由不充分，因为我在相同正则化设置下依然看到差距。“奖励模型能被训练在更多样化数据上”也解释不了全部，因为哪怕是完全相同的数据分布，在线方法依然更好。  \n\n最后，我保留下来的核心解释是：**这些任务存在一个“生成-验证差距”（generation-verification gap）**。在很多真实问题里，判断一个回答好不好（验证），比生成一个好的回答（生成）要简单得多。如果你用同一个 Transformer 架构去学奖励模型和策略，你会发现后者需要的网络深度和表达能力明显更大——我在 Figure 4 里展示过，把 RM 的参数量从 6.9B 缩小到 1.4B，在 Best-of-N 筛选上的表现几乎不损失；但反过来缩小策略模型，性能就猛掉。这意味着奖励模型实际上是一个“更简单的验证器”，它更容易从有限的人类偏好数据中学好。  \n\n那么两阶段流程其实是在做这样一件事：第一阶段，你从偏好数据中学到一个相对简单的验证器（RM）；第二阶段，你用强化学习去找到这个简单验证器的最优策略。注意，这个最优策略的空间 Π(R_sim) 是整个策略空间 Π 的一个真子集——你只会在“对那个简单验证器最优”的策略里搜索。而离线 DPO 直接在全空间 Π 里做最大似然估计，是一个 improper learning 问题，样本效率天生更低。Theorem 4.1 严格证明了：在 mild 假设下，两阶段在线训练等价于在受限空间 Π(R_sim) 上做最大似然，而不是在全空间上。  \n\n为了进一步验证这个解释，我用两种方式“消灭”生成-验证差距：一个是把序列长度缩短到两单词（≈1/10 的正常长度），使生成几乎不比验证难；另一个是用 ROUGE-L 这种本身就很难建模、且容易从外部读出最优策略的奖励函数。两种情况下，在线 DPO 相比离线 DPO 的增益都消失了（Figure 5 和 Figure 6），直接符合我的预测。  \n\n所以回到你的问题：大模型后训练最关键的环节是什么？如果只选一个，我会说是**“两阶段在线学习中那个显式的奖励模型学习阶段”**。因为它让你从偏好数据中提取到一个比策略简单得多的验证器，从而把后续的搜索空间大幅压缩——这不是优化技巧，而是实实在在的统计优势。当然，这个判断的代价是你得多花计算资源在第二阶段做在线强化学习。这是一种“计算换样本”的 trade-off。如果你的问题不存在生成-验证差距（比如极端短序列），那你大可直接上 DPO，省掉 RL 那一套，效果差不多。",
+      "seconds": 13.07,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 9,
+      "paper_id": "IaEqjWXd1d",
+      "conference": "iclr",
+      "year": 2026,
+      "title": "AceReason-Nemotron 1.1: Advancing Math and Code Reasoning through SFT and RL Synergy",
+      "abstract": "In this work, we investigate the synergy between supervised fine-tuning (SFT) and reinforcement learning (RL) in developing strong reasoning models. We begin by curating the SFT training data through two scaling strategies: increasing the number of collected prompts and the number of generated responses per prompt. Both approaches yield notable improvements in reasoning performance, with scaling the number of prompts resulting in more substantial gains. We then explore the following questions regarding the synergy between SFT and RL:\n(i) Does a stronger SFT model consistently lead to better final performance after large-scale RL training?\n(ii) How can we determine an appropriate sampling temperature during RL training to effectively balance exploration and exploitation for a given SFT initialization?  \nOur findings suggest that (i) holds true, provided effective RL training is conducted, particularly when the sampling temperature is carefully chosen to maintain the temperature-adjusted entropy around 0.3, a setting that strikes a good balance between exploration and exploitation. Notably, the performance gap between initial SFT models narrows significantly throughout the RL process. Built on a strong SFT foundation and SFT–RL synergy, our AceReason-Nemotron-1.1 7B model significantly outperforms AceReason-Nemotron-1.0 and achieves new state-of-the-art performance among Qwen2.5-7B-based reasoning models on challenging math and code benchmarks, thereby demonstrating the effectiveness of our post-training recipe.",
+      "authors": [],
+      "source_url": "https://openreview.net/forum?id=IaEqjWXd1d",
+      "rerank_score": 0.4303292944232824,
+      "local_pdf_path": null,
+      "figure_count": 8,
+      "figures": [
+        {
+          "id": "fig_001_page_003",
+          "page_number": 3,
+          "label": "Figure 1",
+          "caption": "Training Pipeline of AceReason-Nemotron 1.1. We start by performing math and code SFT on a base pretrained model. Next, we conduct three stages of math-only RL training with progressively growing response length, i.e., Stage-1 (8K), Stage-2 (16K), and Stage-3 (24K), to develop a math-specialized RL model. We then apply code-only RL training to enhance model’s coding capability. Lastly, we carry out a final stage of math-only RL to produce AceReason-Nemotron 1.1.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_006",
+          "page_number": 6,
+          "label": "Figure 2",
+          "caption": "Log-scaled data statistics for the number of math and code prompts and the total number of samples. Circle size and color indicate the average responses for each prompt. Each SFT dataset consists of both math and code SFT samples.",
+          "confidence": 0.45,
+          "warnings": [
+            "No nearby image/vector graphics found; used caption-relative page crop."
+          ]
+        },
+        {
+          "id": "fig_003_page_006",
+          "page_number": 6,
+          "label": "Figure 2",
+          "caption": "presents the number of prompts, total samples, and average number of responses per prompt for each SFT dataset. Figure 3 demonstrates the benefits of scaling SFT datasets, from 18K math and 18K code samples in version v1 to 1.2M math and 1.0M code samples in version v7. We observe",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_004_page_007",
+          "page_number": 7,
+          "label": "Figure 3",
+          "caption": "Accuracies on AIME24, AIME25, and LiveCodeBench V5 and V6 for different SFT datasets. For each SFT blend, the model is trained until the accuracy plateaus.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_005_page_007",
+          "page_number": 7,
+          "label": "Figure 4",
+          "caption": "presents RL experiments initialized from different SFT models, including two trained on our SFT datasets v5 and v7, as well as DeepSeek-R1-Distill-Qwen-7B. We generally observe signif- icant performance gains at stage-2 (16K) and stage-3 (24K). The performance begins to plateau at stage-4 (32K) for the model initialized from SFT-7B v7, as further gains become more challenging on top of an already strong model. It is worth mentioning that these performance gains are accom- panied by an increase in the average response token length at stage-2 and stage-3, suggesting that the model engaged in longer reasoning processes to tackle more difficult problems. Interestingly, we observe that while some SFT models show substantial performance gaps (e.g., between SFT-7B v5 and v7), these differences become much smaller after applying RL training over more steps. For instance, the performance gap decreases from an initial 6.6% to 1.6% on AIME24. This underscores the potential of RL to effectively enhance model performance and bridge the gap between different starting points. Additionally, when RL is applied to SFT models with similar starting performance, such as SFT-7B v5 and DeepSeek-R1-Distill-Qwen-7B, the resulting performance on AIME24 reaches to a similar level. We put the results for AIME25 in Appendix E.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_006_page_008",
+          "page_number": 8,
+          "label": "Figure 5",
+          "caption": "Left: Trajectories of temperature-adjusted entropy during RL training with different policy LLM temperature settings. Right: Impact of varying temperatures for inference and RL training. We observe that using a temperature of 0.6 for inference consistently yields better average results, and thus adopt 0.6 as the default inference temperature unless otherwise specified.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_007_page_008",
+          "page_number": 8,
+          "label": "Figure 5",
+          "caption": "illustrates how different training temperature settings affect the trajectory of entropy during RL training and model performance after training. We make the following two observations:",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_008_page_009",
+          "page_number": 9,
+          "label": "Figure 6",
+          "caption": "Ablation Studies on Math-Only RL training to assess the impact of overlong filtering. In both settings, Stage-1 starts with the same SFT model, and each subsequent stage begins with the same RL model from the previous stage trained under the best-performing setting (i.e., “w/ overlong filtering”). Notably, in the final stage (Stage-4), RL training without overlong filtering leads to superior performance. Evaluations are performed with a maximum sequence length of 32K. Results on AIME25 are in Appendix F.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文研究了SFT、RL（通过GRPO实现，类似RLHF概念）和数据筛选（体现在SFT数据缩放策略中），但未直接比较SFT、RLHF、DPO、数据筛选这四个环节哪个最关键。它提供了SFT和RL协同作用的见解，并强调了数据质量的重要性，但没有给出用户问题中所有方法的直接比较。",
+      "answer": "我直接给你一个明确的结论：**大模型后训练最关键的环节是SFT和RL的配合，而不是单独押注任何一个环节，更不是只盯着某个具体的算法（比如DPO或者RLHF）不放。** 如果你非要排序，那我会说：**先做好SFT数据，然后用RL把潜力榨干。** 数据筛选、SFT、RL这三者的正确顺序和协同方式，比我见过的大多数论文想的都要微妙。\n\n先说说为什么我觉得“数据筛选”和“SFT”本身不是终点。我和其他很多人不太一样的地方在于，我确实做了非常系统的SFT数据规模实验——我搞了七个版本的SFT数据集，从v1的3.6万条样本一路堆到v7的220万条样本。结果是什么呢？我在Figure 3里清楚地展示了，单纯扩大SFT数据，尤其是增加**独特的prompt数量**，确实能带来稳定提升。我的回归分析也说明了这一点：prompt数量对性能的贡献系数是4.831，而每条prompt的response数量只有2.635。但问题来了——你不可能永远靠收集新prompt来提升性能，因为高质量的新问题越挖越少。所以SFT是个好东西，但它有天花板。\n\n真正有意思的是SFT和RL怎么配合。我这里有个关键发现，可能会让你有点意外：**更强的SFT模型经过RL训练后，确实能继续保持优势**——我在Figure 4里展示过这个现象，从SFT v5到v7再到DeepSeek-R1-Distill-Qwen-7B，三者初始差距不小，但经过Math-only RL训练后，这个差距从AIME24上的6.6%缩小到了1.6%。换句话说，RL能帮你“拉平”一部分开局劣势，但它不是魔法——你要是从太差的SFT出发，短板终究补不齐。所以我的立场是：先砸资源把SFT做到足够强，然后靠RL去冲极限。\n\n那RL内部有没有更关键的决定因素？有。我发现**训练温度的选择**被很多人低估了。我在Figure 5里追踪了温度调整后的熵值变化轨迹——温度低了（比如0.6），熵值从头到尾都趴在0.15以下，模型过于保守，根本不愿探索；温度高了（比如1.0），初始熵值倒是窜到0.4，但reward信号太弱，探索没多久又缩回去了。最后我摸索出一个经验法则：保持温度调整后的熵值在**0.3左右**，这才是探索和利用的甜蜜点。在我的实验里，用0.85的温度训练，比0.6和1.0都强出一大截。\n\n当然，这里面也有坑。比如“过长发截断”的处理策略，我之前以为加惩罚总是对的（像DAPO那帮人说的），但我的Figure 6结果很清楚：在响应长度预算短（比如8K或16K）的时候，直接mask掉超出长度的样本确实有用，因为这时候大约30%的样本会被截断，负奖励会带进大量噪声。但是到了32K的预算，不加过滤反而更好，因为你直接惩罚那些写出了更长思考过程的正确回答，等于教模型“别想太多”——这恰好和提升推理能力的方向背道而驰。\n\n还有一点可能会颠覆你的直觉：**数学专用的RL训练，居然能明显提升代码推理能力。** 我在Figure 12里展示了，仅仅是数学RL的Stage-2，就让LiveCodeBench V5的准确率从48.8%飙到了51.6%。这个跨领域迁移是我在AceReason-Nemotron-1.0里也看到过的现象，现在用更强的SFT做初始化时依然成立。这说明逻辑推理的底层能力是可迁移的，而RL恰好能放大这种迁移效应。\n\n最后提一嘴我那位“前辈”——AceReason-Nemotron-1.0。它的RL训练策略相当成功，我直接拿过来用在了更强的SFT模型上。结果呢？在我的Table 1里，AIME25上从48.4%冲到了64.8%，LiveCodeBench V6从43.8%到了52.1%，都是当时7B参数级别的最优。这不是因为某个单一点子厉害，而是因为SFT和RL这俩轮子得对得上齿。\n\n所以，回到你的问题：你可能在猜DPO或者RLHF是不是答案——我这里没有证据说它们没用，但我的实验里根本没用DPO，用的是GRPO（Group Relative Policy Optimization），而且严格保持on-policy。关键不是算法名字，是你有没有理解SFT给RL提供什么“地基”，以及RL如何用正确的温度策略去“建楼”。数据筛选当然重要，但它只是SFT阶段的一个子问题。真正的胜负手，是你有没有让SFT和RL形成一个闭环。",
+      "seconds": 14.31,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "rank": 10,
+      "paper_id": "yezWGJmODg",
+      "conference": "iclr",
+      "year": 2026,
+      "title": "Getting Your LLMs Ready for Reinforcement Learning with Lightweight SFT",
+      "abstract": "Reinforcement learning (RL) has emerged as a powerful post-training paradigm for large language models (LLMs), yet its effectiveness varies significantly across base models. While incorporating a pre-RL supervised fine-tuning (SFT) phase can enhance RL training, key questions remain: how long should the SFT cold-start phase last, and is the SFT objective truly aligned with the requirements for effective RL preparation?\nIn our analysis of cold-start dynamics, we uncover a key limitation: the SFT checkpoint with the highest evaluation performance often fails to maximize RL potential due to distributional forgetting—a phenomenon where the model drifts excessively away from the base model’s distribution even before traditional overfitting occurs. We identify diversity metrics, such as the entropy and self-BLEU, as more reliable early-stopping criteria than the standard performance-based checkpoint selection. Our findings show that SFT checkpoints with peak diversity consistently lead to superior post-RL results. Building on these insights, we introduce Adaptive Early-Stop Loss (AESL), a lightweight and dynamic cold-start method that balances the acquisition of new patterns with the preservation of the base model's distribution. AESL operates at both the token and subsequence levels, providing finer-grained control over the cold-start process. Experimental results on mathematical reasoning benchmarks demonstrate that diversity-based early stopping surpasses traditional performance-based SFT, while AESL further enhances RL preparation. By steering LLMs toward better initialization points for RL, AESL consistently achieves superior final performance compared to existing SFT and cold-start strategies. The\ncode is publicly available at \\url{https://github.com/LXXXXR/AESL}.",
+      "authors": [],
+      "source_url": "https://openreview.net/forum?id=yezWGJmODg",
+      "rerank_score": 0.42572631221086105,
+      "local_pdf_path": null,
+      "figure_count": 3,
+      "figures": [
+        {
+          "id": "fig_001_page_004",
+          "page_number": 4,
+          "label": "Figure 1",
+          "caption": "Motivating observations showing the necessity and optimization challenges of cold-start training. Performance represents averages across multiple mathematical reasoning benchmarks (de- tailed in Section B). Complete results are provided in Section C.1",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_002_page_004",
+          "page_number": 4,
+          "label": "Figure 2",
+          "caption": "Diversity measurements throughout the cold-start training process corresponding to Fig- ure 1b, revealing the relationship between diversity measurement and RL potential.",
+          "confidence": 0.82,
+          "warnings": []
+        },
+        {
+          "id": "fig_003_page_005",
+          "page_number": 5,
+          "label": "Figure 3",
+          "caption": "Conceptual illustration of the cold-start training process. The model distribution gradually shifts from the base model toward the cold-start dataset distribution. Overly excessive training leads to overfitting and forgetting of the base model’s original distribution, potentially reducing its subsequent RL potential. This highlights the need to balance learning new reasoning patterns from the dataset with pre- serving the base model’s original distribution. Our proposed AESL adaptively addresses this trade-off based on context.",
+          "confidence": 0.82,
+          "warnings": []
+        }
+      ],
+      "answerability": "partial",
+      "answerability_reason": "论文研究大模型后训练中SFT冷启动阶段的优化，特别是SFT与RL训练的关系，并比较了不同SFT方法（包括基于CE损失的SFT、多样性早停等）对后续RL性能的影响。但未系统比较SFT、RLHF、DPO和数据筛选这些环节的相对重要性。因此仅部分回答用户问题，聚焦于SFT和RL的关系。",
+      "answer": "这个问题问的是大模型后训练里什么最重要，但我得先泼一点冷水——在我研究过的这些方法里（特别是SFT、DPO那些），**最关键的环节其实不是某种算法本身，而是你什么时候停下来**。\n\n我的论文核心发现是：你辛辛苦苦做SFT，挑了一个看起来跑分最好的checkpoint，然后丢给RL去练，结果效果反而还不如练到一半时的一个中间点。这不是偶然，而是SFT目标和RL准备之间存在根本性的错位。SFT追求的是让模型完美模仿示范数据，但在数学推理这类任务上，这种模仿本质上是强迫模型偏离它原本的分布。我在Figure 1b里展示过一个非常典型的现象：当SFT持续训练时，模型在评测集上的分数在回升，但同样的checkpoint拿去做RL，后训练后的表现反而开始下滑。这意味着在你肉眼可见的过拟合发生之前——甚至SFT的loss还在下降——模型已经悄悄丢失了适合RL探索的那种\"分布宽度\"。\n\n那什么东西能告诉你该停了呢？我找到了一个信号：**多样性**。具体的指标就是输出序列的熵和self-BLEU。我在Figure 2里画过，熵值在冷启动训练前期会上升，到某个峰值后开始下降，而这个峰值点恰好对应着后续RL表现最好的那个checkpoint。为什么呢？因为RL的核心优势在于探索——如果模型已经完全塌缩到一个窄分布里，输出的每种回答都差不多，那RL在采样时就丧失了多样性，策略提升就受限了。所以光看评测指标是不够的，你得看模型的\"语汇空间\"还富不丰富。\n\n基于这个洞察，我搞了一个叫AESL的自适应早停损失函数。它不是一次性在整个数据集上喊停，而是在token级别和子序列级别动态地做权重调整——对于那些模型已经很有把握的正确token，我主动降低它的学习强度，让它少往那个方向走两步；而对于模型本来就没弄清楚的部分，就保持正常学。这样做的代价是什么？计算开销增加了大概20%，但反正冷启动阶段在整个后训练流程里只占不到10%的时间，所以总的时间开销只是多了约2%（见附录C.4）。但从实验结果来看，这个trade-off非常值——我在Qwen2.5-7B-Instruct和Qwen2.5-Math-7B两个基座上测试，AESL在AIME、AMC、MATH等一系列数学推理基准上都拿下了最高的平均分，超过传统的CE、GEM和PSFT。\n\n所以，如果你只能记住一件事：你的SFT不是练得越久越好，更不是跑分高了就往RL丢。**学会在多样性开始下降的那一刻收手**，比纠结用DPO还是RLHF重要得多。",
+      "seconds": 8.28,
+      "status": "ok",
+      "error": null
+    }
+  ]
+}

@@ -6,18 +6,20 @@ import time
 from pathlib import Path
 
 import schemas
-from database import get_data_dir
+from services import deepseek_service
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+SEED_TOPIC_DIR = ROOT_DIR / "community" / "seeded_topics"
+
 from community.figure_extractor import extract_figures  # noqa: E402
 from community.persona_answer_experiment import (  # noqa: E402
     ROUTE_4,
+    _deepseek_text_figures_prompt,
     _download_pdf,
-    _run_route_4,
     _safe_filename,
     _search_top_papers,
 )
@@ -62,13 +64,29 @@ def _clamp_int(value: int, *, minimum: int, maximum: int) -> int:
 
 
 def _community_dir() -> Path:
-    path = Path(get_data_dir()) / "community"
+    path = ROOT_DIR / "data" / "community"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def _topic_cache_path(topic_id: str) -> Path:
     return _community_dir() / "topics" / f"{topic_id}.json"
+
+
+def _topic_seed_path(topic_id: str) -> Path:
+    return SEED_TOPIC_DIR / f"{topic_id}.json"
+
+
+def _load_topic_cache(topic_id: str) -> dict | None:
+    for path in (_topic_cache_path(topic_id), _topic_seed_path(topic_id)):
+        if not path.exists():
+            continue
+        return json.loads(path.read_text(encoding="utf-8"))
+    return None
+
+
+def _topic_has_cache(topic_id: str) -> bool:
+    return _topic_cache_path(topic_id).exists() or _topic_seed_path(topic_id).exists()
 
 
 def _topic_by_id(topic_id: str) -> dict:
@@ -79,12 +97,12 @@ def _topic_by_id(topic_id: str) -> dict:
 
 
 def _topic_schema(topic: dict) -> schemas.CommunityTopic:
-    cache_path = _topic_cache_path(topic["id"])
     answer_count = 0
     updated_at = None
-    if cache_path.exists():
+    cached = None
+    if _topic_has_cache(topic["id"]):
         try:
-            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            cached = _load_topic_cache(topic["id"])
             answer_count = len(cached.get("results") or [])
             updated_at = cached.get("updated_at")
         except Exception:
@@ -94,7 +112,7 @@ def _topic_schema(topic: dict) -> schemas.CommunityTopic:
         question=topic["question"],
         description=topic["description"],
         tags=list(topic["tags"]),
-        cached=cache_path.exists(),
+        cached=cached is not None,
         answer_count=answer_count,
         updated_at=updated_at,
     )
@@ -118,22 +136,121 @@ def _figure_refs(manifest: dict | None, limit: int = 8) -> list[schemas.Communit
     return refs
 
 
+def _figure_manifest_for_judge(manifest: dict | None, max_figures: int = 6) -> str:
+    if not manifest:
+        return "[]"
+    figures = []
+    for item in (manifest.get("figures") or [])[:max_figures]:
+        figures.append(
+            {
+                "label": item.get("label"),
+                "page_number": item.get("page_number"),
+                "caption": item.get("caption"),
+            }
+        )
+    return json.dumps(figures, ensure_ascii=False)
+
+
+def _parse_json_object(value: str) -> dict:
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, dict) else {}
+    except json.JSONDecodeError:
+        start = value.find("{")
+        end = value.rfind("}")
+        if start >= 0 and end > start:
+            try:
+                parsed = json.loads(value[start : end + 1])
+                return parsed if isinstance(parsed, dict) else {}
+            except json.JSONDecodeError:
+                return {}
+    return {}
+
+
+def _judge_answerability(
+    *,
+    query: str,
+    paper: dict,
+    paper_text: str,
+    figure_manifest: dict | None,
+) -> tuple[str, str]:
+    system = (
+        "你是论文问答产品的内容筛选器。你只判断这篇论文能不能回答用户问题。"
+        "必须严格基于提供的论文文本、摘要和 figure caption。不要因为主题相近就判 yes。"
+        "输出 JSON。"
+    )
+    user = (
+        "请判断这篇论文能否作为一个拟人化答主回答用户问题。\n"
+        "answerability 只能是 yes、partial、no：\n"
+        "- yes: 论文直接研究这个问题，能给出具体立场和证据。\n"
+        "- partial: 论文只回答问题中的一个重要侧面，但仍值得展示。\n"
+        "- no: 论文只是关键词相近，不能实质回答，或者证据太弱。\n\n"
+        "输出字段：answerability, reason。\n\n"
+        f"用户问题：{query}\n"
+        f"论文标题：{paper.get('title')}\n"
+        f"摘要：{paper.get('abstract', '')}\n"
+        f"Figure captions：{_figure_manifest_for_judge(figure_manifest)}\n\n"
+        "<paper_text_excerpt>\n"
+        f"{paper_text[:30000]}\n"
+        "</paper_text_excerpt>"
+    )
+    raw = deepseek_service.complete_json(
+        model_name=deepseek_service.DEFAULT_DEEPSEEK_MODEL,
+        system_instruction=system,
+        user_content=user,
+        max_tokens=700,
+    )
+    parsed = _parse_json_object(raw)
+    answerability = str(parsed.get("answerability") or "no").strip().lower()
+    if answerability not in {"yes", "partial", "no"}:
+        answerability = "no"
+    reason = str(parsed.get("reason") or "").strip()
+    return answerability, reason
+
+
+def _generate_answer_from_text(
+    *,
+    query: str,
+    paper: dict,
+    pdf_path: str,
+    paper_text: str,
+    figure_manifest: dict | None,
+) -> dict:
+    started = time.time()
+    system, user = _deepseek_text_figures_prompt(query, paper, paper_text, figure_manifest)
+    answer = deepseek_service.complete_text(
+        model_name=deepseek_service.DEFAULT_DEEPSEEK_MODEL,
+        system_instruction=system,
+        user_content=user,
+        max_tokens=1800,
+    )
+    return {
+        "status": "ok",
+        "answer": answer,
+        "paper_text_chars": len(paper_text),
+        "seconds": round(time.time() - started, 2),
+        "pdf_path": pdf_path,
+    }
+
+
 def generate_persona_answers(payload: schemas.CommunityAnswerRequest) -> schemas.CommunityAnswerResponse:
     started = time.time()
     query = payload.query.strip()
     if not query:
         raise ValueError("query cannot be empty")
 
-    limit = _clamp_int(payload.limit, minimum=1, maximum=8)
+    limit = _clamp_int(payload.limit, minimum=1, maximum=10)
     max_text_chars = _clamp_int(payload.max_text_chars, minimum=20_000, maximum=250_000)
     figure_max_pages = _clamp_int(payload.figure_max_pages, minimum=1, maximum=20)
-    output_root = Path(get_data_dir()) / "community" / time.strftime("%Y%m%d_%H%M%S")
+    output_root = _community_dir() / "runs" / time.strftime("%Y%m%d_%H%M%S")
     figures_root = output_root / "figures"
     figures_root.mkdir(parents=True, exist_ok=True)
 
     results: list[schemas.CommunityPaperAnswer] = []
-    papers = _search_top_papers(query, limit=limit)
+    papers = _search_top_papers(query, limit=max(limit * 4, 30))
     for item in papers:
+        if len(results) >= limit:
+            break
         paper = item.paper
         base = {
             "rank": item.rank,
@@ -149,14 +266,6 @@ def generate_persona_answers(payload: schemas.CommunityAnswerRequest) -> schemas
 
         pdf_path, _, download_error = _download_pdf(paper)
         if download_error or not pdf_path:
-            results.append(
-                schemas.CommunityPaperAnswer(
-                    **base,
-                    local_pdf_path=pdf_path,
-                    status="error",
-                    error=download_error or "PDF download failed.",
-                )
-            )
             continue
 
         figure_manifest: dict | None = None
@@ -179,24 +288,37 @@ def generate_persona_answers(payload: schemas.CommunityAnswerRequest) -> schemas
             }
 
         try:
-            route_output = _run_route_4(
-                query,
-                paper,
-                pdf_path,
-                figure_manifest,
-                max_text_chars,
+            paper_text = deepseek_service.extract_pdf_text(pdf_path, max_chars=max_text_chars)
+            answerability, answerability_reason = _judge_answerability(
+                query=query,
+                paper=paper,
+                paper_text=paper_text,
+                figure_manifest=figure_manifest,
+            )
+            if answerability == "no":
+                continue
+            route_output = _generate_answer_from_text(
+                query=query,
+                paper=paper,
+                pdf_path=pdf_path,
+                paper_text=paper_text,
+                figure_manifest=figure_manifest,
             )
         except Exception as exc:
             route_output = {
                 "status": "error",
                 "error": str(exc),
             }
+            answerability = None
+            answerability_reason = None
         results.append(
             schemas.CommunityPaperAnswer(
-                **base,
+                **{**base, "rank": len(results) + 1},
                 local_pdf_path=pdf_path,
                 figure_count=int((figure_manifest or {}).get("figure_count") or 0),
                 figures=_figure_refs(figure_manifest),
+                answerability=answerability,
+                answerability_reason=answerability_reason,
                 answer=route_output.get("answer"),
                 seconds=route_output.get("seconds"),
                 status=str(route_output.get("status") or "ok"),
@@ -218,10 +340,9 @@ def list_topics() -> schemas.CommunityFeedResponse:
 
 def get_topic(topic_id: str) -> schemas.CommunityTopicResponse:
     topic = _topic_by_id(topic_id)
-    cache_path = _topic_cache_path(topic_id)
     results: list[schemas.CommunityPaperAnswer] = []
-    if cache_path.exists():
-        cached = json.loads(cache_path.read_text(encoding="utf-8"))
+    cached = _load_topic_cache(topic_id)
+    if cached:
         results = [schemas.CommunityPaperAnswer(**item) for item in cached.get("results") or []]
     return schemas.CommunityTopicResponse(
         topic=_topic_schema(topic),
@@ -234,7 +355,7 @@ def generate_topic(topic_id: str, payload: schemas.CommunityAnswerRequest | None
     topic = _topic_by_id(topic_id)
     request = schemas.CommunityAnswerRequest(
         query=topic["question"],
-        limit=payload.limit if payload else 5,
+        limit=payload.limit if payload else 10,
         max_text_chars=payload.max_text_chars if payload else 120000,
         figure_max_pages=payload.figure_max_pages if payload else 12,
     )
