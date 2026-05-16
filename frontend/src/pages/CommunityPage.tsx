@@ -247,52 +247,131 @@ const PaperAnswerCard: React.FC<{ paper: CommunityPaperAnswer }> = ({ paper }) =
 
       {paper.answer ? (
         <div className="mt-6 text-[15px] leading-7 text-gray-800">
-          <ReactMarkdown
-            components={{
-              p: ({ children }) => <p className="mb-4">{children}</p>,
-              strong: ({ children }) => <strong className="font-semibold text-gray-950">{children}</strong>,
-              ul: ({ children }) => <ul className="mb-4 list-disc pl-5 space-y-1">{children}</ul>,
-              ol: ({ children }) => <ol className="mb-4 list-decimal pl-5 space-y-1">{children}</ol>,
-            }}
-          >
-            {paper.answer}
-          </ReactMarkdown>
+          <AnswerWithInlineFigures paper={paper} />
         </div>
       ) : (
         <div className="mt-6 text-sm text-gray-500">No answer generated.</div>
       )}
-
-      {paper.figures.length > 0 && (
-        <div className="mt-8 pt-5 border-t border-gray-100">
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3">
-            <ImageIcon size={16} />
-            Figures Mentioned
-          </div>
-          <div className="space-y-3">
-            {paper.figures.map((figure) => (
-              <div key={figure.id} className="rounded-md border border-gray-200 px-3 py-3 bg-gray-50">
-                {figure.image_url && (
-                  <div className="mb-3 overflow-hidden rounded-md border border-gray-200 bg-white">
-                    <img
-                      src={buildApiUrl(figure.image_url)}
-                      alt={`${figure.label} from ${paper.title}`}
-                      className="max-h-[460px] w-full object-contain"
-                      loading="lazy"
-                    />
-                  </div>
-                )}
-                <div className="flex items-center justify-between gap-3 text-xs text-gray-500">
-                  <span className="font-medium text-gray-800">{figure.label}</span>
-                  <span>Page {figure.page_number} · confidence {figure.confidence.toFixed(2)}</span>
-                </div>
-                <p className="mt-2 text-sm text-gray-700 leading-6">{figure.caption}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   </article>
+);
+
+const markdownComponents = {
+  p: ({ children }: { children?: React.ReactNode }) => <p className="mb-4">{children}</p>,
+  strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-semibold text-gray-950">{children}</strong>,
+  ul: ({ children }: { children?: React.ReactNode }) => <ul className="mb-4 list-disc pl-5 space-y-1">{children}</ul>,
+  ol: ({ children }: { children?: React.ReactNode }) => <ol className="mb-4 list-decimal pl-5 space-y-1">{children}</ol>,
+};
+
+const figureReferencePattern = /\b(?:fig(?:ure)?\.?|图)\s*([0-9]+[A-Za-z]?)/gi;
+
+const normalizeFigureNumber = (value: string) => value.toLowerCase().replace(/[^0-9a-z]/g, '');
+
+const figureNumber = (figure: CommunityPaperAnswer['figures'][number]) => {
+  const fromLabel = figure.label.match(/(?:fig(?:ure)?\.?|图)\s*([0-9]+[A-Za-z]?)/i);
+  if (fromLabel) {
+    return normalizeFigureNumber(fromLabel[1]);
+  }
+  const fromId = figure.id.match(/fig_0*([0-9]+[A-Za-z]?)/i);
+  return fromId ? normalizeFigureNumber(fromId[1]) : '';
+};
+
+const displayFigureLabel = (figure: CommunityPaperAnswer['figures'][number]) => {
+  const number = figureNumber(figure);
+  return number ? `图 ${number.toUpperCase()}` : figure.label;
+};
+
+const stripMarkdown = (value: string) =>
+  value
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[[^\]]*]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)]\([^)]*\)/g, '$1')
+    .replace(/[*_>#-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const figureCommentary = (block: string, figure: CommunityPaperAnswer['figures'][number]) => {
+  const text = stripMarkdown(block);
+  const escapedLabel = figure.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const sentencePattern = new RegExp(`[^。！？.!?]*?(?:${escapedLabel}|(?:Fig(?:ure)?\\.?|图)\\s*${figureNumber(figure)})[^。！？.!?]*[。！？.!?]?`, 'i');
+  const matched = text.match(sentencePattern)?.[0]?.trim();
+  const evidence = (matched || text).slice(0, 150);
+  return `我在这里提到 ${displayFigureLabel(figure)}，主要是想让你直接对照这张图看：${evidence}`;
+};
+
+const referencedFiguresForBlock = (
+  block: string,
+  figures: CommunityPaperAnswer['figures'],
+  usedFigureIds: Set<string>,
+) => {
+  const referencedNumbers = new Set<string>();
+  for (const match of block.matchAll(figureReferencePattern)) {
+    referencedNumbers.add(normalizeFigureNumber(match[1]));
+  }
+  if (referencedNumbers.size === 0) {
+    return [];
+  }
+  return figures.filter((figure) => {
+    if (usedFigureIds.has(figure.id) || !figure.image_url) {
+      return false;
+    }
+    return referencedNumbers.has(figureNumber(figure));
+  });
+};
+
+const AnswerWithInlineFigures: React.FC<{ paper: CommunityPaperAnswer }> = ({ paper }) => {
+  const usedFigureIds = new Set<string>();
+  const blocks = paper.answer?.split(/\n{2,}/).filter((block) => block.trim()) || [];
+
+  return (
+    <>
+      {blocks.map((block, index) => {
+        const figures = referencedFiguresForBlock(block, paper.figures, usedFigureIds);
+        figures.forEach((figure) => usedFigureIds.add(figure.id));
+        return (
+          <React.Fragment key={`${paper.paper_id}-block-${index}`}>
+            <ReactMarkdown components={markdownComponents}>{block}</ReactMarkdown>
+            {figures.map((figure) => (
+              <InlineFigureCard
+                key={figure.id}
+                figure={figure}
+                paperTitle={paper.title}
+                commentary={figureCommentary(block, figure)}
+              />
+            ))}
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+};
+
+const InlineFigureCard: React.FC<{
+  figure: CommunityPaperAnswer['figures'][number];
+  paperTitle: string;
+  commentary: string;
+}> = ({ figure, paperTitle, commentary }) => (
+  <figure className="my-5 rounded-md border border-blue-100 bg-blue-50/50 px-3 py-3">
+    <div className="mb-3 flex items-center justify-between gap-3 text-xs text-blue-700">
+      <span className="inline-flex items-center gap-1.5 font-semibold">
+        <ImageIcon size={14} />
+        {displayFigureLabel(figure)}
+      </span>
+      <span>第 {figure.page_number} 页</span>
+    </div>
+    <div className="overflow-hidden rounded-md border border-gray-200 bg-white">
+      <img
+        src={buildApiUrl(figure.image_url || '')}
+        alt={`${figure.label} from ${paperTitle}`}
+        className="max-h-[520px] w-full object-contain"
+        loading="lazy"
+      />
+    </div>
+    <figcaption className="mt-3 text-sm leading-6 text-gray-700">
+      {commentary}
+    </figcaption>
+  </figure>
 );
 
 export default CommunityPage;
