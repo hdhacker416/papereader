@@ -165,21 +165,6 @@ def _figure_refs(manifest: dict | None, limit: int = 8) -> list[schemas.Communit
     return refs
 
 
-def _figure_manifest_for_judge(manifest: dict | None, max_figures: int = 6) -> str:
-    if not manifest:
-        return "[]"
-    figures = []
-    for item in (manifest.get("figures") or [])[:max_figures]:
-        figures.append(
-            {
-                "label": item.get("label"),
-                "page_number": item.get("page_number"),
-                "caption": item.get("caption"),
-            }
-        )
-    return json.dumps(figures, ensure_ascii=False)
-
-
 def _parse_json_object(value: str) -> dict:
     try:
         parsed = json.loads(value)
@@ -201,11 +186,10 @@ def _judge_answerability(
     query: str,
     paper: dict,
     paper_text: str,
-    figure_manifest: dict | None,
 ) -> tuple[str, str]:
     system = (
         "你是论文问答产品的内容筛选器。你只判断这篇论文能不能回答用户问题。"
-        "必须严格基于提供的论文文本、摘要和 figure caption。不要因为主题相近就判 yes。"
+        "必须严格基于提供的标题、摘要和论文文本。不要因为主题相近就判 yes。"
         "输出 JSON。"
     )
     user = (
@@ -218,7 +202,6 @@ def _judge_answerability(
         f"用户问题：{query}\n"
         f"论文标题：{paper.get('title')}\n"
         f"摘要：{paper.get('abstract', '')}\n"
-        f"Figure captions：{_figure_manifest_for_judge(figure_manifest)}\n\n"
         "<paper_text_excerpt>\n"
         f"{paper_text[:30000]}\n"
         "</paper_text_excerpt>"
@@ -298,6 +281,27 @@ def generate_persona_answers(payload: schemas.CommunityAnswerRequest) -> schemas
             continue
 
         figure_manifest: dict | None = None
+        figure_error: str | None = None
+        try:
+            paper_text = deepseek_service.extract_pdf_text(pdf_path, max_chars=max_text_chars)
+            answerability, answerability_reason = _judge_answerability(
+                query=query,
+                paper=paper,
+                paper_text=paper_text,
+            )
+            if answerability == "no":
+                continue
+        except Exception as exc:
+            results.append(
+                schemas.CommunityPaperAnswer(
+                    **{**base, "rank": len(results) + 1},
+                    local_pdf_path=pdf_path,
+                    status="error",
+                    error=str(exc),
+                )
+            )
+            continue
+
         try:
             figure_dir = figures_root / f"{item.rank:02d}_{_safe_filename(str(paper.get('paper_id') or paper.get('title')))}"
             extract_figures(
@@ -310,22 +314,14 @@ def generate_persona_answers(payload: schemas.CommunityAnswerRequest) -> schemas
             if manifest_path.exists():
                 figure_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except Exception as exc:
+            figure_error = str(exc)
             figure_manifest = {
                 "figure_count": 0,
                 "figures": [],
-                "error": str(exc),
+                "error": figure_error,
             }
 
         try:
-            paper_text = deepseek_service.extract_pdf_text(pdf_path, max_chars=max_text_chars)
-            answerability, answerability_reason = _judge_answerability(
-                query=query,
-                paper=paper,
-                paper_text=paper_text,
-                figure_manifest=figure_manifest,
-            )
-            if answerability == "no":
-                continue
             route_output = _generate_answer_from_text(
                 query=query,
                 paper=paper,
@@ -351,7 +347,7 @@ def generate_persona_answers(payload: schemas.CommunityAnswerRequest) -> schemas
                 answer=route_output.get("answer"),
                 seconds=route_output.get("seconds"),
                 status=str(route_output.get("status") or "ok"),
-                error=route_output.get("error") or (figure_manifest or {}).get("error"),
+                error=route_output.get("error") or figure_error,
             )
         )
 
