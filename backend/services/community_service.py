@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 from urllib.parse import quote
 
@@ -16,6 +17,7 @@ if str(ROOT_DIR) not in sys.path:
 
 SEED_TOPIC_DIR = ROOT_DIR / "community" / "seeded_topics"
 SEED_FIGURE_DIR = ROOT_DIR / "community" / "seeded_figures"
+COMMUNITY_PROCESS_CONCURRENCY = 5
 
 from community.figure_extractor import extract_figures  # noqa: E402
 from community.persona_answer_experiment import (  # noqa: E402
@@ -245,6 +247,171 @@ def _generate_answer_from_text(
     }
 
 
+def _candidate_base(item) -> dict:
+    paper = item.paper
+    return {
+        "rank": item.rank,
+        "paper_id": str(paper.get("paper_id") or ""),
+        "conference": str(paper.get("conference") or ""),
+        "year": int(paper.get("year") or 0),
+        "title": str(paper.get("title") or ""),
+        "abstract": str(paper.get("abstract") or ""),
+        "authors": [str(author) for author in (paper.get("authors") or [])],
+        "source_url": str(paper.get("source_url") or ""),
+        "rerank_score": item.rerank_score,
+    }
+
+
+def _process_downloaded_candidate(
+    *,
+    item,
+    base: dict,
+    pdf_path: str,
+    query: str,
+    figures_root: Path,
+    max_text_chars: int,
+    figure_max_pages: int,
+) -> schemas.CommunityPaperAnswer | None:
+    paper = item.paper
+    figure_manifest: dict | None = None
+    figure_error: str | None = None
+    try:
+        paper_text = deepseek_service.extract_pdf_text(pdf_path, max_chars=max_text_chars)
+        answerability, answerability_reason = _judge_answerability(
+            query=query,
+            paper=paper,
+            paper_text=paper_text,
+        )
+        if answerability == "no":
+            return None
+    except Exception as exc:
+        return schemas.CommunityPaperAnswer(
+            **base,
+            local_pdf_path=pdf_path,
+            status="error",
+            error=str(exc),
+        )
+
+    try:
+        figure_dir = figures_root / f"{item.rank:02d}_{_safe_filename(str(paper.get('paper_id') or paper.get('title')))}"
+        extract_figures(
+            pdf_path=Path(pdf_path),
+            output_dir=figure_dir,
+            dpi=110,
+            max_pages=figure_max_pages,
+        )
+        manifest_path = figure_dir / "figures.json"
+        if manifest_path.exists():
+            figure_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        figure_error = str(exc)
+        figure_manifest = {
+            "figure_count": 0,
+            "figures": [],
+            "error": figure_error,
+        }
+
+    try:
+        route_output = _generate_answer_from_text(
+            query=query,
+            paper=paper,
+            pdf_path=pdf_path,
+            paper_text=paper_text,
+            figure_manifest=figure_manifest,
+        )
+    except Exception as exc:
+        route_output = {
+            "status": "error",
+            "error": str(exc),
+        }
+        answerability = None
+        answerability_reason = None
+
+    return schemas.CommunityPaperAnswer(
+        **base,
+        local_pdf_path=pdf_path,
+        figure_count=int((figure_manifest or {}).get("figure_count") or 0),
+        figures=_figure_refs(figure_manifest),
+        answerability=answerability,
+        answerability_reason=answerability_reason,
+        answer=route_output.get("answer"),
+        seconds=route_output.get("seconds"),
+        status=str(route_output.get("status") or "ok"),
+        error=route_output.get("error") or figure_error,
+    )
+
+
+def _process_downloaded_candidates(
+    *,
+    downloaded_candidates: list[tuple[object, dict, str]],
+    query: str,
+    figures_root: Path,
+    max_text_chars: int,
+    figure_max_pages: int,
+    limit: int,
+) -> list[schemas.CommunityPaperAnswer]:
+    if not downloaded_candidates:
+        return []
+
+    accepted: list[schemas.CommunityPaperAnswer] = []
+    candidate_iter = iter(downloaded_candidates)
+    max_workers = min(COMMUNITY_PROCESS_CONCURRENCY, len(downloaded_candidates))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        pending = {}
+
+        def submit_next() -> bool:
+            try:
+                item, base, pdf_path = next(candidate_iter)
+            except StopIteration:
+                return False
+            future = executor.submit(
+                _process_downloaded_candidate,
+                item=item,
+                base=base,
+                pdf_path=pdf_path,
+                query=query,
+                figures_root=figures_root,
+                max_text_chars=max_text_chars,
+                figure_max_pages=figure_max_pages,
+            )
+            pending[future] = (item, base, pdf_path)
+            return True
+
+        while len(pending) < max_workers and submit_next():
+            pass
+
+        while pending:
+            done, _ = wait(pending, return_when=FIRST_COMPLETED)
+            for future in done:
+                pending_context = pending.pop(future, None)
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    if not pending_context:
+                        continue
+                    _, base, pdf_path = pending_context
+                    result = schemas.CommunityPaperAnswer(
+                        **base,
+                        local_pdf_path=pdf_path,
+                        status="error",
+                        error=str(exc),
+                    )
+                if result is not None:
+                    accepted.append(result)
+
+            if len(accepted) >= limit:
+                continue
+
+            while len(pending) < max_workers and len(accepted) < limit and submit_next():
+                pass
+
+    ordered = sorted(accepted, key=lambda answer: answer.rank)[:limit]
+    for rank, answer in enumerate(ordered, start=1):
+        answer.rank = rank
+    return ordered
+
+
 def generate_persona_answers(payload: schemas.CommunityAnswerRequest) -> schemas.CommunityAnswerResponse:
     started = time.time()
     query = payload.query.strip()
@@ -258,98 +425,25 @@ def generate_persona_answers(payload: schemas.CommunityAnswerRequest) -> schemas
     figures_root = output_root / "figures"
     figures_root.mkdir(parents=True, exist_ok=True)
 
-    results: list[schemas.CommunityPaperAnswer] = []
+    downloaded_candidates: list[tuple[object, dict, str]] = []
     papers = _search_top_papers(query, limit=max(limit * 4, 30))
     for item in papers:
-        if len(results) >= limit:
-            break
         paper = item.paper
-        base = {
-            "rank": item.rank,
-            "paper_id": str(paper.get("paper_id") or ""),
-            "conference": str(paper.get("conference") or ""),
-            "year": int(paper.get("year") or 0),
-            "title": str(paper.get("title") or ""),
-            "abstract": str(paper.get("abstract") or ""),
-            "authors": [str(author) for author in (paper.get("authors") or [])],
-            "source_url": str(paper.get("source_url") or ""),
-            "rerank_score": item.rerank_score,
-        }
+        base = _candidate_base(item)
 
         pdf_path, _, download_error = _download_pdf(paper)
         if download_error or not pdf_path:
             continue
+        downloaded_candidates.append((item, base, pdf_path))
 
-        figure_manifest: dict | None = None
-        figure_error: str | None = None
-        try:
-            paper_text = deepseek_service.extract_pdf_text(pdf_path, max_chars=max_text_chars)
-            answerability, answerability_reason = _judge_answerability(
-                query=query,
-                paper=paper,
-                paper_text=paper_text,
-            )
-            if answerability == "no":
-                continue
-        except Exception as exc:
-            results.append(
-                schemas.CommunityPaperAnswer(
-                    **{**base, "rank": len(results) + 1},
-                    local_pdf_path=pdf_path,
-                    status="error",
-                    error=str(exc),
-                )
-            )
-            continue
-
-        try:
-            figure_dir = figures_root / f"{item.rank:02d}_{_safe_filename(str(paper.get('paper_id') or paper.get('title')))}"
-            extract_figures(
-                pdf_path=Path(pdf_path),
-                output_dir=figure_dir,
-                dpi=110,
-                max_pages=figure_max_pages,
-            )
-            manifest_path = figure_dir / "figures.json"
-            if manifest_path.exists():
-                figure_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            figure_error = str(exc)
-            figure_manifest = {
-                "figure_count": 0,
-                "figures": [],
-                "error": figure_error,
-            }
-
-        try:
-            route_output = _generate_answer_from_text(
-                query=query,
-                paper=paper,
-                pdf_path=pdf_path,
-                paper_text=paper_text,
-                figure_manifest=figure_manifest,
-            )
-        except Exception as exc:
-            route_output = {
-                "status": "error",
-                "error": str(exc),
-            }
-            answerability = None
-            answerability_reason = None
-        results.append(
-            schemas.CommunityPaperAnswer(
-                **{**base, "rank": len(results) + 1},
-                local_pdf_path=pdf_path,
-                figure_count=int((figure_manifest or {}).get("figure_count") or 0),
-                figures=_figure_refs(figure_manifest),
-                answerability=answerability,
-                answerability_reason=answerability_reason,
-                answer=route_output.get("answer"),
-                seconds=route_output.get("seconds"),
-                status=str(route_output.get("status") or "ok"),
-                error=route_output.get("error") or figure_error,
-            )
-        )
+    results = _process_downloaded_candidates(
+        downloaded_candidates=downloaded_candidates,
+        query=query,
+        figures_root=figures_root,
+        max_text_chars=max_text_chars,
+        figure_max_pages=figure_max_pages,
+        limit=limit,
+    )
 
     return schemas.CommunityAnswerResponse(
         query=query,
